@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "iPDS - Integrated Plantation Data System",
+  "short_name": "iPDS",
+  "description": "Sistem Pengurusan & Analisis Data Pengeluaran Sawit Bersepadu FPMSB Tunggal",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#031315",
+  "theme_color": "#031315",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

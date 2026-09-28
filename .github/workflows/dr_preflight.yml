@@ -1,0 +1,47 @@
+name: IPDS DR Stage 1 Preflight Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop, stage-* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  dr_preflight:
+    name: Validate Disaster Recovery Foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies (Strict Deterministic)
+        run: npm ci || npm install --legacy-peer-deps
+
+      - name: Run Master Regression Test Suite
+        timeout-minutes: 5
+        run: npm run test:all
+
+      - name: Verify DR Documentation & Script Structure
+        run: npx tsx scripts/dr/ci_preflight.ts
+
+      - name: TypeScript Lint & Typecheck
+        run: npm run lint
+
+      - name: Production App Build Test
+        run: npm run build
+
+      - name: DR Backup & Verification Dry-Run
+        env:
+          TARGET_ENV: staging
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL || secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          npx tsx scripts/dr/restore_preflight.ts

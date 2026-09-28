@@ -1,0 +1,17 @@
+{
+  "DR_STAGE_2_STATUS": "PARTIAL",
+  "rpo_status": "NOT_PROVEN",
+  "rpo_target_minutes": 5,
+  "rpo_measured_minutes": "NOT_PROVEN",
+  "pitr_enabled": false,
+  "pitr_test_environment": "DEVELOPMENT",
+  "rto_seconds": 43.55,
+  "live_app_modules": "13/13",
+  "storage_objects": "3/3",
+  "production_restore_guard": "PASS",
+  "timestamp": "2026-09-08T14:07:37.667Z",
+  "dev_server_status": "PASS",
+  "table_reconciliation": "29/29",
+  "plantation_domains": "11/11",
+  "adversarial_tests": "10/10"
+}

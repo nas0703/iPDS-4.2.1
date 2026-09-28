@@ -1,0 +1,38 @@
+name: IPDS Security & Auth Bypass Mandatory Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop, 'release/*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  security_gate:
+    name: Mandatory Security & Auth Enforcement Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install --legacy-peer-deps
+
+      - name: 🔒 Gate 1 - Strict Type Check & Code Linter
+        run: npm run lint
+
+      - name: 🛡️ Gate 2 - Auth Bypass & Token Tampering Defense Tests
+        run: npm run test:auth-bypass
+
+      - name: 🔐 Gate 3 - Security & Compliance Enterprise Suite
+        run: npm run test:all
+
+      - name: 🚀 Gate 4 - Full Production Build Validation
+        run: npm run build

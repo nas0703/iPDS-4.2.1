@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ms">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>iPDS - Integrated Plantation Data System</title>
+    <meta name="description" content="iPDS Ver 4.1.0 - Enterprise Grade Multi-Tenant Integrated Plantation Data System" />
+    <meta property="og:title" content="iPDS - Integrated Plantation Data System" />
+    <meta property="og:description" content="iPDS Ver 4.1.0 - Enterprise Grade Multi-Tenant Integrated Plantation Data System" />
+
+    <!-- PWA Settings -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#031315" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="iPDS" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon-192x192.svg" />
+
+    <script>
+      (function() {
+        var s = document.createElement('script');
+        s.src = '/api/supabase-config.js';
+        s.async = false;
+        document.head.appendChild(s);
+      })();
+    </script>
+  </head>
+  <body class="bg-[#031315] text-slate-100 antialiased select-none">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
+

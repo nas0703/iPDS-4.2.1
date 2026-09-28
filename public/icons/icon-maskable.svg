@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Solid Jet Black Background for Maskable Full Bleed -->
+  <rect width="512" height="512" fill="#000000" />
+  
+  <!-- Centered iPDS Brand Mark within 80% safe zone -->
+  <g transform="translate(68, 100) scale(0.44)">
+    <!-- i -->
+    <rect x="0" y="70" width="56" height="56" rx="14" fill="#2fd51d" />
+    <rect x="0" y="166" width="56" height="252" rx="28" fill="#FFFFFF" />
+
+    <!-- P -->
+    <path 
+      d="M 120 98 
+         L 236 98 
+         A 88 88 0 0 1 324 186 
+         A 88 88 0 0 1 236 274 
+         L 176 274 
+         A 28 28 0 0 0 148 302 
+         L 148 390" 
+      fill="none" 
+      stroke="#FFFFFF" 
+      stroke-width="56" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+    />
+
+    <!-- D -->
+    <path 
+      d="M 390 180 
+         L 390 98 
+         A 28 28 0 0 1 418 70 
+         L 456 70 
+         A 60 60 0 0 1 474 126 
+         A 72 72 0 0 1 442 226 
+         L 414 226 
+         A 24 24 0 0 1 390 202 
+         Z" 
+      fill="#2fd51d"
+    />
+    <path 
+      d="M 454 98 
+         L 494 98 
+         A 148 148 0 0 1 642 246 
+         A 148 148 0 0 1 494 394 
+         L 418 394 
+         A 28 28 0 0 1 390 366 
+         L 390 206" 
+      fill="none" 
+      stroke="#FFFFFF" 
+      stroke-width="56" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+    />
+
+    <!-- S -->
+    <path 
+      d="M 816 114 
+         C 808 82 764 70 716 70 
+         C 652 70 624 102 624 150 
+         C 624 206 676 226 732 242 
+         C 796 258 832 286 832 334 
+         C 832 386 788 422 712 422 
+         C 652 422 616 394 608 362" 
+      fill="none" 
+      stroke="#FFFFFF" 
+      stroke-width="56" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>

@@ -1,0 +1,89 @@
+{
+  "jobs": [
+    {
+      "id": "045ac14f-9861-4e46-8547-2450976f1c53",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_SENING",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_SENING:2026-09-28",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-09-28"
+      },
+      "result": {
+        "taskDate": "2026-09-28",
+        "sourceWindowStart": "2026-09-21",
+        "sourceWindowEnd": "2026-09-27",
+        "taskCount": 0,
+        "estate_id": "FPM_SENING"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-09-27T21:36:10.079Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-09-27T21:36:10.079Z",
+      "updated_at": "2026-09-27T21:36:11.768Z",
+      "started_at": "2026-09-27T21:36:11.236Z",
+      "completed_at": "2026-09-27T21:36:11.768Z"
+    },
+    {
+      "id": "8e638698-d9af-4d4e-9301-25c9ceade554",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_SENING",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_SENING:2026-09-27",
+      "status": "FAILED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-09-27"
+      },
+      "result": null,
+      "error_message": "All 3 attempts failed. Last error: Gagal membaca sumber BTS Muda.",
+      "attempts": 3,
+      "max_attempts": 3,
+      "available_at": "2026-09-26T22:28:24.688Z",
+      "lease_version": 3,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-09-26T22:28:16.956Z",
+      "updated_at": "2026-09-26T22:28:47.982Z",
+      "started_at": "2026-09-26T22:28:17.858Z",
+      "failed_at": "2026-09-26T22:28:47.982Z"
+    },
+    {
+      "id": "11f5c685-bc21-44d4-8006-18e0fc94d75e",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_SENING",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_SENING:2026-09-25",
+      "status": "FAILED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-09-25"
+      },
+      "result": null,
+      "error_message": "All 3 attempts failed. Last error: Gagal membaca sumber BTS Muda.",
+      "attempts": 3,
+      "max_attempts": 3,
+      "available_at": "2026-09-25T14:02:16.628Z",
+      "lease_version": 3,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-09-25T14:01:49.017Z",
+      "updated_at": "2026-09-25T14:02:23.737Z",
+      "started_at": "2026-09-25T14:01:56.392Z",
+      "failed_at": "2026-09-25T14:02:23.737Z"
+    }
+  ],
+  "last_updated": "2026-09-27T21:36:11.768Z"
+}

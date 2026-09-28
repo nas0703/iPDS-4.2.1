@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- Solid Black Background (#000000) matching exactly the official brand image -->
+  <rect width="500" height="500" fill="#000000" />
+  
+  <g transform="translate(18, 50)">
+    <!-- ==================== LETTER "i" ==================== -->
+    <!-- Green Dot: Rounded Square in Lime/Electric Green (#2fd51d) -->
+    <rect x="36" y="146" width="28" height="28" rx="7" fill="#2fd51d" />
+    
+    <!-- White Stem: Thick Vertical Bar with Rounded Ends -->
+    <rect x="36" y="194" width="28" height="126" rx="14" fill="#FFFFFF" />
+
+    <!-- ==================== LETTER "P" ==================== -->
+    <!-- Open Geometric Monoline P in White (#FFFFFF) -->
+    <!-- Path: Top-left start -> Right -> 180deg Curve Right -> Left -> 90deg Curve Down -> Bottom Stem -->
+    <path 
+      d="M 96 160
+         L 156 160
+         A 44 44 0 0 1 200 204
+         A 44 44 0 0 1 156 248
+         L 124 248
+         A 14 14 0 0 0 110 262
+         L 110 306" 
+      fill="none" 
+      stroke="#FFFFFF" 
+      stroke-width="28" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+    />
+
+    <!-- ==================== LETTER "D" ==================== -->
+    <!-- Green Organic Accent (Top-Left quadrant of D) -->
+    <path 
+      d="M 230 200
+         L 230 160
+         A 14 14 0 0 1 244 146
+         L 262 146
+         A 30 30 0 0 1 270 174
+         A 36 36 0 0 1 254 224
+         L 242 224
+         A 12 12 0 0 1 230 212
+         Z" 
+      fill="#2fd51d"
+    />
+
+    <!-- White Geometric Outer Shell of D -->
+    <!-- Path: Top start (from green junction) -> Right curve -> Bottom curve -> Left stem bottom -->
+    <path 
+      d="M 262 160
+         L 282 160
+         A 74 74 0 0 1 356 234
+         A 74 74 0 0 1 282 308
+         L 244 308
+         A 14 14 0 0 1 230 294
+         L 230 214" 
+      fill="none" 
+      stroke="#FFFFFF" 
+      stroke-width="28" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+    />
+
+    <!-- ==================== LETTER "S" ==================== -->
+    <!-- White Geometric Rounded S -->
+    <path 
+      d="M 444 168
+         C 440 152 418 146 394 146
+         C 362 146 348 162 348 186
+         C 348 214 374 224 402 232
+         C 434 240 452 254 452 278
+         C 452 304 430 322 392 322
+         C 362 322 344 308 340 292" 
+      fill="none" 
+      stroke="#FFFFFF" 
+      stroke-width="28" 
+      stroke-linecap="round" 
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>

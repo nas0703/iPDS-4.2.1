@@ -1,0 +1,11 @@
+{
+  "name": "Remix Development iPDS VER 4.2- Multi Tenant",
+  "description": "iPDS ver 4.2 - Enterprise Grade Candidate (Multi Tenant)",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

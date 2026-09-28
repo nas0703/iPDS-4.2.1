@@ -1,0 +1,38 @@
+[
+  {
+    "id": "3ab15541-7523-419a-91ee-3312db9d16ad",
+    "inventory_id": "temp-id",
+    "type": "OUT",
+    "quantity": 3000,
+    "reference": "Auto-deduct: Blok 2 (Entry ID: 368624c0-24ff-4148-bc95-497829a29b10)",
+    "created_at": "2026-09-10T00:12:26.980Z",
+    "estate_id": "FPM_TUNGGAL"
+  },
+  {
+    "id": "6da67366-902c-438a-b451-7e13273ecc61",
+    "inventory_id": "temp-id",
+    "type": "OUT",
+    "quantity": 2250,
+    "reference": "Auto-deduct: Blok 1 (Entry ID: 8c1768b7-42ca-4a52-a265-fdabac9b471d)",
+    "created_at": "2026-09-10T00:09:29.458Z",
+    "estate_id": "FPM_TUNGGAL"
+  },
+  {
+    "id": "294ac8fb-c747-4834-b48f-d1591672995d",
+    "inventory_id": "temp-id",
+    "type": "OUT",
+    "quantity": 2500,
+    "reference": "Auto-deduct: Blok 1 (Entry ID: cb4b056e-71c8-47ec-8e11-e509e2361137)",
+    "created_at": "2026-09-10T00:05:52.068Z",
+    "estate_id": "FPM_TUNGGAL"
+  },
+  {
+    "id": "61199e10-75d0-4715-94e7-0d2dcf2be891",
+    "inventory_id": "temp-id",
+    "type": "OUT",
+    "quantity": 1000,
+    "reference": "Auto-deduct: Blok 1 (Entry ID: 090f0591-287a-4c9a-b029-1fe8be1171c6)",
+    "created_at": "2026-09-07T07:39:28.888Z",
+    "estate_id": "FPM_TUNGGAL"
+  }
+]
