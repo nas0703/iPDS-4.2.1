@@ -172,14 +172,23 @@ export async function sendApprovalLink(params: {
   requesterStaffId?: string | null;
 }): Promise<boolean> {
   const contact = deviceSecurityService.getFcContact();
-  const webhookUrl = process.env.ALERT_WEBHOOK_URL?.trim();
+  const rawWebhook = process.env.ALERT_WEBHOOK_URL?.trim();
+  const isValidWebhook = Boolean(
+    rawWebhook &&
+    !rawWebhook.startsWith('#') &&
+    (rawWebhook.startsWith('http://') || rawWebhook.startsWith('https://'))
+  );
 
-  // If outbound alert webhook is configured, dispatch notification
-  if (webhookUrl) {
+  // If outbound alert webhook is configured with a valid HTTP(S) URL, dispatch notification
+  if (isValidWebhook && rawWebhook) {
     try {
-      await fetch(webhookUrl, {
+      const parsedUrl = new URL(rawWebhook);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      await fetch(parsedUrl.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           type: 'DEVICE_APPROVAL_REQUEST',
           estateId: params.estateId,
@@ -193,6 +202,7 @@ export async function sendApprovalLink(params: {
           timestamp: new Date().toISOString()
         })
       });
+      clearTimeout(timeoutId);
     } catch (err) {
       console.warn('[DEVICE_SECURITY] Failed to dispatch approval notification via webhook:', err);
     }

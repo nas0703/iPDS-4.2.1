@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Delete, ShieldCheck, ArrowRight, Loader2, Clock } from "lucide-react";
+import { Delete, ShieldCheck, ArrowRight, Loader2, Clock, KeyRound, Building2 } from "lucide-react";
 import { getLocalLogo, fetchSupabaseLogo } from "../../../services/logoService";
 import { DeviceApprovalModal } from "./DeviceApprovalModal";
 
@@ -50,6 +50,9 @@ export function LoginScreen({
   onClearDeviceApprovalState,
 }: LoginScreenProps) {
   const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(() => getLocalLogo());
+
+  // Login Mode: 'pin' (Direct 6-Digit PIN, default) vs 'kiosk' (2-Step Kod Ladang + No Kakitangan)
+  const [loginMode, setLoginMode] = useState<'pin' | 'kiosk'>('pin');
 
   // Kiosk 2-Step State: Step 1 = Kod Ladang (4 digit), Step 2 = No. Kakitangan
   const [step, setStep] = useState<1 | 2>(1);
@@ -208,25 +211,47 @@ export function LoginScreen({
     }
   }, [typedDigits, step, selectedEstateId, selectedEstateCode, selectedEstateName, verifyStaffCredentials, isSubmitting]);
 
-  // Process Backspace Press
-  const handleKeypadBackspace = useCallback(() => {
+  // Process Direct PIN Digit Press (Mod PIN 6 Digit)
+  const handlePinDigitPress = useCallback((num: string) => {
+    if (isSubmitting) return;
     try {
       playKeyBeepSound();
       triggerHapticFeedback();
     } catch (e) {}
     setErrorMessage(null);
-    setTypedDigits((prev) => prev.slice(0, -1));
-  }, []);
+    setIdleNotice(null);
+    handlePinPress(num);
+  }, [handlePinPress, isSubmitting]);
 
-  // Clear Input
-  const handleKeypadClear = useCallback(() => {
+  // Process Backspace Press (Universal)
+  const handleBackspace = useCallback(() => {
     try {
       playKeyBeepSound();
       triggerHapticFeedback();
     } catch (e) {}
     setErrorMessage(null);
-    setTypedDigits("");
-  }, []);
+    if (loginMode === 'pin') {
+      handleDeletePress();
+    } else {
+      setTypedDigits((prev) => prev.slice(0, -1));
+    }
+  }, [loginMode, handleDeletePress]);
+
+  // Clear Input (Universal)
+  const handleClear = useCallback(() => {
+    try {
+      playKeyBeepSound();
+      triggerHapticFeedback();
+    } catch (e) {}
+    setErrorMessage(null);
+    if (loginMode === 'pin') {
+      for (let i = 0; i < 7; i++) {
+        handleDeletePress();
+      }
+    } else {
+      setTypedDigits("");
+    }
+  }, [loginMode, handleDeletePress]);
 
   // Submit Staff Login in Step 2
   const submitStaffLogin = useCallback(async (staffNoToSubmit?: string) => {
@@ -273,11 +298,15 @@ export function LoginScreen({
 
       if (e.key >= '0' && e.key <= '9') {
         e.preventDefault();
-        handleKeypadPress(e.key);
+        if (loginMode === 'pin') {
+          handlePinDigitPress(e.key);
+        } else {
+          handleKeypadPress(e.key);
+        }
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
-        handleKeypadBackspace();
-      } else if (e.key === 'Enter' && step === 2) {
+        handleBackspace();
+      } else if (e.key === 'Enter' && loginMode === 'kiosk' && step === 2) {
         e.preventDefault();
         submitStaffLogin();
       }
@@ -285,7 +314,7 @@ export function LoginScreen({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeypadPress, handleKeypadBackspace, step, submitStaffLogin, deviceApprovalState?.isBlocked]);
+  }, [loginMode, handlePinDigitPress, handleKeypadPress, handleBackspace, step, submitStaffLogin, deviceApprovalState?.isBlocked]);
 
   return (
     <div
@@ -386,15 +415,76 @@ export function LoginScreen({
 
             {/* Subtitle / Step Instruction */}
             <p className="text-[8.5px] font-extrabold tracking-[0.18em] text-emerald-300/80 uppercase pt-1">
-              {step === 1 ? "MASUKKAN KOD LADANG (4 DIGIT)" : "MASUKKAN NO. KAKITANGAN"}
+              {loginMode === 'pin' 
+                ? "MASUKKAN NO. PIN KESELAMATAN (6 DIGIT)" 
+                : (step === 1 ? "MASUKKAN KOD LADANG (4 DIGIT)" : "MASUKKAN NO. KAKITANGAN")}
             </p>
           </div>
         </div>
 
+        {/* MODE SWITCHER: PIN vs KIOSK */}
+        <div className="flex w-full p-1 bg-slate-950/80 border border-emerald-500/25 rounded-2xl gap-1 shadow-inner">
+          <button
+            type="button"
+            onClick={() => {
+              setLoginMode('pin');
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              loginMode === 'pin'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-900/40'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <KeyRound size={13} className={loginMode === 'pin' ? 'text-white' : 'text-slate-500'} />
+            <span>No. PIN (6 Digit)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLoginMode('kiosk');
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              loginMode === 'kiosk'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-900/40'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Building2 size={13} className={loginMode === 'kiosk' ? 'text-white' : 'text-slate-500'} />
+            <span>Kiosk Ladang</span>
+          </button>
+        </div>
+
         {/* INPUT DISPLAY CONTAINER */}
         <div className="w-full space-y-3 pt-1">
-          {step === 1 ? (
-            /* STEP 1: 4-Digit Kod Ladang Slots Display (Masked for Privacy) */
+          {loginMode === 'pin' ? (
+            /* PIN MODE: 6-Digit PIN Slots Display */
+            <div className="flex items-center justify-center px-4 py-3 rounded-2xl w-full bg-slate-950/70 border border-emerald-500/30 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)] backdrop-blur-md">
+              <div className="flex gap-2.5 sm:gap-3 h-6 items-center justify-center">
+                {[...Array(6)].map((_, i) => {
+                  const active = pin.length > i;
+                  return (
+                    <div
+                      key={i}
+                      className="relative flex items-center justify-center transition-all duration-300"
+                    >
+                      <div
+                        className={`w-7.5 h-7.5 rounded-lg transition-all duration-300 border flex items-center justify-center font-mono font-black text-base ${
+                          active 
+                            ? "bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.5)]" 
+                            : "bg-slate-950 border-slate-800 text-slate-700"
+                        }`}
+                      >
+                        •
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : step === 1 ? (
+            /* KIOSK STEP 1: 4-Digit Kod Ladang Slots Display (Masked for Privacy) */
             <div className="flex items-center justify-center px-6 py-3 rounded-2xl w-full bg-slate-950/70 border border-emerald-500/30 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)] backdrop-blur-md">
               <div className="flex gap-4.5 h-6 items-center">
                 {[...Array(4)].map((_, i) => {
@@ -419,7 +509,7 @@ export function LoginScreen({
               </div>
             </div>
           ) : (
-            /* STEP 2: 7-Digit No. Kakitangan Slots Display (Masked for Privacy) */
+            /* KIOSK STEP 2: 7-Digit No. Kakitangan Slots Display (Masked for Privacy) */
             <div className="flex items-center justify-center px-4 py-3 rounded-2xl w-full bg-slate-950/70 border border-emerald-500/30 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)] backdrop-blur-md">
               <div className="flex gap-2 sm:gap-2.5 h-6 items-center justify-center">
                 {[...Array(7)].map((_, i) => {
@@ -448,7 +538,7 @@ export function LoginScreen({
           {/* ERROR MESSAGE DISPLAY */}
           {(errorMessage || loginError) && (
             <p className="text-rose-400 text-[10.5px] font-extrabold uppercase tracking-wide bg-rose-500/10 border border-rose-500/30 py-1.5 px-3 rounded-xl text-center animate-pulse shadow-sm">
-              {errorMessage || "Kod ladang atau No. Kakitangan tidak sah."}
+              {errorMessage || (loginError ? "No. PIN tidak sah. Sila semak semula." : "Kod ladang atau No. Kakitangan tidak sah.")}
             </p>
           )}
 
@@ -460,13 +550,19 @@ export function LoginScreen({
             </div>
           )}
 
-          {/* KIOSK NUMERIC PIN PAD */}
+          {/* NUMERIC PIN PAD */}
           <div className="grid grid-cols-3 gap-x-5 gap-y-3 w-full px-1 pt-1">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
                 key={num}
                 type="button"
-                onClick={() => handleKeypadPress(num.toString())}
+                onClick={() => {
+                  if (loginMode === 'pin') {
+                    handlePinDigitPress(num.toString());
+                  } else {
+                    handleKeypadPress(num.toString());
+                  }
+                }}
                 className="w-13.5 h-13.5 mx-auto rounded-full flex items-center justify-center font-sans font-extrabold text-2xl text-slate-100 bg-gradient-to-b from-slate-900/90 to-slate-900/50 border border-emerald-500/30 select-none shadow-md outline-none focus:outline-none active:scale-95 transition-all cursor-pointer hover:border-emerald-400"
               >
                 {num}
@@ -476,7 +572,7 @@ export function LoginScreen({
             {/* Clear Button (C) */}
             <button
               type="button"
-              onClick={handleKeypadClear}
+              onClick={handleClear}
               className="w-13.5 h-13.5 mx-auto rounded-full flex flex-col items-center justify-center text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-900/50 border border-slate-800 select-none shadow-md outline-none focus:outline-none active:scale-95 transition-all cursor-pointer hover:text-slate-200"
             >
               <span>C</span>
@@ -485,7 +581,13 @@ export function LoginScreen({
             {/* Zero (0) */}
             <button
               type="button"
-              onClick={() => handleKeypadPress("0")}
+              onClick={() => {
+                if (loginMode === 'pin') {
+                  handlePinDigitPress("0");
+                } else {
+                  handleKeypadPress("0");
+                }
+              }}
               className="w-13.5 h-13.5 mx-auto rounded-full flex items-center justify-center font-sans font-extrabold text-2xl text-slate-100 bg-gradient-to-b from-slate-900/90 to-slate-900/50 border border-emerald-500/30 select-none shadow-md outline-none focus:outline-none active:scale-95 transition-all cursor-pointer hover:border-emerald-400"
             >
               0
@@ -494,7 +596,7 @@ export function LoginScreen({
             {/* Backspace Button */}
             <button
               type="button"
-              onClick={handleKeypadBackspace}
+              onClick={handleBackspace}
               className="w-13.5 h-13.5 mx-auto rounded-full flex items-center justify-center text-slate-300 bg-slate-900/50 border border-slate-800 select-none shadow-md outline-none focus:outline-none active:scale-95 transition-all cursor-pointer hover:text-rose-400"
             >
               <Delete size={20} className="stroke-[2.5]" />
@@ -502,7 +604,7 @@ export function LoginScreen({
           </div>
 
           {/* STEP 2 SUBMIT / LOG MASUK BUTTON */}
-          {step === 2 && (
+          {loginMode === 'kiosk' && step === 2 && (
             <button
               type="button"
               onClick={() => submitStaffLogin()}
