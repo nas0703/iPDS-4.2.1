@@ -133,22 +133,26 @@ function getSupabase() {
   }
   const targetUrl = creds.pooledUrl || creds.supabaseUrl;
   if (creds.isServiceRole) {
-    if (!serverPrivilegedClient) {
+    if (!serverPrivilegedClient || serverPrivilegedKeyCached !== creds.supabaseKey || serverPrivilegedUrlCached !== targetUrl) {
       serverPrivilegedClient = createClient(
         targetUrl,
         creds.supabaseKey,
         createPooledClientOptions(creds.supabaseKey)
       );
+      serverPrivilegedKeyCached = creds.supabaseKey;
+      serverPrivilegedUrlCached = targetUrl;
     }
     return serverPrivilegedClient;
   }
   if (!creds.supabaseAnonKey) return null;
-  if (!fallbackAnonClient) {
+  if (!fallbackAnonClient || fallbackAnonKeyCached !== creds.supabaseAnonKey || fallbackAnonUrlCached !== targetUrl) {
     fallbackAnonClient = createClient(
       targetUrl,
       creds.supabaseAnonKey,
       createPooledClientOptions(creds.supabaseAnonKey)
     );
+    fallbackAnonKeyCached = creds.supabaseAnonKey;
+    fallbackAnonUrlCached = targetUrl;
   }
   return fallbackAnonClient;
 }
@@ -181,13 +185,17 @@ function isMissingTableError(error) {
   if (!error) return false;
   const code = String(error.code || "");
   const msg = String(error.message || "").toLowerCase();
-  return code === "42P01" || code === "PGRST116" || code === "PGRST204" || msg.includes("schema cache") || msg.includes("does not exist") || msg.includes("relation");
+  return code === "42P01" || code === "PGRST116" || code === "PGRST204" || code === "PGRST205" || msg.includes("schema cache") || msg.includes("does not exist") || msg.includes("relation");
 }
-var fallbackAnonClient, serverPrivilegedClient;
+var fallbackAnonClient, fallbackAnonKeyCached, fallbackAnonUrlCached, serverPrivilegedClient, serverPrivilegedKeyCached, serverPrivilegedUrlCached;
 var init_db = __esm({
   "src/server/db.ts"() {
     fallbackAnonClient = null;
+    fallbackAnonKeyCached = null;
+    fallbackAnonUrlCached = null;
     serverPrivilegedClient = null;
+    serverPrivilegedKeyCached = null;
+    serverPrivilegedUrlCached = null;
   }
 });
 
@@ -197,6 +205,18 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
+function normalizeToOperatorIdKeys(records) {
+  const result = {};
+  for (const [key, val] of Object.entries(records)) {
+    if (!val || typeof val !== "object") continue;
+    const opId = val.operator_id || key;
+    result[opId] = {
+      ...val,
+      operator_id: opId
+    };
+  }
+  return result;
+}
 function loadHashedCredentials() {
   if (cachedCredentials && Object.keys(cachedCredentials).length > 0) {
     return cachedCredentials;
@@ -206,7 +226,7 @@ function loadHashedCredentials() {
     try {
       const parsed = JSON.parse(rawJson.trim());
       if (parsed && typeof parsed === "object") {
-        cachedCredentials = parsed;
+        cachedCredentials = normalizeToOperatorIdKeys(parsed);
         return cachedCredentials;
       }
     } catch (err) {
@@ -221,7 +241,7 @@ function loadHashedCredentials() {
       if (match && match[1]) {
         const parsed = JSON.parse(match[1]);
         if (parsed && typeof parsed === "object") {
-          cachedCredentials = parsed;
+          cachedCredentials = normalizeToOperatorIdKeys(parsed);
           return cachedCredentials;
         }
       }
@@ -240,7 +260,7 @@ function loadHashedCredentials() {
         const content = fs.readFileSync(candidatePath, "utf-8");
         const parsed = JSON.parse(content);
         if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
-          cachedCredentials = parsed;
+          cachedCredentials = normalizeToOperatorIdKeys(parsed);
           return cachedCredentials;
         }
       }
@@ -317,12 +337,12 @@ var init_identity_service = __esm({
     init_credentials_loader();
     IPDS_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
     MASTER_IDENTITY_REGISTRY = /* @__PURE__ */ new Map();
-    INITIAL_SEEDS = Object.entries(loadHashedCredentials()).map(([key, u]) => ({
-      operator_id: u.operator_id,
+    INITIAL_SEEDS = Object.entries(loadHashedCredentials()).map(([opIdKey, u]) => ({
+      operator_id: u.operator_id || opIdKey,
       full_name: u.operator_name,
       username: u.username || u.operator_id.toLowerCase(),
       email: u.email || `${u.operator_id.toLowerCase()}@felda.gov.my`,
-      pin: u.masked_pin || `****${key.slice(-2)}`,
+      pin: u.masked_pin || "******",
       pin_hash: u.pin_hash,
       password_hash: u.password_hash,
       app_role: u.app_role,
@@ -335,7 +355,7 @@ var init_identity_service = __esm({
     INITIAL_SEEDS.forEach(initMasterIdentity);
     IdentityService = class {
       /**
-       * Resolve an identity profile by 6-digit PIN
+       * Resolve an identity profile by 6-digit PIN using constant-time bcrypt comparison
        */
       static findIdentityByPin(pin) {
         if (!pin || typeof pin !== "string") return null;
@@ -343,9 +363,6 @@ var init_identity_service = __esm({
         for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
           if (profile.is_active) {
             if (profile.pin_hash && verifyPinAgainstHash(cleanPin, profile.pin_hash)) {
-              return profile;
-            }
-            if (profile.pin && profile.pin === cleanPin) {
               return profile;
             }
           }
@@ -364,7 +381,7 @@ var init_identity_service = __esm({
         }
         for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
           if (!profile.is_active) continue;
-          if (profile.username && profile.username.toUpperCase() === clean || profile.operator_id.toUpperCase() === clean || profile.pin === clean) {
+          if (profile.username && profile.username.toUpperCase() === clean || profile.operator_id.toUpperCase() === clean || profile.operator_id.toUpperCase().replace(/^[A-Z]+-/, "") === clean) {
             return profile;
           }
         }
@@ -4346,7 +4363,7 @@ function extractUserFromRequest(req) {
     }
     if (/^\d{6,7}$/.test(token)) {
       const requestedEstate = req.headers["x-estate-id"] || void 0;
-      const pinSession = (requestedEstate ? AuthService.verifyEstateStaffLogin(requestedEstate, token) : null) || AuthService.verifyPin(token);
+      const pinSession = (requestedEstate ? AuthService.verifyEstateStaffLogin(requestedEstate, token, token) : null) || AuthService.verifyPin(token);
       if (pinSession) {
         if (requestedEstate) {
           const cleanReqEstate = requestedEstate.trim().toUpperCase();
@@ -4376,7 +4393,7 @@ function extractUserFromRequest(req) {
     const cleanPin = pinHeader.trim();
     if (/^\d{6,7}$/.test(cleanPin)) {
       const requestedEstate = req.headers["x-estate-id"] || void 0;
-      const pinSession = (requestedEstate ? AuthService.verifyEstateStaffLogin(requestedEstate, cleanPin) : null) || AuthService.verifyPin(cleanPin);
+      const pinSession = (requestedEstate ? AuthService.verifyEstateStaffLogin(requestedEstate, cleanPin, cleanPin) : null) || AuthService.verifyPin(cleanPin);
       if (pinSession) {
         if (requestedEstate) {
           const cleanReqEstate = requestedEstate.trim().toUpperCase();
@@ -4454,8 +4471,8 @@ function authenticate(req, res, next) {
   const { user, token } = extractUserFromRequest(req);
   if (user && token) {
     req.user = user;
-    req.authRole = user.app_metadata.app_role;
-    req.estateId = user.app_metadata.estate_id;
+    req.authRole = user.app_metadata?.app_role || user.app_role || user.role || "staff";
+    req.estateId = user.app_metadata?.estate_id || user.estate_id || user.estate || "FPM_TUNGGAL";
     req.rawToken = token;
     const scoped = getScopedSupabase(token);
     if (scoped) req.supabase = scoped;
@@ -4516,8 +4533,8 @@ function requireAuth(req, res, next) {
     });
   }
   req.user = user;
-  req.authRole = user.app_metadata.app_role;
-  req.estateId = user.app_metadata.estate_id;
+  req.authRole = user.app_metadata?.app_role || user.app_role || user.role || "staff";
+  req.estateId = user.app_metadata?.estate_id || user.estate_id || user.estate || "FPM_TUNGGAL";
   req.rawToken = token;
   const scoped = getScopedSupabase(token);
   if (scoped) {
@@ -4566,8 +4583,9 @@ function requireRole(allowedRoles) {
       });
     }
     req.user = user;
-    req.authRole = user.app_metadata.app_role;
-    req.estateId = user.app_metadata.estate_id;
+    const effectiveRole = user.app_metadata?.app_role || user.app_role || user.role || "staff";
+    req.authRole = effectiveRole;
+    req.estateId = user.app_metadata?.estate_id || user.estate_id || user.estate || "FPM_TUNGGAL";
     req.rawToken = token;
     const scoped = getScopedSupabase(token);
     if (scoped) {
@@ -4575,7 +4593,7 @@ function requireRole(allowedRoles) {
     }
     const runRoleAndTenantChecks = () => {
       const isSuper = isSuperAdminIdentity(user);
-      if (!allowedRoles.includes(user.app_metadata.app_role) && !isSuper) {
+      if (!allowedRoles.includes(effectiveRole) && !isSuper) {
         auditService.logAuthDenied(
           {
             ip: req.ip || req.headers["x-forwarded-for"],
@@ -4583,9 +4601,9 @@ function requireRole(allowedRoles) {
             user: user ? {
               sub: user.sub,
               app_metadata: {
-                operator_id: user.app_metadata.operator_id,
-                app_role: user.app_metadata.app_role,
-                estate_id: user.app_metadata.estate_id
+                operator_id: user.app_metadata?.operator_id,
+                app_role: effectiveRole,
+                estate_id: user.app_metadata?.estate_id
               },
               user_metadata: {
                 operator_name: user.user_metadata?.operator_name
@@ -4829,15 +4847,15 @@ function updateServerPinConfig(newConfig) {
       const role = info.app_role || info.role || "staff";
       const opName = info.operator_name || info.label || "Staf Ladang";
       const estateId = info.estate_id || "FPM_TUNGGAL";
-      const existingKiosk = PIN_USERS_CONFIG[cleanPin];
       const existingIdentity = IdentityService.findIdentityByPin(cleanPin);
-      const opId = info.operator_id || existingKiosk?.operator_id || existingIdentity?.operator_id || `OP-${cleanPin}`;
+      const opId = info.operator_id || existingIdentity?.operator_id || `OP-${cleanPin}`;
+      const existingKiosk = PIN_USERS_CONFIG[opId];
       const kioskId = existingKiosk?.kiosk_id || existingIdentity?.kiosk_id || `kiosk-custom-${cleanPin}`;
       const stationName = existingKiosk?.station_name || existingIdentity?.station_name || `Stesen Lapangan ${estateId}`;
       const pinHash = bcrypt3.hashSync(cleanPin, 10);
       const passwordHash = info.password ? bcrypt3.hashSync(info.password, 10) : pinHash;
       const maskedPin = `****${cleanPin.slice(-2)}`;
-      PIN_USERS_CONFIG[cleanPin] = {
+      PIN_USERS_CONFIG[opId] = {
         app_role: role,
         operator_id: opId,
         operator_name: opName,
@@ -4951,24 +4969,36 @@ var init_auth_service = __esm({
         return keyMatch || null;
       }
       /**
-       * Authoritatively verify login using Kod Ladang (Estate Code) + No. Kakitangan (Staff/Operator No.)
+       * Authoritatively verify login using Kod Ladang (Estate Code) + No. Kakitangan (Staff/Operator No.) + Secret (PIN or password)
        */
-      static verifyEstateStaffLogin(estateCode, staffNo) {
-        if (!staffNo || typeof staffNo !== "string") return null;
+      static verifyEstateStaffLogin(estateCode, staffNo, secret) {
+        if (!staffNo || typeof staffNo !== "string" || !secret || typeof secret !== "string") return null;
         const cleanStaffNo = staffNo.trim().toUpperCase();
+        const cleanSecret = secret.trim();
+        if (!cleanSecret) return null;
         const cleanEstateCode = (estateCode || "FPM_TUNGGAL").trim().toUpperCase();
         const unified = IdentityService.findIdentityByStaffNo(cleanStaffNo);
         if (unified) {
+          const isPinValid = unified.pin_hash ? verifyPinAgainstHash(cleanSecret, unified.pin_hash) : false;
+          const isPasswordValid = !isPinValid && unified.password_hash ? verifyPasswordAgainstHash(cleanSecret, unified.password_hash) : false;
+          if (!isPinValid && !isPasswordValid) {
+            return null;
+          }
           return IdentityService.createUnifiedSession(unified, "ESTATE_STAFF_PIN", cleanEstateCode);
         }
         let keyMatch = PIN_USERS_CONFIG[cleanStaffNo];
         if (!keyMatch) {
           const match = Object.values(PIN_USERS_CONFIG).find(
-            (u) => u.operator_id.toUpperCase() === cleanStaffNo || u.username && u.username.toUpperCase() === cleanStaffNo
+            (u) => u.operator_id.toUpperCase() === cleanStaffNo || u.username && u.username.toUpperCase() === cleanStaffNo || u.operator_id.toUpperCase().replace(/^[A-Z]+-/, "") === cleanStaffNo
           );
           if (match) keyMatch = match;
         }
         if (keyMatch) {
+          const isPinValid = keyMatch.pin_hash ? verifyPinAgainstHash(cleanSecret, keyMatch.pin_hash) : false;
+          const isPasswordValid = !isPinValid && keyMatch.password_hash ? verifyPasswordAgainstHash(cleanSecret, keyMatch.password_hash) : false;
+          if (!isPinValid && !isPasswordValid) {
+            return null;
+          }
           let selectedEstate = "FPM_TUNGGAL";
           if (cleanEstateCode === "0001" || cleanEstateCode.includes("WILAYAH") || cleanEstateCode === "WILAYAH_JB") {
             selectedEstate = "WILAYAH_JB";
@@ -5063,32 +5093,6 @@ var init_auth_service = __esm({
         const unified = IdentityService.findIdentityByPin(cleanPin);
         if (unified) {
           return IdentityService.createUnifiedSession(unified, "PIN_KIOSK");
-        }
-        const directEntry = PIN_USERS_CONFIG[cleanPin];
-        if (directEntry && directEntry.pin_hash && verifyPinAgainstHash(cleanPin, directEntry.pin_hash)) {
-          const config = directEntry;
-          const kioskSub = uuidv52(`kiosk:${config.estate_id}:${config.kiosk_id}`, IPDS_NAMESPACE2);
-          const sessionId = uuidv43();
-          return {
-            sub: kioskSub,
-            session_id: sessionId,
-            role: "authenticated",
-            app_metadata: {
-              user_id: uuidv52(`user:${config.operator_id}`, IPDS_NAMESPACE2),
-              estate_id: config.estate_id,
-              assigned_estates: [config.estate_id],
-              kiosk_id: config.kiosk_id,
-              app_role: config.app_role,
-              operator_id: config.operator_id,
-              auth_method: "PIN_KIOSK"
-            },
-            user_metadata: {
-              operator_name: config.operator_name,
-              station_name: config.station_name,
-              email: config.email,
-              username: config.username
-            }
-          };
         }
         for (const config of Object.values(PIN_USERS_CONFIG)) {
           if (config.pin_hash && verifyPinAgainstHash(cleanPin, config.pin_hash)) {
@@ -5247,6 +5251,7 @@ import express from "express";
 // src/server/services/durableRateLimiter.service.ts
 init_db();
 var testDurableClient = null;
+var durableUnavailableUntil = 0;
 function isDurableRateLimiterConfigured() {
   if (testDurableClient !== null) {
     return true;
@@ -5259,6 +5264,9 @@ function isDurableRateLimiterConfigured() {
 }
 async function incrementAndCheck(bucketKey, tier, limit, windowMs) {
   if (!isDurableRateLimiterConfigured()) {
+    return null;
+  }
+  if (!testDurableClient && Date.now() < durableUnavailableUntil) {
     return null;
   }
   try {
@@ -5276,11 +5284,10 @@ async function incrementAndCheck(bucketKey, tier, limit, windowMs) {
     } else {
       const client = getWriteSupabase() || getSupabase();
       if (!client) {
-        console.warn("[DURABLE_RATE_LIMITER] No Supabase client available, degrading to in-memory store");
         return null;
       }
       const timeoutPromise = new Promise(
-        (_, reject) => setTimeout(() => reject(new Error("Durable rate limiter timeout (1500ms exceeded)")), 1500)
+        (_, reject) => setTimeout(() => reject(new Error("Durable rate limiter timeout (800ms exceeded)")), 800)
       );
       const rpcPromise = client.rpc("increment_rate_limit_bucket", {
         p_bucket_key: bucketKey,
@@ -5293,7 +5300,10 @@ async function incrementAndCheck(bucketKey, tier, limit, windowMs) {
       error = res.error;
     }
     if (error) {
-      if (!isMissingTableError(error)) {
+      if (isMissingTableError(error) || error.code === "PGRST202" || error.code === "PGRST205") {
+        durableUnavailableUntil = Date.now() + 3e5;
+      } else {
+        durableUnavailableUntil = Date.now() + 6e4;
         console.warn(
           `[DURABLE_RATE_LIMITER] Supabase RPC execution error for tier=${tier}, falling back to in-memory store:`,
           error.message || error
@@ -5302,12 +5312,12 @@ async function incrementAndCheck(bucketKey, tier, limit, windowMs) {
       return null;
     }
     if (!data) {
-      console.warn(`[DURABLE_RATE_LIMITER] Empty response from RPC for tier=${tier}, falling back to in-memory store`);
+      durableUnavailableUntil = Date.now() + 3e4;
       return null;
     }
     const record = Array.isArray(data) ? data[0] : data;
     if (!record || typeof record.current_count !== "number") {
-      console.warn(`[DURABLE_RATE_LIMITER] Unexpected payload format for tier=${tier}:`, record);
+      durableUnavailableUntil = Date.now() + 3e4;
       return null;
     }
     return {
@@ -5319,8 +5329,7 @@ async function incrementAndCheck(bucketKey, tier, limit, windowMs) {
       source: "durable"
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[DURABLE_RATE_LIMITER] Exception in incrementAndCheck (tier=${tier}), falling back to in-memory store:`, msg);
+    durableUnavailableUntil = Date.now() + 6e4;
     return null;
   }
 }
@@ -6035,23 +6044,32 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
     const clientIp = req.ip || req.socket.remoteAddress || "unknown";
     const rateCheck = checkRateLimit(clientIp);
     if (!rateCheck.allowed) {
+      auditService.record({
+        action: "LOGIN_FAILURE",
+        resource: "auth/verify-staff",
+        result: "DENIED",
+        ip: clientIp,
+        userAgent: req.headers["user-agent"] || "unknown",
+        errorMessage: "Rate limit / lockout exceeded on staff login attempt"
+      });
       return res.status(429).json({
         success: false,
         error: `Terlalu banyak percubaan log masuk gagal. Sila cuba lagi dalam ${rateCheck.remainingSec} saat.`,
         code: "RATE_LIMITED"
       });
     }
-    const { estate_code, estateCode, staff_no, staffNo, deviceId, deviceName } = req.body || {};
+    const { estate_code, estateCode, staff_no, staffNo, pin, secret, deviceId, deviceName } = req.body || {};
     const targetEstate = estateCode || estate_code || "FPM_TUNGGAL";
     const targetStaffNo = staffNo || staff_no;
-    if (!targetStaffNo || typeof targetStaffNo !== "string") {
+    const targetSecret = secret || pin;
+    if (!targetStaffNo || typeof targetStaffNo !== "string" || !targetSecret || typeof targetSecret !== "string") {
       return res.status(400).json({
         success: false,
-        error: "Kod Ladang dan No. Kakitangan diperlukan.",
+        error: "Kod Ladang, No. Kakitangan, dan PIN/Rahsia diperlukan.",
         code: "MISSING_CREDENTIALS"
       });
     }
-    const userSession = AuthService.verifyEstateStaffLogin(targetEstate, targetStaffNo);
+    const userSession = AuthService.verifyEstateStaffLogin(targetEstate, targetStaffNo, targetSecret);
     if (!userSession) {
       recordAttempt(clientIp, false);
       const staffConfig = AuthService.getStaffConfig(targetStaffNo);
@@ -9722,7 +9740,12 @@ var GradingTaskService = class {
     if (!supabase) throw new AppError("Pangkalan data tidak tersedia untuk penjanaan Grading Task.", 503, "DATABASE_UNAVAILABLE");
     return withSpan("grading_tasks.generate_daily", async () => {
       const { data: sourceRows, error: sourceError } = await supabase.from("hantaran_hasil").select("id, tarikh, blok, muda, peringkat").eq("estate_id", cleanEstateId).gte("tarikh", window2.sourceWindowStart).lte("tarikh", window2.sourceWindowEnd);
-      if (sourceError) throw new AppError("Gagal membaca sumber BTS Muda.", 500, "GRADING_SOURCE_READ_FAILED");
+      if (sourceError) {
+        if (isMissingTableError(sourceError)) {
+          return { tasks: [], evidence: [], window: window2 };
+        }
+        throw new AppError("Gagal membaca sumber BTS Muda.", 500, "GRADING_SOURCE_READ_FAILED");
+      }
       const evidence = aggregateSevenDayMuda(sourceRows || [], taskDate);
       if (evidence.length > 0) {
         const rows = evidence.map((item, index) => ({
@@ -9741,10 +9764,20 @@ var GradingTaskService = class {
           onConflict: "estate_id,task_date,block",
           ignoreDuplicates: true
         });
-        if (insertError) throw new AppError("Gagal mencipta Grading Task.", 500, "GRADING_TASK_CREATE_FAILED");
+        if (insertError) {
+          if (isMissingTableError(insertError)) {
+            return { tasks: [], evidence, window: window2 };
+          }
+          throw new AppError("Gagal mencipta Grading Task.", 500, "GRADING_TASK_CREATE_FAILED");
+        }
       }
       const { data: tasks, error: listError } = await supabase.from("grading_tasks").select("*").eq("estate_id", cleanEstateId).eq("task_date", taskDate).order("rank", { ascending: true });
-      if (listError) throw new AppError("Gagal membaca Grading Task yang dijana.", 500, "GRADING_TASK_LIST_FAILED");
+      if (listError) {
+        if (isMissingTableError(listError)) {
+          return { tasks: [], evidence, window: window2 };
+        }
+        throw new AppError("Gagal membaca Grading Task yang dijana.", 500, "GRADING_TASK_LIST_FAILED");
+      }
       recordTaskAudit("GRADING_TASKS_GENERATED", cleanEstateId, "SUCCESS", {}, {
         task_date: taskDate,
         source_window_start: window2.sourceWindowStart,
@@ -9760,12 +9793,22 @@ var GradingTaskService = class {
   }
   async listTasks(supabase, estateId, taskDate = getMalaysiaDate()) {
     const { data, error } = await supabase.from("grading_tasks").select("*").eq("estate_id", estateId).eq("task_date", taskDate).order("rank", { ascending: true });
-    if (error) throw new AppError("Gagal mendapatkan senarai Grading Task.", 500, "GRADING_TASK_LIST_FAILED");
+    if (error) {
+      if (isMissingTableError(error)) {
+        return [];
+      }
+      throw new AppError("Gagal mendapatkan senarai Grading Task.", 500, "GRADING_TASK_LIST_FAILED");
+    }
     return data || [];
   }
   async getTask(supabase, estateId, taskId) {
     const { data, error } = await supabase.from("grading_tasks").select("*").eq("estate_id", estateId).eq("id", taskId).maybeSingle();
-    if (error) throw new AppError("Gagal mendapatkan Grading Task.", 500, "GRADING_TASK_READ_FAILED");
+    if (error) {
+      if (isMissingTableError(error)) {
+        return null;
+      }
+      throw new AppError("Gagal mendapatkan Grading Task.", 500, "GRADING_TASK_READ_FAILED");
+    }
     return data;
   }
   async resolveFieldTask(supabase, estateId, taskId, sessionRecord, actor) {
@@ -23271,11 +23314,18 @@ function timingSafeCompare(a, b) {
     return false;
   }
 }
+function getEffectiveCronSecret(isProduction = process.env.NODE_ENV === "production") {
+  const envSecret = process.env.CRON_SECRET?.trim();
+  if (envSecret && !envSecret.startsWith("#")) {
+    return envSecret;
+  }
+  return !isProduction ? DEV_DEFAULT_CRON_SECRET : "";
+}
 function requireCronAuth(req, res, next) {
   const isProduction = process.env.NODE_ENV === "production";
-  const configuredSecret = process.env.CRON_SECRET || (!isProduction ? DEV_DEFAULT_CRON_SECRET : "");
+  const configuredSecret = getEffectiveCronSecret(isProduction);
   const correlationId = req.correlationId || req.requestId || `cron_${Date.now().toString(36)}`;
-  if (isProduction && !process.env.CRON_SECRET) {
+  if (isProduction && !configuredSecret) {
     console.error(`[CRON_AUTH_CRITICAL] [${correlationId}] CRON_SECRET environment variable is not defined in production.`);
     return res.status(500).json({
       success: false,
@@ -24136,7 +24186,15 @@ router23.get("/", requireAuth, async (req, res) => {
     if (!parsedDate.success) throw new AppError("Tarikh tugasan tidak sah.", 400, "INVALID_TASK_DATE");
     const supabase = req.supabase || getScopedSupabase(req.rawToken, { mode: "read" });
     if (!supabase) throw new AppError("Sesi pangkalan data tidak sah.", 401, "SCOPED_DATABASE_REQUIRED");
-    const tasks = await gradingTaskService.listTasks(supabase, estateId, parsedDate.data);
+    let tasks = await gradingTaskService.listTasks(supabase, estateId, parsedDate.data);
+    if (tasks.length === 0 && parsedDate.data === getMalaysiaDate()) {
+      try {
+        const generated = await gradingTaskService.generateDailyTasks(estateId, parsedDate.data);
+        tasks = generated.tasks;
+      } catch (genErr) {
+        console.warn("[GRADING_TASK] Auto generation fallback notice:", genErr);
+      }
+    }
     return res.json({ success: true, estate_id: estateId, task_date: parsedDate.data, data: tasks });
   } catch (error) {
     return sendError(req, res, error, "Gagal mendapatkan Grading Task.");
@@ -24749,7 +24807,7 @@ router24.post("/register", authRateLimiter, async (req, res) => {
     }
     const cleanPin = String(pin || "").trim();
     const requestedEstate = String(estateId || "").trim().toUpperCase();
-    const pinSession = /^\d{4,7}$/.test(cleanPin) ? AuthService.verifyEstateStaffLogin(requestedEstate, cleanPin) || AuthService.verifyPin(cleanPin) : null;
+    const pinSession = /^\d{4,7}$/.test(cleanPin) ? AuthService.verifyEstateStaffLogin(requestedEstate, cleanPin, cleanPin) || AuthService.verifyPin(cleanPin) : null;
     if (!pinSession) {
       return res.status(401).json({
         success: false,
