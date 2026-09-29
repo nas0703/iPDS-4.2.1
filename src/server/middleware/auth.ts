@@ -6,7 +6,6 @@ import { auditService } from '../services/audit.service.js';
 import { sessionManager } from '../services/sessionManager.service.js';
 import { alertManager } from '../observability/alerts.js';
 import { metricsCollector } from '../observability/metrics.js';
-import { deviceSecurityService, authorizeDeviceForEstate, isStrictDeviceEnforcementEnabled } from '../services/deviceSecurity.service.js';
 import { isActingAsSessionDurableActive } from '../services/durableSessionStore.service.js';
 
 // Extend Express Request interface to include authenticated user and scoped Supabase client
@@ -111,144 +110,17 @@ export function extractDeviceCredential(req: Request): string {
  * Extracts and verifies token from Cookie or Authorization header
  */
 export function extractUserFromRequest(req: Request): { user: AuthTokenPayload | null; token: string | null } {
-  let token = extractRawTokenFromRequest(req);
-  if (token) {
-    const user = AuthService.verifyToken(token);
-    if (user) {
-      if (user.session_id) {
-        if (!sessionManager.isSessionActive(user.session_id)) {
-          return { user: null, token: null };
-        }
-        // Heartbeat: Touch sliding session activity timestamp
-        sessionManager.touchSession(user.session_id);
-      }
-      return { user, token };
+  const token = extractRawTokenFromRequest(req);
+  if (!token) return { user: null, token: null };
+  const user = AuthService.verifyToken(token);
+  if (!user) return { user: null, token: null };
+  if (user.session_id) {
+    if (!sessionManager.isSessionActive(user.session_id)) {
+      return { user: null, token: null };
     }
-
-    // Fallback: If raw token string is actually a valid PIN
-    if (/^\d{6,7}$/.test(token)) {
-      const requestedEstate = (req.headers['x-estate-id'] as string) || undefined;
-      const pinSession = (requestedEstate ? AuthService.verifyEstateStaffLogin(requestedEstate, token, token) : null) || AuthService.verifyPin(token);
-      if (pinSession) {
-        // Enforce estate context matching if explicit x-estate-id header was supplied
-        if (requestedEstate) {
-          const cleanReqEstate = requestedEstate.trim().toUpperCase();
-          const userEstate = pinSession.app_metadata.estate_id;
-          const isMultiEstate = ['rc', 'oc'].includes((pinSession.app_metadata.app_role || '').toLowerCase());
-          if (!isMultiEstate && userEstate !== cleanReqEstate) {
-            return { user: null, token: null };
-          }
-        }
-
-        sessionManager.registerSession(
-          pinSession,
-          req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
-          (req.headers['user-agent'] as string) || 'Kiosk Terminal'
-        );
-
-        const generatedToken = AuthService.generateToken(pinSession);
-        const verified = AuthService.verifyToken(generatedToken);
-        if (verified) {
-          sessionManager.touchSession(verified.session_id);
-          return { user: verified, token: generatedToken };
-        }
-      }
-    }
-
-    return { user: null, token: null };
+    sessionManager.touchSession(user.session_id);
   }
-
-  // Fallback: Check header x-auth-pin or x-kiosk-pin or x-pin
-  const pinHeader = (req.headers['x-auth-pin'] || req.headers['x-kiosk-pin'] || req.headers['x-pin']) as string;
-  if (pinHeader && typeof pinHeader === 'string') {
-    const cleanPin = pinHeader.trim();
-    if (/^\d{6,7}$/.test(cleanPin)) {
-      const requestedEstate = (req.headers['x-estate-id'] as string) || undefined;
-      const pinSession = (requestedEstate ? AuthService.verifyEstateStaffLogin(requestedEstate, cleanPin, cleanPin) : null) || AuthService.verifyPin(cleanPin);
-      if (pinSession) {
-        // Enforce estate context matching if explicit x-estate-id header was supplied
-        if (requestedEstate) {
-          const cleanReqEstate = requestedEstate.trim().toUpperCase();
-          const userEstate = pinSession.app_metadata.estate_id;
-          const isMultiEstate = ['rc', 'oc'].includes((pinSession.app_metadata.app_role || '').toLowerCase());
-          if (!isMultiEstate && userEstate !== cleanReqEstate) {
-            return { user: null, token: null };
-          }
-        }
-
-        sessionManager.registerSession(
-          pinSession,
-          req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
-          (req.headers['user-agent'] as string) || 'Kiosk Header Terminal'
-        );
-
-        const generatedToken = AuthService.generateToken(pinSession);
-        const verified = AuthService.verifyToken(generatedToken);
-        if (verified) {
-          sessionManager.touchSession(verified.session_id);
-          return { user: verified, token: generatedToken };
-        }
-      }
-    }
-  }
-
-  return { user: null, token: null };
-}
-
-/**
- * P0-11-A: Detect whether a request is authenticating with a raw PIN
- * (rather than a signed session token). Raw-PIN bearer/header authentication
- * must not bypass the device whitelist.
- */
-export function isPinAuthRequest(req: Request): boolean {
-  const raw = extractRawTokenFromRequest(req);
-  if (raw && /^\d{6,7}$/.test(raw.trim())) return true;
-  if (!raw) {
-    const headerPin = (req.headers['x-auth-pin'] || req.headers['x-kiosk-pin'] || req.headers['x-pin']) as string | undefined;
-    if (typeof headerPin === 'string' && /^\d{6,7}$/.test(headerPin.trim())) return true;
-  }
-  return false;
-}
-
-/**
- * P0-11-A: For PIN-based authentication, require the presented device to be
- * APPROVED. Signed session tokens (issued by the verified login flow) are not
- * subject to this check. Fails closed on any error.
- */
-async function isPinAuthDeviceApproved(req: Request): Promise<boolean> {
-  if (!isPinAuthRequest(req)) return true;
-
-  const deviceId = String(
-    (req.body && (req.body.deviceId || req.body.device_id)) ||
-    (req.query && (req.query.deviceId || req.query.device_id)) ||
-    req.headers['x-device-id'] ||
-    'DEV-UNSPECIFIED'
-  );
-  const estateId = String(req.user?.app_metadata?.estate_id || 'FPM_TUNGGAL');
-
-  try {
-    const status = await deviceSecurityService.getDeviceStatus(deviceId, estateId);
-    const legacyApproved = !!status && status.status === 'APPROVED';
-    if (!legacyApproved) return false;
-
-    // P0-16C.3: when strict enforcement is enabled, APPROVED status alone is not
-    // sufficient — the same credential + estate-grant primitive used by the
-    // login routes must also pass. Uses ONE shared authorization primitive.
-    if (!isStrictDeviceEnforcementEnabled()) return true;
-    const credential = extractDeviceCredential(req);
-    const auth = await authorizeDeviceForEstate({ credential, requestedEstateId: estateId });
-    return auth.allowed;
-  } catch {
-    return false;
-  }
-}
-
-function rejectUnapprovedDevice(res: Response) {
-  return res.status(403).json({
-    success: false,
-    error: 'Peranti ini belum diluluskan untuk mengakses API. Sila luluskan peranti terlebih dahulu.',
-    code: 'DEVICE_NOT_APPROVED'
-  });
+  return { user, token };
 }
 
 /**
@@ -306,37 +178,8 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
       return;
     }
 
-    // P0-11-A: signed session tokens proceed synchronously as before.
-    if (!isPinAuthRequest(req)) {
-      if (!validateTenantAccess(req, res)) {
-        return;
-      }
-      return next();
-    }
-
-    // P0-11-A: raw-PIN auth must not bypass the device whitelist. Treat an
-    // unapproved device as anonymous for this optional-auth middleware.
-    void (async () => {
-      let approved = false;
-      try {
-        approved = await isPinAuthDeviceApproved(req);
-      } catch {
-        approved = false;
-      }
-      if (!approved) {
-        delete req.user;
-        delete req.authRole;
-        delete req.estateId;
-        delete req.rawToken;
-        delete req.supabase;
-        return next();
-      }
-      if (!validateTenantAccess(req, res)) {
-        return;
-      }
-      next();
-    })();
-    return;
+    if (!validateTenantAccess(req, res)) return;
+    return next();
   }
   next();
 }
@@ -350,7 +193,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!user || !token) {
     return res.status(401).json({
       success: false,
-      error: 'Sesi log masuk tidak sah atau telah tamat tempoh. Sila masukkan PIN semula.',
+      error: 'Sesi log masuk tidak sah atau telah tamat tempoh. Sila log masuk semula.',
       code: 'UNAUTHORIZED'
     });
   }
@@ -379,30 +222,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return;
   }
 
-  // P0-11-A: signed session tokens proceed synchronously as before.
-  if (!isPinAuthRequest(req)) {
-    if (!validateTenantAccess(req, res)) {
-      return;
-    }
-    return next();
-  }
-
-  // P0-11-A: enforce device approval for raw-PIN authentication.
-  void (async () => {
-    let approved = false;
-    try {
-      approved = await isPinAuthDeviceApproved(req);
-    } catch {
-      approved = false;
-    }
-    if (!approved) return rejectUnapprovedDevice(res);
-
-    if (!validateTenantAccess(req, res)) {
-      return;
-    }
-
-    next();
-  })();
+  if (!validateTenantAccess(req, res)) return;
+  return next();
 }
 
 /**
@@ -483,22 +304,7 @@ export function requireRole(allowedRoles: AuthRole[]) {
       return;
     }
 
-    // P0-11-A: signed session tokens proceed synchronously as before.
-    if (!isPinAuthRequest(req)) {
-      return runRoleAndTenantChecks();
-    }
-
-    // P0-11-A: raw-PIN auth must not bypass the device whitelist.
-    void (async () => {
-      let approved = false;
-      try {
-        approved = await isPinAuthDeviceApproved(req);
-      } catch {
-        approved = false;
-      }
-      if (!approved) return rejectUnapprovedDevice(res);
-      runRoleAndTenantChecks();
-    })();
+    return runRoleAndTenantChecks();
   };
 }
 

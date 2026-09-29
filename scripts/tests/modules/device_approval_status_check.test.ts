@@ -182,10 +182,10 @@ export async function runDeviceApprovalStatusCheckTests() {
   // 8. Login continuation after approval
   {
     const login = read(LOGIN_SRC);
-    assert(/lastStaffNoRef\s*=\s*useRef<string>\(""\)/.test(login), 'LoginScreen remembers the last staff number');
-    assert(/lastStaffNoRef\.current\s*=\s*targetStaffNo/.test(login), 'staff number is remembered on submit');
-    assert(/submitStaffLogin\(lastStaffNoRef\.current\s*\|\|\s*undefined\)/.test(login), 'approval resumes login with the remembered staff number');
-    assert(/onClearDeviceApprovalState\(\)/.test(login), 'approval clears the modal state (closes the modal)');
+    assert(/lastStaffNoRef\s*=\s*useRef\(""\)/.test(login), 'LoginScreen remembers the last staff number in component state');
+    assert(/lastStaffNoRef\.current\s*=\s*cleanStaffNo/.test(login), 'staff number is remembered on explicit submit');
+    assert(/submitLogin\(lastStaffNoRef\.current\s*\|\|\s*undefined\)/.test(login), 'approval resumes the explicit kiosk login attempt');
+    assert(/onClearDeviceApprovalState\?\.\(\)/.test(login), 'approval clears the modal state (closes the modal)');
   }
 
   // 9. No security / authentication changes

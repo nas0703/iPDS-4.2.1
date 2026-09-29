@@ -404,7 +404,6 @@ export function useTransactionState({
       const activeEstate = getActiveEstateId();
       const token = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ipds_token') : null) ||
                     (typeof localStorage !== 'undefined' ? localStorage.getItem('ipds_token') : null);
-      const pin = typeof localStorage !== 'undefined' ? localStorage.getItem('ipds_last_pin') : null;
       const role = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ipds_auth_role') : null) ||
                    (typeof localStorage !== 'undefined' ? localStorage.getItem('ipds_auth_role') : null);
 
@@ -414,7 +413,6 @@ export function useTransactionState({
         headers: {
           "x-estate-id": activeEstate,
           ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-          ...(pin ? { "x-auth-pin": pin } : {}),
           ...(role ? { "x-auth-role": role } : {}),
           ...(options?.headers || {}),
         }

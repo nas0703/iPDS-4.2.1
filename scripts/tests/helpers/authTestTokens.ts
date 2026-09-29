@@ -1,9 +1,8 @@
 /**
  * P0-14 integration test helper.
  *
- * Mints signed session tokens for the SSOT PINs so integration tests can
- * exercise role/estate authorization without depending on the raw-PIN
- * (x-auth-pin) path, which P0-11-A now gates behind device approval.
+ * Mints signed JWT fixtures from the existing test PIN registry so integration
+ * suites can exercise role/estate authorization without raw-PIN API auth.
  */
 
 import crypto from 'crypto';

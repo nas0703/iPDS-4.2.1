@@ -163,20 +163,22 @@ async function verifyCrossTenantIsolationUnderLoad(): Promise<{ passed: boolean;
   let tokenAdela = '';
 
   try {
-    const resT = await fetch(`${BASE_URL}/api/auth/verify-pin`, {
+    const staffNoTunggal = process.env.IPDS_STAGING_TUNGGAL_STAFF_NO;
+    const staffNoAdela = process.env.IPDS_STAGING_ADELA_STAFF_NO;
+    const resT = staffNoTunggal ? await fetch(`${BASE_URL}/api/auth/verify-staff`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-staging-load-test': 'ipds-benchmark-1500' },
-      body: JSON.stringify({ pin: '123456' })
-    });
-    const dataT: any = await resT.json();
+      body: JSON.stringify({ estate_code: 'FPM_TUNGGAL', staff_no: staffNoTunggal })
+    }) : null;
+    const dataT: any = resT ? await resT.json() : null;
     tokenTunggal = dataT?.token || '';
 
-    const resA = await fetch(`${BASE_URL}/api/auth/verify-pin`, {
+    const resA = staffNoAdela ? await fetch(`${BASE_URL}/api/auth/verify-staff`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-staging-load-test': 'ipds-benchmark-1500' },
-      body: JSON.stringify({ pin: '654321' })
-    });
-    const dataA: any = await resA.json();
+      body: JSON.stringify({ estate_code: 'FPM_ADELA', staff_no: staffNoAdela })
+    }) : null;
+    const dataA: any = resA ? await resA.json() : null;
     tokenAdela = dataA?.token || tokenTunggal;
   } catch (err) {
     console.warn('Phase 4 login fallback:', err);
@@ -322,18 +324,19 @@ async function run1500UserStagingLoadTest() {
   console.log(`⚙️ CPU Architecture    : ${process.arch} (${process.platform})`);
   console.log(`💾 Node.js Memory Alloc : Heap ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1)} MB / RSS ${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MB`);
 
-  // Authenticate via server-side API to obtain registered JWT session
+  // Authenticate with a provisioned kiosk credential when staging credentials are available.
   let token = '';
   try {
-    const loginRes = await fetch(`${BASE_URL}/api/auth/verify-pin`, {
+    const staffNo = process.env.IPDS_STAGING_TUNGGAL_STAFF_NO;
+    const loginRes = staffNo ? await fetch(`${BASE_URL}/api/auth/verify-staff`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-staging-load-test': 'ipds-benchmark-1500'
       },
-      body: JSON.stringify({ pin: '123456' })
-    });
-    const loginData: any = await loginRes.json();
+      body: JSON.stringify({ estate_code: 'FPM_TUNGGAL', staff_no: staffNo })
+    }) : null;
+    const loginData: any = loginRes ? await loginRes.json() : null;
     token = loginData?.token || '';
   } catch (err) {
     console.warn('Failed to obtain token via login endpoint, falling back to direct sign:', err);

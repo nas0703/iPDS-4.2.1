@@ -122,7 +122,7 @@ export async function runAuthBypassTests() {
     assert(user === null && token === null, 'PIN header with unauthorized estate mismatch is strictly rejected');
   }
 
-  // 13: ADVERSARIAL: PIN header privilege escalation (Staff PIN 123456 with fake headers x-role: superadmin, x-operator-id: RC-0001)
+  // 13: ADVERSARIAL: PIN header cannot establish a session or elevate headers
   {
     const req: any = { 
       cookies: {}, 
@@ -134,12 +134,9 @@ export async function runAuthBypassTests() {
       } 
     };
     const { user } = extractUserFromRequest(req);
-    assert(
-      user !== null && 
-      user.app_metadata.app_role === 'staff' && 
-      user.app_metadata.operator_id === 'STF-TGL-01',
-      'PIN header authentication enforces server SSOT identity and ignores user-controlled header claims'
-    );
+    const { token } = extractUserFromRequest(req);
+    assert(user === null && token === null,
+      'PIN header and forged role claims cannot establish an API session');
   }
 
   // 14: ADVERSARIAL: Replay attack on revoked session
@@ -164,7 +161,7 @@ export async function runAuthBypassTests() {
     assert(!hasPassword, 'Verified user session object and token payloads carry NO password or sensitive credential fields');
   }
 
-  // 16: ADVERSARIAL (PART B): Staff login without secret must be rejected (400/401)
+  // 16: Unprovisioned staff number must fail closed
   {
     const layer = (authRoutes as any).stack.find((l: any) => 
       l.route?.path?.includes?.('/verify-staff') || 
@@ -190,10 +187,10 @@ export async function runAuthBypassTests() {
 
     await handler(req, res);
     const isRejected = (statusCode === 400 || statusCode === 401) && !responseBody?.token && !cookies[COOKIE_NAME];
-    assert(isRejected, 'PART B: POST /verify-staff without secret field is rejected (no token/cookie granted)', `Got status ${statusCode}, token=${!!responseBody?.token}`);
+    assert(isRejected, 'POST /verify-staff rejects a staff number without a provisioned hash', `Got status ${statusCode}, token=${!!responseBody?.token}`);
   }
 
-  // 17: ADVERSARIAL (PART B): Staff login with WRONG secret must be rejected (401)
+  // 17: PIN/password fields are not kiosk credentials
   {
     const layer = (authRoutes as any).stack.find((l: any) => 
       l.route?.path?.includes?.('/verify-staff') || 
@@ -219,10 +216,10 @@ export async function runAuthBypassTests() {
 
     await handler(req, res);
     const isRejected = (statusCode === 400 || statusCode === 401) && !responseBody?.token && !cookies[COOKIE_NAME];
-    assert(isRejected, 'PART B: POST /verify-staff with wrong secret is rejected (401, no token/cookie granted)', `Got status ${statusCode}, token=${!!responseBody?.token}`);
+    assert(isRejected, 'POST /verify-staff does not fall back to PIN/password fields', `Got status ${statusCode}, token=${!!responseBody?.token}`);
   }
 
-  // 18: ADVERSARIAL (PART B): Staff login with CORRECT secret must succeed
+  // 18: A valid legacy PIN must not log in through the kiosk endpoint
   {
     const layer = (authRoutes as any).stack.find((l: any) => 
       l.route?.path?.includes?.('/verify-staff') || 
@@ -247,8 +244,8 @@ export async function runAuthBypassTests() {
     };
 
     await handler(req, res);
-    const isSuccess = statusCode === 200 && !!responseBody?.token && responseBody?.success === true;
-    assert(isSuccess, 'PART B: POST /verify-staff with correct secret succeeds with authenticated session', `Got status ${statusCode}, success=${responseBody?.success}`);
+    const isRejected = (statusCode === 400 || statusCode === 401) && !responseBody?.token && !cookies[COOKIE_NAME];
+    assert(isRejected, 'POST /verify-staff rejects PIN-only credentials', `Got status ${statusCode}, success=${responseBody?.success}`);
   }
 
   return { passed, total };

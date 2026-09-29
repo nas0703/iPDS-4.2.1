@@ -10,9 +10,11 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import { hashStaffNo, normalizeStaffNo } from '../src/server/services/credentials.loader.js';
 
 export interface SeedUserInput {
   pin: string;
+  staff_no?: string;
   password?: string;
   app_role: string;
   operator_id: string;
@@ -58,6 +60,8 @@ export function buildHashedCredentials(seedUsers?: SeedUserInput[]): Record<stri
   for (const user of users) {
     if (!user.pin || !user.operator_id) continue;
     const pinHash = bcrypt.hashSync(user.pin, 10);
+    const normalizedStaffNo = typeof user.staff_no === 'string' ? normalizeStaffNo(user.staff_no) : '';
+    const staffNoHash = normalizedStaffNo ? hashStaffNo(normalizedStaffNo) : undefined;
     const passwordHash = user.password ? bcrypt.hashSync(user.password, 10) : undefined;
     const cleanPin = String(user.pin).trim();
     const maskedPin = `****${cleanPin.slice(-2)}`;
@@ -71,6 +75,7 @@ export function buildHashedCredentials(seedUsers?: SeedUserInput[]): Record<stri
       estate_id: user.estate_id,
       station_name: user.station_name,
       pin_hash: pinHash,
+      staff_no_hash: staffNoHash,
       password_hash: passwordHash,
       masked_pin: maskedPin,
       email: user.email,

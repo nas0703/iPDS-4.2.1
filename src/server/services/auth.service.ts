@@ -4,7 +4,8 @@ import bcrypt from 'bcryptjs';
 import { v5 as uuidv5, v4 as uuidv4 } from 'uuid';
 import { IdentityService, UnifiedIdentityProfile } from './identity.service.js';
 import { auditService } from './audit.service.js';
-import { loadHashedCredentials, verifyPinAgainstHash, verifyPasswordAgainstHash, type UserCredentialConfig } from './credentials.loader.js';
+import { hashStaffNo, loadHashedCredentials, normalizeStaffNo, verifyPinAgainstHash, verifyPasswordAgainstHash, verifyStaffNoAgainstHash, type UserCredentialConfig } from './credentials.loader.js';
+import { normalizeEstateId } from '../../config/estateRegistry.js';
 
 export type AuthRole = 'staff' | 'mandur' | 'pf' | 'fc' | 'afc' | 'fs' | 'eqi' | 'oc' | 'rc' | 'superadmin';
 
@@ -68,7 +69,7 @@ applyIdentityOverridesFromEnv();
 /**
  * Dynamic registry update for custom PINs / changes made by FC Admin
  */
-export function updateServerPinConfig(newConfig: Record<string, { app_role?: AuthRole; role?: AuthRole; operator_id?: string; operator_name?: string; label?: string; estate_id?: string; password?: string; username?: string; email?: string }>) {
+export function updateServerPinConfig(newConfig: Record<string, { app_role?: AuthRole; role?: AuthRole; operator_id?: string; operator_name?: string; label?: string; estate_id?: string; password?: string; username?: string; email?: string; staff_no_hash?: string }>) {
   for (const [pin, info] of Object.entries(newConfig)) {
     const cleanPin = pin.trim().replace(/\s+/g, '');
     if (cleanPin.length >= 4) {
@@ -82,6 +83,7 @@ export function updateServerPinConfig(newConfig: Record<string, { app_role?: Aut
       const existingKiosk = PIN_USERS_CONFIG[opId];
       const kioskId = existingKiosk?.kiosk_id || existingIdentity?.kiosk_id || `kiosk-custom-${cleanPin}`;
       const stationName = existingKiosk?.station_name || existingIdentity?.station_name || `Stesen Lapangan ${estateId}`;
+      const staffNoHash = info.staff_no_hash || existingKiosk?.staff_no_hash || existingIdentity?.staff_no_hash;
 
       const pinHash = bcrypt.hashSync(cleanPin, 10);
       const passwordHash = info.password ? bcrypt.hashSync(info.password, 10) : pinHash;
@@ -95,6 +97,7 @@ export function updateServerPinConfig(newConfig: Record<string, { app_role?: Aut
         estate_id: estateId,
         station_name: stationName,
         pin_hash: pinHash,
+        staff_no_hash: staffNoHash,
         password_hash: passwordHash,
         masked_pin: maskedPin,
         username: info.username || cleanPin,
@@ -105,6 +108,7 @@ export function updateServerPinConfig(newConfig: Record<string, { app_role?: Aut
       IdentityService.registerOrUpdateIdentity({
         pin: cleanPin,
         pin_hash: pinHash,
+        staff_no_hash: staffNoHash,
         password_hash: passwordHash,
         app_role: role,
         full_name: opName,
@@ -305,6 +309,30 @@ export class AuthService {
 
     // STRICT: Reject all unverified staff numbers. No permissive fallbacks.
     return null;
+  }
+
+  static verifyKioskLogin(estateCode: string, staffNo: string): UserSession | null {
+    return this.verifyKioskLoginResult(estateCode, staffNo).session || null;
+  }
+
+  static verifyKioskLoginResult(estateCode: string, staffNo: string): {
+    session: UserSession | null;
+    failureReason?: 'INVALID_CREDENTIALS' | 'UNAUTHORIZED_ESTATE';
+    identity?: UnifiedIdentityProfile;
+  } {
+    if (!estateCode || typeof estateCode !== 'string' || !staffNo || typeof staffNo !== 'string') {
+      return { session: null, failureReason: 'INVALID_CREDENTIALS' };
+    }
+    const normalizedEstate = normalizeEstateId(estateCode);
+    const allowedEstates = ['WILAYAH_JB', 'FPM_TUNGGAL', 'FPM_ADELA', 'FPM_KLEDANG', 'FPM_SENING'];
+    if (!allowedEstates.includes(normalizedEstate)) return { session: null, failureReason: 'INVALID_CREDENTIALS' };
+
+    const normalizedStaffNo = normalizeStaffNo(staffNo);
+    const identity = IdentityService.findIdentityByStaffNoCredential(normalizedStaffNo);
+    if (!identity) return { session: null, failureReason: 'INVALID_CREDENTIALS' };
+    const session = IdentityService.createUnifiedSession(identity, 'KIOSK_STAFF_NO', normalizedEstate);
+    if (!session) return { session: null, failureReason: 'UNAUTHORIZED_ESTATE', identity };
+    return { session, identity };
   }
 
   /**

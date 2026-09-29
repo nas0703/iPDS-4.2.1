@@ -61,10 +61,10 @@ iPDS ialah platform berbilang ladang (multi-estate). **Kesilapan rentas ladang a
 - **Peranan kanonik server** (`AuthRole`): `staff`, `mandur`, `pf`, `fc`, `afc`, `fs`, `eqi`, `oc`, `rc`, `superadmin`.
 - **Peranan klien tambahan** (`rbacService.ts`): `kerani_kewangan`, `kerani_stok`, `kerani_resit`. Klien melayan `admin`/`super_admin` sebagai super admin.
 - **Sesi:** cookie `ipds_session` (`httpOnly`, `secure` dalam prod, `sameSite: 'lax'`, 12 jam). JWT HS256, `aud: 'authenticated'`, `iss` = Supabase issuer, luput 1 jam; refresh melalui `POST /api/auth/refresh` + `SessionManagerService`.
-- **Endpoint auth:** `POST /api/auth/verify-pin`, `verify-staff`, `verify-password`, `refresh`, `logout`; `GET /api/auth/session-status`, `/me` (`/session`); `super-admin/*`.
+- **Endpoint auth:** `POST /api/auth/verify-staff` (Kod Ladang + bcrypt-verified `staff_no_hash`), `refresh`, `logout`; `GET /api/auth/session-status`, `/me` (`/session`); `super-admin/*`. Legacy `/verify-pin` and `/verify-password` login routes return `410 AUTH_METHOD_REMOVED`.
 - **Middleware:** `src/server/middleware/auth.ts` — `authenticate`, `requireAuth`, `requireRole`, `requireEstateAccess`, `validateTenantAccess`, `extractUserFromRequest`.
 - **Rate limit + lockout:** `authRateLimiter` dan lockout dalam-memori (`MAX_FAILED_ATTEMPTS=10`, tetingkap 60s, `LOCKOUT_MS=60s`) dalam `auth.routes.ts`.
-- **Klien:** `src/features/auth/hooks/useAuth.ts`, `src/features/auth/services/rbacService.ts`. PIN terakhir disimpan sebagai `ipds_last_pin` untuk semakan FC Tunggal.
+- **Klien:** `src/features/auth/hooks/useAuth.ts`, `src/features/auth/services/rbacService.ts`. Pemulihan sesi normal hanya menggunakan JWT/sesi server; No. Kakitangan tidak disimpan sebagai PIN. PIN kekal untuk pengesahan langkah tambahan Super Admin dan operasi keselamatan peranti yang eksplisit.
 - **Peraturan keras:**
   - Jangan simpan `SUPABASE_SERVICE_ROLE_KEY` atau mana-mana rahsia dalam kod klien / bundle.
   - Jangan percayai `role`/`localStorage` dari klien untuk kebenaran server. Server mesti mengesahkan dari JWT.
@@ -80,7 +80,7 @@ iPDS ialah platform berbilang ladang (multi-estate). **Kesilapan rentas ladang a
   - Perlaksanaan: `src/server/routes/devices.routes.ts`, `src/server/services/deviceSecurity.service.ts` (`listDevices`, status `PENDING|APPROVED|BLOCKED|REVOKED`).
   - Header memanggil `?estateId=ALL` setiap 10s apabila `isSuperAdmin`. `WILAYAH_JB` bermakna semua ladang dalam `listDevices`; semua nilai lain ditapis `.eq('estate_id', ...)`.
 - **Middleware keselamatan:**
-  - CSRF: `src/server/middleware/csrf.ts` — menolak `Sec-Fetch-Site: cross-site`, semak `Origin`/`Referer`; pengecualian didaftarkan (cth `/api/health`, `/api/cron`, `/api/auth/verify-pin`, `/api/auth/logout`).
+  - CSRF: `src/server/middleware/csrf.ts` — menolak `Sec-Fetch-Site: cross-site`, semak `Origin`/`Referer`; pengecualian didaftarkan (cth `/api/health`, `/api/cron`, `/api/auth/logout`).
   - Rate limiter: `src/server/middleware/rateLimiter.ts` — `authRateLimiter` (10/min), `aiChatRateLimiter` (30/min), `aiMultimodalRateLimiter` (15/min), `benchmarkRateLimiter` (5/min), `adminRateLimiter` (30/min), `generalApiRateLimiter` (150/min). Header RFC 6585 (`Retry-After`, `X-RateLimit-*`).
   - Cron: `src/server/middleware/cronAuth.ts` — `Authorization: Bearer <CRON_SECRET>`, perbandingan masa-tetap; produksi tanpa `CRON_SECRET` → 500.
   - Observability/header keselamatan: `src/server/middleware/observability.ts` (`X-Request-ID`, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, blok probe scanner). Version header dari `src/config/version.ts`.

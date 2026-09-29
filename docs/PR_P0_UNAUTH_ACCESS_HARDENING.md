@@ -67,7 +67,7 @@ npm run dr:check    # ALL GATES PASSED
 ## Behavior changes to note
 
 - Non-super-admin clients no longer receive the RBAC registry from the server; they fall back to local
-  registry. PIN login still works via `/api/auth/verify-pin`.
+  registry. Normal login uses `/api/auth/verify-staff` with a server-provisioned `staff_no_hash`; PIN verification remains reserved for explicit privileged/device-security flows.
 - FC Tunggal can now request cross-estate data at the application layer. **DB RLS is not yet aligned**
   (see Follow-ups / H3) — cross-estate reads may be filtered by RLS until that migration lands.
 - Pre-login "Tukar No. WhatsApp FC" now requires an authenticated super admin session; the device-approval

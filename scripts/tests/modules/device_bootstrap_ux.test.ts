@@ -223,7 +223,7 @@ export async function runDeviceBootstrapUxTests() {
   // 5. Preserve P0-11-A + whitelist
   {
     const mw = fs.readFileSync(path.join(process.cwd(), 'src/server/middleware/auth.ts'), 'utf-8');
-    assert(mw.includes('isPinAuthDeviceApproved') && mw.includes('DEVICE_NOT_APPROVED'), 'P0-11-A PIN/device gate intact');
+    assert(!/x-auth-pin|x-kiosk-pin|x-pin|AuthService\.verifyPin/.test(mw), 'raw PIN cannot create an API session');
     const svc = fs.readFileSync(path.join(process.cwd(), 'src/server/services/deviceSecurity.service.ts'), 'utf-8');
     assert(!/\b(2401199|888888|654321)\b/.test(svc), 'no hardcoded master PIN in device service');
   }

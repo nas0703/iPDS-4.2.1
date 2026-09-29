@@ -5,7 +5,7 @@
  *   - credential -> SHA-256 -> device resolution (never device_id)
  *   - APPROVED + ACTIVE estate grant required (APPROVED alone insufficient)
  *   - full ALLOW/DENY matrix (device status, credential, estate, user, manipulation)
- *   - single shared primitive consumed by verify-pin / verify-staff / raw-PIN
+ *   - kiosk login consumes the shared primitive; API auth requires signed JWTs
  *   - transition flag default OFF (no lockout); strict when explicitly enabled
  *   - no credential leakage (JWT/URL/logs), no C.4/C.5
  */
@@ -197,14 +197,14 @@ export async function runDeviceLoginEnforcementTests() {
     assert(/hashDeviceCredential\(credential\)/.test(service) && /findDeviceByCredentialHash\(credentialHash\)/.test(service), 'device resolved by credential hash (not device_id)');
     assert(/credential_hash/.test(service) && /\.eq\('credential_hash', credentialHash\)/.test(service), 'lookup is by registered_devices.credential_hash');
 
-    const routeUses = (authRoutes.match(/authorizeDeviceForEstate\(/g) || []).length;
-    assert(routeUses >= 3, 'verify-pin/verify-staff/verify-password consume the shared primitive', `found ${routeUses}`);
-    assert((middleware.match(/authorizeDeviceForEstate\(/g) || []).length >= 1, 'raw-PIN middleware consumes the same primitive');
-    assert(/isStrictDeviceEnforcementEnabled\(\)/.test(authRoutes) && /isStrictDeviceEnforcementEnabled\(\)/.test(middleware), 'both login routes and middleware honour the transition flag');
+    const staffRoute = authRoutes.slice(authRoutes.indexOf("router.post(['/verify-staff"), authRoutes.indexOf("router.post(['/verify-password"));
+    assert(/authorizeDeviceForEstate\(/.test(staffRoute), 'kiosk login consumes the shared device authorization primitive');
+    assert(!/x-auth-pin|x-kiosk-pin|x-pin|verifyEstateStaffLogin|AuthService\.verifyPin/.test(middleware), 'API middleware has no raw-PIN authentication path');
+    assert(/isStrictDeviceEnforcementEnabled\(\)/.test(staffRoute), 'kiosk login honours the existing device enforcement flag');
     assert(/deviceCredential: getDeviceCredential\(\)/.test(useAuth), 'client sends the device credential on login');
 
-    // No device_id-only authorization remains when strict
-    assert(/legacyApproved[\s\S]{0,700}isStrictDeviceEnforcementEnabled/.test(middleware), 'middleware adds strict credential check after legacy APPROVED check');
+    assert(middleware.includes('getScopedSupabase(token)') && middleware.includes('AuthService.verifyToken(token)'),
+      'API authorization and scoped Supabase access require a verified signed JWT');
   }
 
   // 8. No credential leakage / no C.4

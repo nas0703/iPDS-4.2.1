@@ -176,15 +176,10 @@ export function App() {
   // Auth Hook
   const {
     authRole,
-    pin,
-    loginError,
+    isVerifying,
     deviceApprovalState,
     setDeviceApprovalState,
-    handlePinPress,
-    handleDeletePress,
-    handleQuickLogin,
     verifyStaffCredentials,
-    verifyPasswordOnServer,
     handleLogout,
   } = useAuth({
     onLoginSuccess: (role) => {
@@ -427,14 +422,9 @@ export function App() {
   if (!authRole) {
     return (
       <LoginScreen
-        pin={pin}
-        loginError={loginError}
         isDarkMode={isDarkMode}
-        handlePinPress={handlePinPress}
-        handleDeletePress={handleDeletePress}
-        handleQuickLogin={handleQuickLogin}
+        isVerifying={isVerifying}
         verifyStaffCredentials={verifyStaffCredentials}
-        verifyPasswordOnServer={verifyPasswordOnServer}
         deviceApprovalState={deviceApprovalState}
         onClearDeviceApprovalState={() => setDeviceApprovalState(null)}
       />
