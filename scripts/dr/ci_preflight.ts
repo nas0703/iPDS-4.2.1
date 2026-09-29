@@ -119,6 +119,7 @@ async function runCIPreflightCheck(): Promise<boolean> {
     'security_compliance.test.ts',
     'auth_bypass.test.ts',
     'kiosk_login.test.ts',
+    'kiosk_roster_provisioning.test.ts',
     'acting_as.test.ts',
     'device_bulk_rotation.test.ts',
     'device_merge_redirect.test.ts',
