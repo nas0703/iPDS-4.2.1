@@ -1,6 +1,38 @@
 {
   "jobs": [
     {
+      "id": "0a28c46a-ed1d-424e-90b4-ffd3924ca490",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_SENING",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_SENING:2026-09-29",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-09-29"
+      },
+      "result": {
+        "taskDate": "2026-09-29",
+        "sourceWindowStart": "2026-09-22",
+        "sourceWindowEnd": "2026-09-28",
+        "taskCount": 0,
+        "estate_id": "FPM_SENING"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-09-28T23:31:27.973Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-09-28T23:31:27.973Z",
+      "updated_at": "2026-09-28T23:31:30.165Z",
+      "started_at": "2026-09-28T23:31:29.586Z",
+      "completed_at": "2026-09-28T23:31:30.165Z"
+    },
+    {
       "id": "045ac14f-9861-4e46-8547-2450976f1c53",
       "type": "GRADING_TASK_GENERATION",
       "estate_id": "FPM_SENING",
@@ -85,5 +117,5 @@
       "failed_at": "2026-09-25T14:02:23.737Z"
     }
   ],
-  "last_updated": "2026-09-27T21:36:11.768Z"
+  "last_updated": "2026-09-28T23:31:30.166Z"
 }

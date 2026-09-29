@@ -12,7 +12,7 @@ import cronRoutes from '../../../src/server/routes/cron.routes.js';
 import telemetryRoutes from '../../../src/server/routes/telemetry.routes.js';
 import { jobQueueService } from '../../../src/server/services/jobQueue.service.js';
 import { alertManager } from '../../../src/server/observability/alerts.js';
-import { DEV_DEFAULT_CRON_SECRET } from '../../../src/server/middleware/cronAuth.js';
+import { DEV_DEFAULT_CRON_SECRET, getEffectiveCronSecret } from '../../../src/server/middleware/cronAuth.js';
 import { authHeaders } from '../helpers/authTestTokens.js';
 
 interface MockResult {
@@ -174,7 +174,7 @@ export async function runErrorMessageSweepTests() {
     try {
       const result = await invokeHandlers(
         routeHandlers(route),
-        buildReq('GET', { 'x-cron-secret': DEV_DEFAULT_CRON_SECRET })
+        buildReq('GET', { 'x-cron-secret': getEffectiveCronSecret() })
       );
       const serialized = JSON.stringify(result.body || {});
       assert(result.status === 500, 'Cron handler returns 500 on internal error', `got ${result.status}`);

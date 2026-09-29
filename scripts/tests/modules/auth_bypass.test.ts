@@ -237,8 +237,8 @@ export async function runAuthBypassTests() {
     const req: any = {
       ip: '127.0.0.1',
       socket: { remoteAddress: '127.0.0.1' },
-      headers: { 'user-agent': 'TestRunner' },
-      body: { estateCode: 'FPM_TUNGGAL', staffNo: 'STF-TGL-01', pin: '123456' }
+      headers: { 'user-agent': 'TestRunner', 'x-device-id': 'DEV-MASTER-NAS-FC' },
+      body: { estateCode: 'FPM_TUNGGAL', staffNo: 'STF-TGL-01', pin: '123456', deviceId: 'DEV-MASTER-NAS-FC' }
     };
     const res: any = {
       status(code: number) { statusCode = code; return this; },

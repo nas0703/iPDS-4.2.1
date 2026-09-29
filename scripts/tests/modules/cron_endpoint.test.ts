@@ -1,5 +1,5 @@
 import cronRoutes from '../../../src/server/routes/cron.routes.js';
-import { requireCronAuth, DEV_DEFAULT_CRON_SECRET } from '../../../src/server/middleware/cronAuth.js';
+import { requireCronAuth, getEffectiveCronSecret } from '../../../src/server/middleware/cronAuth.js';
 import { jobQueueService } from '../../../src/server/services/jobQueue.service.js';
 import { auditService } from '../../../src/server/services/audit.service.js';
 import { AuthService } from '../../../src/server/services/auth.service.js';
@@ -115,7 +115,7 @@ export async function runCronEndpointTests() {
 
   // Test 20.4: requireCronAuth grants access with valid Bearer token and injects System identity
   {
-    const activeSecret = process.env.CRON_SECRET || DEV_DEFAULT_CRON_SECRET;
+    const activeSecret = getEffectiveCronSecret();
     let statusCode = 200;
     let nextCalled: any = false;
 
@@ -146,7 +146,7 @@ export async function runCronEndpointTests() {
 
   // Test 20.5: requireCronAuth supports x-cron-secret header
   {
-    const activeSecret = process.env.CRON_SECRET || DEV_DEFAULT_CRON_SECRET;
+    const activeSecret = getEffectiveCronSecret();
     let nextCalled: any = false;
 
     const mockReq: any = {
@@ -185,7 +185,7 @@ export async function runCronEndpointTests() {
     const getLayer = stack.find((l: any) => l.route?.path === '/cron/process-jobs' && l.route?.methods?.get);
     assert(!!getLayer, 'GET /cron/process-jobs route stack layer found');
 
-    const activeSecret = process.env.CRON_SECRET || DEV_DEFAULT_CRON_SECRET;
+    const activeSecret = getEffectiveCronSecret();
     let responseStatus = 200;
     let jsonResponse: any = null;
 

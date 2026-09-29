@@ -139,14 +139,17 @@ async function runMasterRegressionSuite() {
 
   for (const mod of modules) {
     try {
+      process.env.NODE_ENV = 'test';
       const res: any = await mod.fn();
       grandTotalPassed += res.passed;
       grandTotalTests += res.total;
       if (res.passed !== res.total) {
         console.error(`\n🚨 FAILED MODULE: ${mod.name} had failures! Passed: ${res.passed}/${res.total}`);
-      }
-      if (res.failedTests && Array.isArray(res.failedTests)) {
-        allFailedTests.push(...res.failedTests);
+        if (res.failedTests && Array.isArray(res.failedTests) && res.failedTests.length > 0) {
+          allFailedTests.push(...res.failedTests);
+        } else {
+          allFailedTests.push(`${mod.name}: Passed ${res.passed}/${res.total}`);
+        }
       }
     } catch (e: any) {
       console.error(`\n[CRITICAL FAIL] Module ${mod.name} encountered unexpected error:`, e.message || e);

@@ -58,18 +58,26 @@ export function timingSafeCompare(a: string, b: string): boolean {
   }
 }
 
+export function getEffectiveCronSecret(isProduction = process.env.NODE_ENV === 'production'): string {
+  const envSecret = process.env.CRON_SECRET?.trim();
+  if (envSecret && !envSecret.startsWith('#')) {
+    return envSecret;
+  }
+  return !isProduction ? DEV_DEFAULT_CRON_SECRET : '';
+}
+
 /**
  * Middleware: requireCronAuth
  * Protects cron job runner endpoints from unauthorized access
  */
 export function requireCronAuth(req: Request, res: Response, next: NextFunction) {
   const isProduction = process.env.NODE_ENV === 'production';
-  const configuredSecret = process.env.CRON_SECRET || (!isProduction ? DEV_DEFAULT_CRON_SECRET : '');
+  const configuredSecret = getEffectiveCronSecret(isProduction);
 
   const correlationId = (req as any).correlationId || (req as any).requestId || `cron_${Date.now().toString(36)}`;
 
   // If in production and no CRON_SECRET is configured at all
-  if (isProduction && !process.env.CRON_SECRET) {
+  if (isProduction && !configuredSecret) {
     console.error(`[CRON_AUTH_CRITICAL] [${correlationId}] CRON_SECRET environment variable is not defined in production.`);
     return res.status(500).json({
       success: false,
