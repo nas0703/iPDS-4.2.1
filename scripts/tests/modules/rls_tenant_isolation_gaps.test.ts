@@ -402,7 +402,7 @@ export async function runRlsTenantIsolationGapsTests() {
   // and role in ('staff', 'mandur', 'pf', 'fc', 'afc', 'fs', 'admin', 'super_admin')
   // Furthermore, rc/oc are not in the write allowlist.
   {
-    const migrationSql = fs.readFileSync(migration20261002Path, 'utf-8');
+    const migrationSql = fs.readFileSync(migration20261002Path, 'utf-8').replace(/\r\n/g, '\n');
     const workerInsertCheckMatches = migrationSql.includes(
       "estate_id = public.auth_estate_id()\n    AND public.auth_app_role() IN ('staff', 'mandur', 'pf', 'fc', 'afc', 'fs', 'admin', 'super_admin')"
     );
