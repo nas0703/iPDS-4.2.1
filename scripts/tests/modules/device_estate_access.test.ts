@@ -202,8 +202,8 @@ export async function runDeviceEstateAccessTests() {
 
       // revoke must not touch registered_devices (scope to the revoke function body only)
       const revokeStart = service.indexOf('export async function revokeDeviceEstateAccess');
-      const revokeBodyEnd = service.indexOf('\n}\n', revokeStart);
-      const revokeBlock = service.slice(revokeStart, revokeBodyEnd > revokeStart ? revokeBodyEnd + 3 : undefined);
+      const revokeBodyEnd = service.indexOf('\n}', revokeStart);
+      const revokeBlock = service.slice(revokeStart, revokeBodyEnd > revokeStart ? revokeBodyEnd + 2 : undefined);
       assert(!/registered_devices/.test(revokeBlock), 'single-estate revoke never touches registered_devices');
       assert(/status:\s*'REVOKED'/.test(revokeBlock), 'revoke sets device_estate_access.status = REVOKED');
 

@@ -91,8 +91,6 @@ function getSecurityAuthHeaders(): Record<string, string> {
     sessionStorage.getItem('fpm_auth_token') ||
     '';
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const lastPin = localStorage.getItem('ipds_last_pin');
-  if (lastPin) headers['x-auth-pin'] = lastPin;
   return headers;
 }
 

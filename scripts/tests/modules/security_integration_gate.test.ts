@@ -80,11 +80,13 @@ export async function runSecurityIntegrationGateTests() {
       'GET /hujan derives estate from req.estateId only');
   }
 
-  // 4. Auth middleware enforces device approval for PIN auth
+  // 4. API middleware accepts signed JWT sessions, not raw PIN credentials
   {
     const src = read('src/server/middleware/auth.ts');
-    assert(src.includes('isPinAuthDeviceApproved') && src.includes('deviceSecurityService.getDeviceStatus'),
-      'auth middleware enforces device approval for PIN auth');
+    assert(!/x-auth-pin|x-kiosk-pin|x-pin|AuthService\.verifyPin/.test(src),
+      'auth middleware does not create sessions from raw PIN credentials');
+    assert(src.includes('AuthService.verifyToken') && src.includes('validateTenantAccess'),
+      'auth middleware retains signed JWT and tenant validation');
   }
 
   // 5. Privileged AI endpoints use requireRole

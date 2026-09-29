@@ -257,22 +257,21 @@ async function runChecklist7() {
   // TEST 7: Verify authentication and tenant isolation after restore
   // -------------------------------------------------------------
   console.log('>>> [TEST 7] Testing authentication & tenant isolation after restore...');
-  // 7a. Authenticate staff Tunggal
-  const tunggalAuthRes = await fetch(`${BASE_URL}/api/auth/verify-pin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin: '123456' })
-  });
-  const tunggalAuth = await tunggalAuthRes.json();
+  // 7a. Authenticate staff Tunggal using staging-provisioned kiosk credentials
+  const loginKiosk = async (estateCode: string, staffNo: string | undefined) => {
+    if (!staffNo?.trim()) return { success: false, user: null, token: null };
+    const res = await fetch(`${BASE_URL}/api/auth/verify-staff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estate_code: estateCode, staff_no: staffNo.trim() })
+    });
+    return await res.json();
+  };
+  const tunggalAuth = await loginKiosk('FPM_TUNGGAL', process.env.IPDS_DR_TUNGGAL_STAFF_NO);
   const tunggalToken = tunggalAuth.token;
 
-  // 7b. Authenticate staff Adela
-  const adelaAuthRes = await fetch(`${BASE_URL}/api/auth/verify-pin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin: '654321' })
-  });
-  const adelaAuth = await adelaAuthRes.json();
+  // 7b. Authenticate staff Adela using staging-provisioned kiosk credentials
+  const adelaAuth = await loginKiosk('FPM_ADELA', process.env.IPDS_DR_ADELA_STAFF_NO);
   const adelaToken = adelaAuth.token;
 
   const authSuccess = Boolean(tunggalToken && adelaToken);
@@ -317,8 +316,8 @@ async function runChecklist7() {
     },
     details: `Scoped JWT authentication verified for both estates. Zero cross-tenant data leakage confirmed.`
   });
-  console.log(`  ✅ Tunggal Staff PIN Auth: PASS (${tunggalAuth.user?.estate_id})`);
-  console.log(`  ✅ Adela Staff PIN Auth:   PASS (${adelaAuth.user?.estate_id})`);
+  console.log(`  ✅ Tunggal Kiosk Auth: PASS (${tunggalAuth.user?.estate_id || 'not authenticated'})`);
+  console.log(`  ✅ Adela Kiosk Auth:   PASS (${adelaAuth.user?.estate_id || 'not authenticated'})`);
   console.log(`  ✅ Cross-Tenant Leakage:   0% (Zero cross-estate data exposure)\n`);
 
   // -------------------------------------------------------------

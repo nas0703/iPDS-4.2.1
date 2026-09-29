@@ -26,7 +26,7 @@ export async function safeFetch(url: string, options: SafeFetchOptions = {}): Pr
     ...fetchOptions
   } = options;
 
-  // Auto-inject x-estate-id, Authorization, and x-auth-pin headers if not present
+  // Auto-inject x-estate-id and Authorization headers if not present
   const headers = new Headers(fetchOptions.headers || {});
   if (!headers.has('x-estate-id')) {
     const activeEstate = getActiveEstateId();
@@ -41,15 +41,6 @@ export async function safeFetch(url: string, options: SafeFetchOptions = {}): Pr
                     (typeof localStorage !== 'undefined' ? localStorage.getItem('ipds_token') : null);
       if (token) {
         headers.set('Authorization', `Bearer ${token}`);
-      }
-    } catch (e) {}
-  }
-
-  if (!headers.has('x-auth-pin')) {
-    try {
-      const pin = typeof localStorage !== 'undefined' ? localStorage.getItem('ipds_last_pin') : null;
-      if (pin) {
-        headers.set('x-auth-pin', pin);
       }
     } catch (e) {}
   }

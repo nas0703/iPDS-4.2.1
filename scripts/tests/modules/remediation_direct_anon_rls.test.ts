@@ -24,7 +24,7 @@ export async function runRemediationDirectAnonRlsTests() {
     console.error(`  [FAIL] Test 19.${total}: ${testName} -`, err.message || err);
   }
 
-  // Test 19.1: Verify PIN login produces valid token carrying estate_id claim
+  // Test 19.1: Verify an authenticated test session produces a token carrying estate_id
   try {
     const session = AuthService.verifyPin('123456');
     assert(session, 'AuthService PIN verification succeeds');

@@ -1,6 +1,6 @@
 import { v5 as uuidv5, v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
-import { loadHashedCredentials, verifyPinAgainstHash, verifyPasswordAgainstHash } from './credentials.loader.js';
+import { loadHashedCredentials, verifyPinAgainstHash, verifyPasswordAgainstHash, verifyStaffNoAgainstHash } from './credentials.loader.js';
 
 export type AuthRole = 'staff' | 'mandur' | 'pf' | 'fc' | 'afc' | 'fs' | 'eqi' | 'oc' | 'rc' | 'superadmin';
 
@@ -40,6 +40,7 @@ export interface UnifiedIdentityProfile {
   email: string;
   pin: string; // 6-digit PIN or masked PIN
   pin_hash?: string;
+  staff_no_hash?: string;
   password?: string; // Legacy/dynamic password
   password_hash?: string;
   app_role: AuthRole;
@@ -76,6 +77,7 @@ const INITIAL_SEEDS: Array<Omit<UnifiedIdentityProfile, 'id'>> = Object.entries(
   email: u.email || `${u.operator_id.toLowerCase()}@felda.gov.my`,
   pin: u.masked_pin || '******',
   pin_hash: u.pin_hash,
+  staff_no_hash: u.staff_no_hash,
   password_hash: u.password_hash,
   app_role: u.app_role,
   primary_estate_id: u.estate_id || 'FPM_TUNGGAL',
@@ -105,6 +107,19 @@ export class IdentityService {
       }
     }
     return null;
+  }
+
+  static findIdentityByStaffNoCredential(staffNo: string): UnifiedIdentityProfile | null {
+    if (!staffNo || typeof staffNo !== 'string') return null;
+    let match: UnifiedIdentityProfile | null = null;
+    for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
+      const valid = profile.is_active && verifyStaffNoAgainstHash(staffNo, profile.staff_no_hash);
+      if (valid) {
+        if (match) return null;
+        match = profile;
+      }
+    }
+    return match;
   }
 
   /**
@@ -239,6 +254,7 @@ export class IdentityService {
       email: profile.email || existing?.email || `${cleanPin}@felda.gov.my`,
       pin: cleanPin,
       pin_hash: pinHash,
+      staff_no_hash: profile.staff_no_hash || existing?.staff_no_hash,
       password_hash: passwordHash,
       app_role: profile.app_role,
       primary_estate_id: primaryEstate,
@@ -263,7 +279,7 @@ export class IdentityService {
    */
   static createUnifiedSession(
     profile: UnifiedIdentityProfile,
-    authMethod: 'PIN_KIOSK' | 'ESTATE_STAFF_PIN' | 'ENTERPRISE_PASSWORD' | 'SUPABASE_SSO' | 'ADMIN_ACTING_AS' | 'SESSION_RESTORE',
+    authMethod: 'PIN_KIOSK' | 'ESTATE_STAFF_PIN' | 'KIOSK_STAFF_NO' | 'ENTERPRISE_PASSWORD' | 'SUPABASE_SSO' | 'ADMIN_ACTING_AS' | 'SESSION_RESTORE',
     selectedEstateId?: string
   ): UserSession | null {
     if (!profile || !profile.is_active) return null;

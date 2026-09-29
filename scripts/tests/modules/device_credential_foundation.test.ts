@@ -103,13 +103,13 @@ export async function runDeviceCredentialFoundationTests() {
     assert(!/credential_hash|credential_version/.test(getStatusBlock), 'getDeviceStatus does not gate on credential fields (login unchanged)');
 
     const authRoutes = read(AUTH_ROUTES_SRC);
-    assert(/isStrictDeviceEnforcementEnabled\(\)/.test(authRoutes) && /authorizeDeviceForEstate\(/.test(authRoutes), 'login enforcement present and gated by the C.3 transition flag');
+    const staffRoute = authRoutes.slice(authRoutes.indexOf("router.post(['/verify-staff"), authRoutes.indexOf("router.post(['/verify-password"));
+    assert(/isStrictDeviceEnforcementEnabled\(\)/.test(staffRoute) && /authorizeDeviceForEstate\(/.test(staffRoute), 'kiosk login retains strict device credential enforcement');
+    assert(/deviceStatus\.status !== 'APPROVED'/.test(staffRoute), 'kiosk login retains the approved-device gate');
 
     const middleware = read(MIDDLEWARE_SRC);
-    assert(/isStrictDeviceEnforcementEnabled\(\)/.test(middleware) && /authorizeDeviceForEstate\(/.test(middleware), 'middleware enforcement present and gated by the C.3 transition flag');
-
-    // Existing approval flow untouched
-    assert(/status\.status === 'APPROVED'/.test(middleware) || /status === 'APPROVED'/.test(middleware), 'existing APPROVED-status gate remains');
+    assert(!/x-auth-pin|x-kiosk-pin|x-pin|AuthService\.verifyPin/.test(middleware), 'generic API middleware does not establish sessions from raw PINs');
+    assert(middleware.includes('AuthService.verifyToken(token)') && middleware.includes('validateTenantAccess'), 'API middleware keeps JWT and tenant validation');
   }
 
   // E. Security

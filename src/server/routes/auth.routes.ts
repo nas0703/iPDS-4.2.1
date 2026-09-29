@@ -96,262 +96,13 @@ export function recordAttempt(ip: string, success: boolean) {
   }
 }
 
-/**
- * POST /api/auth/verify-pin
- * Validates PIN strictly on server-side and issues HttpOnly cookie + JWT token
- */
-router.post(['/verify-pin', '/auth/verify-pin'], authRateLimiter, async (req, res) => {
-  try {
-    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-    const rateCheck = checkRateLimit(clientIp);
-
-    if (!rateCheck.allowed) {
-      auditService.record({
-        action: 'LOGIN_FAILURE',
-        resource: 'auth/verify-pin',
-        result: 'DENIED',
-        ip: clientIp,
-        userAgent: req.headers['user-agent'] || 'unknown',
-        errorMessage: 'Rate limit / lockout exceeded on login attempt'
-      });
-
-      return res.status(429).json({
-        success: false,
-        error: `Terlalu banyak percubaan log masuk gagal. Sila cuba lagi dalam ${rateCheck.remainingSec} saat.`,
-        code: 'RATE_LIMITED'
-      });
-    }
-
-    const { pin, deviceId, deviceName } = req.body || {};
-    if (!pin || typeof pin !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'PIN 6-digit diperlukan.',
-        code: 'MISSING_PIN'
-      });
-    }
-
-    const userSession = AuthService.verifyPin(pin);
-
-    if (!userSession) {
-      recordAttempt(clientIp, false);
-      
-      // Log to sessionManager audit
-      sessionManager.logLoginAttempt({
-        authMethod: 'PIN_KIOSK',
-        identifier: 'PIN_SUBMITTED',
-        operatorName: 'Unknown Operator',
-        role: 'UNKNOWN',
-        attemptedEstate: 'UNKNOWN',
-        status: 'INVALID_CREDENTIALS',
-        threatLevel: 'MEDIUM',
-        ip: clientIp,
-        userAgent: (req.headers['user-agent'] as string) || 'unknown',
-        notes: 'Cubaan PIN Kiosk tidak sah atau tidak berdaftar.'
-      });
-
-      // Structured Audit: Record Failed Login (Never log the actual PIN string)
-      auditService.record({
-        action: 'LOGIN_FAILURE',
-        resource: 'auth/verify-pin',
-        result: 'FAILURE',
-        ip: clientIp,
-        userAgent: req.headers['user-agent'] || 'unknown',
-        errorMessage: 'Invalid PIN submitted'
-      });
-
-      // Small artificial jitter delay to prevent timing attacks
-      await new Promise(r => setTimeout(r, 200));
-      return res.status(401).json({
-        success: false,
-        error: 'PIN tidak sah. Sila masukkan PIN yang betul.',
-        code: 'INVALID_PIN'
-      });
-    }
-
-    // --- PERINGKAT 1: DEVICE WHITELIST ENFORCEMENT ---
-    const effectiveDeviceId = deviceId || (req.headers['x-device-id'] as string) || 'DEV-UNSPECIFIED';
-    const operatorRole = userSession.app_metadata.app_role;
-    const operatorName = userSession.user_metadata.operator_name;
-    const estateId = userSession.app_metadata.estate_id || 'FPM_TUNGGAL';
-
-    // Check device status
-    let deviceStatus = await deviceSecurityService.getDeviceStatus(effectiveDeviceId, estateId);
-
-    // P0-07: devices are NEVER auto-approved from a static/master PIN. Any
-    // unregistered device is created PENDING and login is blocked until an
-    // authenticated administrator approves it.
-    const bootstrapToken = (req.headers['x-device-bootstrap-token'] as string) || (req.body && req.body.bootstrapToken) || undefined;
-    if (!deviceStatus) {
-      deviceStatus = await deviceSecurityService.registerDevice({
-        deviceId: effectiveDeviceId,
-        deviceName: deviceName || 'Peranti Staf Baharu',
-        estateId,
-        pin,
-        operatorName,
-        role: operatorRole,
-        ip: clientIp,
-        userAgent: (req.headers['user-agent'] as string) || 'unknown',
-        bootstrapToken
-      });
-    } else if (deviceStatus.status !== 'APPROVED' && verifyBootstrapToken(bootstrapToken)) {
-      // P0-16: secure bootstrap upgrade for an already-PENDING device.
-      deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, 'BOOTSTRAP_TOKEN', 'bootstrap');
-    }
-
-    if (redirectMergedDevice(deviceStatus, res)) return;
-
-    // If device is not APPROVED, block login and prompt for authorization
-    if (deviceStatus.status !== 'APPROVED') {
-      auditService.record({
-        action: 'LOGIN_BLOCKED_UNREGISTERED_DEVICE',
-        resource: 'auth/verify-pin',
-        userId: userSession.app_metadata.operator_id,
-        userName: operatorName,
-        authorizedEstate: estateId,
-        result: 'DENIED',
-        ip: clientIp,
-        userAgent: (req.headers['user-agent'] as string) || 'unknown',
-        details: {
-          deviceId: effectiveDeviceId,
-          deviceStatus: deviceStatus.status,
-          deviceName: deviceStatus.device_name
-        }
-      });
-
-      const approvalCapability = await createApprovalCapability({
-        deviceId: deviceStatus.device_id,
-        estateId,
-        createdBy: operatorName,
-        requesterName: operatorName,
-        requesterStaffId: userSession.app_metadata.operator_id,
-        deviceName: deviceStatus.device_name
-      });
-      const approvalUrl = `/api/devices/approve-link?cap=${encodeURIComponent(approvalCapability.capability)}`;
-      await sendApprovalLink({
-        approvalUrl,
-        estateId,
-        deviceId: deviceStatus.device_id,
-        deviceName: deviceStatus.device_name,
-        requesterName: operatorName,
-        requesterStaffId: userSession.app_metadata.operator_id
-      });
-      return res.status(403).json({
-        success: false,
-        error: 'PIN sah, tetapi peranti ini belum diluluskan untuk akses aplikasi.',
-        code: 'DEVICE_NOT_APPROVED',
-        device: {
-          deviceId: deviceStatus.device_id,
-          deviceName: deviceStatus.device_name,
-          status: deviceStatus.status,
-          operatorName: deviceStatus.operator_name,
-          createdAt: deviceStatus.created_at
-        }
-      });
-    }
-
-    // P0-16C.3: strict device credential + estate authorization.
-    // OFF by default (transition) so existing devices are not locked out before
-    // the C.5 backfill; enable via IPDS_DEVICE_STRICT_ENFORCEMENT=true.
-    if (isStrictDeviceEnforcementEnabled()) {
-      const deviceCredential = extractDeviceCredential(req);
-      const deviceAuth = await authorizeDeviceForEstate({ credential: deviceCredential, requestedEstateId: estateId });
-      if (redirectMergedDevice(deviceAuth, res)) return;
-      if (!deviceAuth.allowed) {
-        auditService.record({
-          action: 'LOGIN_BLOCKED_DEVICE_NOT_AUTHORIZED',
-          resource: 'auth/verify-pin',
-          userId: userSession.app_metadata.operator_id,
-          userName: operatorName,
-          authorizedEstate: estateId,
-          result: 'DENIED',
-          ip: clientIp,
-          userAgent: (req.headers['user-agent'] as string) || 'unknown',
-          details: { reason: deviceAuth.code }
-        });
-        return res.status(403).json({
-          success: false,
-          error: 'Peranti tidak dibenarkan untuk ladang ini. Sila hubungi Pentadbir.',
-          code: 'DEVICE_NOT_AUTHORIZED'
-        });
-      }
-    }
-
-    recordAttempt(clientIp, true);
-
-    // Register active session in sessionManager
-    const activeSession = sessionManager.registerSession(
-      userSession,
-      clientIp,
-      (req.headers['user-agent'] as string) || 'unknown'
-    );
-
-    // Log successful login attempt
-    sessionManager.logLoginAttempt({
-      authMethod: 'PIN_KIOSK',
-      identifier: userSession.app_metadata.operator_id,
-      operatorName: userSession.user_metadata.operator_name,
-      role: userSession.app_metadata.app_role,
-      attemptedEstate: userSession.app_metadata.estate_id,
-      assignedEstate: userSession.app_metadata.estate_id,
-      status: 'SUCCESS',
-      threatLevel: 'LOW',
-      ip: clientIp,
-      userAgent: (req.headers['user-agent'] as string) || 'unknown',
-      notes: `Log masuk berjaya di ${userSession.user_metadata.station_name}.`
-    });
-
-    // Generate signed JWT token
-    const token = AuthService.generateToken(userSession);
-
-    // Structured Audit: Record Successful Login
-    auditService.record({
-      action: 'LOGIN_SUCCESS',
-      resource: 'auth/verify-pin',
-      userId: userSession.app_metadata.operator_id,
-      userName: userSession.user_metadata.operator_name,
-      role: userSession.app_metadata.app_role,
-      authorizedEstate: userSession.app_metadata.estate_id,
-      result: 'SUCCESS',
-      ip: clientIp,
-      userAgent: req.headers['user-agent'] || 'unknown',
-      details: {
-        kiosk_id: userSession.app_metadata.kiosk_id,
-        station_name: userSession.user_metadata.station_name
-      }
-    });
-
-    // Set secure HttpOnly session cookie
-    const isProduction = process.env.NODE_ENV === 'production';
-    res.cookie(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: COOKIE_SESSION_MAX_AGE_MS,
-      path: '/'
-    });
-
-    return res.json({
-      success: true,
-      user: {
-        role: userSession.app_metadata.app_role,
-        name: userSession.user_metadata.operator_name,
-        estate_id: userSession.app_metadata.estate_id,
-        kiosk_id: userSession.app_metadata.kiosk_id,
-        operator_id: userSession.app_metadata.operator_id,
-        station_name: userSession.user_metadata.station_name,
-        is_super_admin: isSuperAdminIdentity(userSession)
-      },
-      token
-    });
-  } catch (err: unknown) {
-    console.error('Verify PIN error:', err);
-    return res.status(500).json({
-      success: false,
-      error: 'Ralat pelayan semasa memproses pengesahan PIN.',
-      code: 'SERVER_ERROR'
-    });
-  }
+/** Disabled legacy normal-login route. PIN checks remain in privileged handlers. */
+router.post(['/verify-pin', '/auth/verify-pin'], authRateLimiter, (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'Kaedah log masuk ini tidak lagi tersedia. Sila gunakan Kod Ladang dan No. Kakitangan.',
+    code: 'AUTH_METHOD_REMOVED'
+  });
 });
 
 /**
@@ -380,50 +131,55 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
       });
     }
 
-    const { estate_code, estateCode, staff_no, staffNo, pin, secret, deviceId, deviceName } = req.body || {};
-    const targetEstate = estateCode || estate_code || 'FPM_TUNGGAL';
+    const { estate_code, estateCode, staff_no, staffNo, deviceId, deviceName } = req.body || {};
+    const targetEstate = estateCode || estate_code;
     const targetStaffNo = staffNo || staff_no;
-    const targetSecret = secret || pin;
 
-    if (!targetStaffNo || typeof targetStaffNo !== 'string' || !targetSecret || typeof targetSecret !== 'string') {
+    if (
+      !targetEstate || typeof targetEstate !== 'string' || targetEstate.trim().length > 64 ||
+      !targetStaffNo || typeof targetStaffNo !== 'string' || targetStaffNo.trim().length > 64
+    ) {
       return res.status(400).json({
         success: false,
-        error: 'Kod Ladang, No. Kakitangan, dan PIN/Rahsia diperlukan.',
+        error: 'Kod Ladang dan No. Kakitangan diperlukan.',
         code: 'MISSING_CREDENTIALS'
       });
     }
 
-    const userSession = AuthService.verifyEstateStaffLogin(targetEstate, targetStaffNo, targetSecret);
+    const loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
+    const userSession = loginResult.session;
 
     if (!userSession) {
       recordAttempt(clientIp, false);
-      
-      const staffConfig = AuthService.getStaffConfig(targetStaffNo);
-      const isCrossEstate = staffConfig && staffConfig.estate_id && staffConfig.estate_id !== targetEstate;
+      const isCrossEstate = loginResult.failureReason === 'UNAUTHORIZED_ESTATE';
       
       sessionManager.logLoginAttempt({
-        authMethod: 'ESTATE_STAFF_PIN',
-        identifier: targetStaffNo,
-        operatorName: staffConfig?.operator_name || 'Tidak Diketahui',
-        role: staffConfig?.app_role || 'UNKNOWN',
+        authMethod: 'KIOSK_STAFF_NO',
+        identifier: loginResult.identity?.operator_id || 'INVALID_KIOSK_CREDENTIALS',
+        operatorName: loginResult.identity?.full_name || 'Tidak Diketahui',
+        role: loginResult.identity?.app_role || 'UNKNOWN',
         attemptedEstate: targetEstate,
-        assignedEstate: staffConfig?.estate_id,
+        assignedEstate: loginResult.identity?.primary_estate_id,
         status: isCrossEstate ? 'UNAUTHORIZED_CROSS_ESTATE' : 'INVALID_CREDENTIALS',
         threatLevel: isCrossEstate ? 'HIGH' : 'MEDIUM',
         ip: clientIp,
         userAgent: (req.headers['user-agent'] as string) || 'unknown',
         notes: isCrossEstate
-          ? `AMARAN KESELAMATAN: Cubaan log masuk silang ladang disekat serta-merta. Kakitangan berdaftar di ${staffConfig.estate_id} cuba mengakses portal ${targetEstate}.`
-          : `Cubaan log masuk gagal: No. Kakitangan / PIN '${targetStaffNo}' tidak berdaftar.`
+          ? `Cubaan log masuk silang ladang disekat untuk identiti ${loginResult.identity?.operator_id}.`
+          : 'Cubaan log masuk kiosk gagal; kod ladang atau No. Kakitangan tidak sah.'
       });
 
       auditService.record({
         action: isCrossEstate ? 'ESTATE_ACCESS_DENIED' : 'LOGIN_FAILURE',
         resource: 'auth/verify-staff',
+        userId: loginResult.identity?.operator_id,
+        userName: loginResult.identity?.full_name,
+        role: loginResult.identity?.app_role,
+        authorizedEstate: loginResult.identity?.primary_estate_id,
         result: 'FAILURE',
         ip: clientIp,
         userAgent: req.headers['user-agent'] || 'unknown',
-        errorMessage: `Invalid staff credentials: Estate=${targetEstate}, StaffNo=${targetStaffNo}`
+        errorMessage: isCrossEstate ? 'Unauthorized estate selected for kiosk identity' : 'Invalid kiosk credentials'
       });
 
       await new Promise(r => setTimeout(r, 200));
@@ -451,7 +207,6 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
         deviceId: effectiveDeviceId,
         deviceName: deviceName || 'Peranti Staf Baharu',
         estateId,
-        pin: targetStaffNo,
         operatorName,
         role: operatorRole,
         ip: clientIp,
@@ -551,7 +306,7 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
 
     // Log success
     sessionManager.logLoginAttempt({
-      authMethod: 'ESTATE_STAFF_PIN',
+      authMethod: 'KIOSK_STAFF_NO',
       identifier: userSession.app_metadata.operator_id,
       operatorName: userSession.user_metadata.operator_name,
       role: userSession.app_metadata.app_role,
@@ -578,8 +333,7 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
       userAgent: req.headers['user-agent'] || 'unknown',
       details: {
         auth_type: 'estate_code_staff_no',
-        estate_code: targetEstate,
-        staff_no: targetStaffNo
+        estate_id: userSession.app_metadata.estate_id
       }
     });
 
@@ -615,182 +369,13 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
   }
 });
 
-/**
- * POST /api/auth/verify-password
- * Validates enterprise identity (Username/Email/ID + Alphanumeric Password) on server-side
- */
-router.post(['/verify-password', '/auth/verify-password'], authRateLimiter, async (req, res) => {
-  try {
-    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-    const rateCheck = checkRateLimit(clientIp);
-
-    if (!rateCheck.allowed) {
-      auditService.record({
-        action: 'LOGIN_FAILURE',
-        resource: 'auth/verify-password',
-        result: 'DENIED',
-        ip: clientIp,
-        userAgent: req.headers['user-agent'] || 'unknown',
-        errorMessage: 'Rate limit / lockout exceeded on password login attempt'
-      });
-
-      return res.status(429).json({
-        success: false,
-        error: `Terlalu banyak percubaan log masuk gagal. Sila cuba lagi dalam ${rateCheck.remainingSec} saat.`,
-        code: 'RATE_LIMITED'
-      });
-    }
-
-    const { username, identity, password } = req.body || {};
-    const userIdentity = identity || username;
-
-    if (!userIdentity || !password || typeof userIdentity !== 'string' || typeof password !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Identiti (Emel/ID/Nama Pengguna) dan Kata Laluan Alfanumerik diperlukan.',
-        code: 'MISSING_CREDENTIALS'
-      });
-    }
-
-    const userSession = AuthService.verifyPassword(userIdentity, password);
-
-    if (!userSession) {
-      recordAttempt(clientIp, false);
-      
-      sessionManager.logLoginAttempt({
-        authMethod: 'ENTERPRISE_PASSWORD',
-        identifier: userIdentity,
-        operatorName: 'Unknown Identity',
-        role: 'UNKNOWN',
-        attemptedEstate: 'UNKNOWN',
-        status: 'INVALID_CREDENTIALS',
-        threatLevel: 'MEDIUM',
-        ip: clientIp,
-        userAgent: (req.headers['user-agent'] as string) || 'unknown',
-        notes: `Percubaan log masuk kata laluan gagal bagi akaun/ID '${userIdentity}'.`
-      });
-
-      auditService.record({
-        action: 'LOGIN_FAILURE',
-        resource: 'auth/verify-password',
-        result: 'FAILURE',
-        ip: clientIp,
-        userAgent: req.headers['user-agent'] || 'unknown',
-        errorMessage: `Invalid password credentials for identity: ${userIdentity}`
-      });
-
-      // Small jitter delay to prevent timing attacks
-      await new Promise(r => setTimeout(r, 250));
-      return res.status(401).json({
-        success: false,
-        error: 'Identiti atau Kata Laluan tidak sah. Sila semak semula kredensial anda.',
-        code: 'INVALID_CREDENTIALS'
-      });
-    }
-
-    // P0-16C.3: strict device credential + estate authorization (enterprise
-    // password path). OFF by default (transition); enable via
-    // IPDS_DEVICE_STRICT_ENFORCEMENT=true.
-    if (isStrictDeviceEnforcementEnabled()) {
-      const enterpriseEstate = String(userSession.app_metadata.estate_id || 'FPM_TUNGGAL').toUpperCase();
-      const deviceCredential = extractDeviceCredential(req);
-      const deviceAuth = await authorizeDeviceForEstate({ credential: deviceCredential, requestedEstateId: enterpriseEstate });
-      if (redirectMergedDevice(deviceAuth, res)) return;
-      if (!deviceAuth.allowed) {
-        auditService.record({
-          action: 'LOGIN_BLOCKED_DEVICE_NOT_AUTHORIZED',
-          resource: 'auth/verify-password',
-          userId: userSession.app_metadata.operator_id,
-          userName: userSession.user_metadata.operator_name,
-          authorizedEstate: enterpriseEstate,
-          result: 'DENIED',
-          ip: clientIp,
-          userAgent: (req.headers['user-agent'] as string) || 'unknown',
-          details: { reason: deviceAuth.code }
-        });
-        return res.status(403).json({
-          success: false,
-          error: 'Peranti tidak dibenarkan untuk ladang ini. Sila hubungi Pentadbir.',
-          code: 'DEVICE_NOT_AUTHORIZED'
-        });
-      }
-    }
-
-    recordAttempt(clientIp, true);
-
-    // Register active session
-    sessionManager.registerSession(
-      userSession,
-      clientIp,
-      (req.headers['user-agent'] as string) || 'unknown'
-    );
-
-    // Log success
-    sessionManager.logLoginAttempt({
-      authMethod: 'ENTERPRISE_PASSWORD',
-      identifier: userSession.app_metadata.operator_id,
-      operatorName: userSession.user_metadata.operator_name,
-      role: userSession.app_metadata.app_role,
-      attemptedEstate: userSession.app_metadata.estate_id,
-      assignedEstate: userSession.app_metadata.estate_id,
-      status: 'SUCCESS',
-      threatLevel: 'LOW',
-      ip: clientIp,
-      userAgent: (req.headers['user-agent'] as string) || 'unknown',
-      notes: `Log masuk Enterprise Password berjaya bagi ${userSession.user_metadata.operator_name}.`
-    });
-
-    // Generate signed JWT token
-    const token = AuthService.generateToken(userSession);
-
-    // Record Successful Login
-    auditService.record({
-      action: 'LOGIN_SUCCESS',
-      resource: 'auth/verify-password',
-      userId: userSession.app_metadata.operator_id,
-      userName: userSession.user_metadata.operator_name,
-      role: userSession.app_metadata.app_role,
-      authorizedEstate: userSession.app_metadata.estate_id,
-      result: 'SUCCESS',
-      ip: clientIp,
-      userAgent: req.headers['user-agent'] || 'unknown',
-      details: {
-        auth_type: 'enterprise_password',
-        station_name: userSession.user_metadata.station_name
-      }
-    });
-
-    // Set secure HttpOnly session cookie
-    const isProduction = process.env.NODE_ENV === 'production';
-    res.cookie(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: COOKIE_SESSION_MAX_AGE_MS,
-      path: '/'
-    });
-
-    return res.json({
-      success: true,
-      user: {
-        role: userSession.app_metadata.app_role,
-        name: userSession.user_metadata.operator_name,
-        estate_id: userSession.app_metadata.estate_id,
-        kiosk_id: userSession.app_metadata.kiosk_id,
-        operator_id: userSession.app_metadata.operator_id,
-        station_name: userSession.user_metadata.station_name,
-        is_super_admin: isSuperAdminIdentity(userSession)
-      },
-      token
-    });
-  } catch (err: unknown) {
-    console.error('Verify Password error:', err);
-    return res.status(500).json({
-      success: false,
-      error: 'Ralat pelayan semasa memproses pengesahan kata laluan.',
-      code: 'SERVER_ERROR'
-    });
-  }
+/** Disabled legacy normal-login route. */
+router.post(['/verify-password', '/auth/verify-password'], authRateLimiter, (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'Kaedah log masuk ini tidak lagi tersedia. Sila gunakan Kod Ladang dan No. Kakitangan.',
+    code: 'AUTH_METHOD_REMOVED'
+  });
 });
 
 /**

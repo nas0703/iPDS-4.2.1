@@ -23,8 +23,6 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     '/cron',
     '/api/telemetry/client-error',
     '/telemetry/client-error',
-    '/api/auth/verify-pin',
-    '/auth/verify-pin',
     '/api/auth/logout',
     '/auth/logout',
     '/api/devices/approve-link',

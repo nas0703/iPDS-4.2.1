@@ -181,11 +181,11 @@ async function runAuthBypassTestSuite() {
       headers: {}
     };
     const { user } = extractUserFromRequest(req);
-    assert(user === null, 'Opening application on new device/browser mandates PIN entry (LoginScreen)');
+    assert(user === null, 'Opening application on new device/browser shows the kiosk login screen');
   }
 
   // ----------------------------------------------------
-  // TEST 13 (REGRESSION PART B): Staff login without secret must be rejected
+  // TEST 13: Unprovisioned staff number must fail closed
   // ----------------------------------------------------
   {
     const layer = (authRoutes as any).stack.find((l: any) => 
@@ -212,11 +212,11 @@ async function runAuthBypassTestSuite() {
 
     await handler(req, res);
     const isRejected = (statusCode === 400 || statusCode === 401) && !responseBody?.token && !cookies[COOKIE_NAME];
-    assert(isRejected, 'PART B: POST /verify-staff without secret field is rejected (no token/cookie granted)', `Got status ${statusCode}, token=${!!responseBody?.token}`);
+    assert(isRejected, 'POST /verify-staff rejects a staff number without a provisioned hash', `Got status ${statusCode}, token=${!!responseBody?.token}`);
   }
 
   // ----------------------------------------------------
-  // TEST 14 (REGRESSION PART B): Staff login with WRONG secret must be rejected
+  // TEST 14: PIN/password fields are not kiosk credentials
   // ----------------------------------------------------
   {
     const layer = (authRoutes as any).stack.find((l: any) => 
@@ -243,11 +243,11 @@ async function runAuthBypassTestSuite() {
 
     await handler(req, res);
     const isRejected = (statusCode === 400 || statusCode === 401) && !responseBody?.token && !cookies[COOKIE_NAME];
-    assert(isRejected, 'PART B: POST /verify-staff with wrong secret is rejected (401, no token/cookie granted)', `Got status ${statusCode}, token=${!!responseBody?.token}`);
+    assert(isRejected, 'POST /verify-staff does not fall back to PIN/password fields', `Got status ${statusCode}, token=${!!responseBody?.token}`);
   }
 
   // ----------------------------------------------------
-  // TEST 15 (REGRESSION PART B): Staff login with CORRECT secret must succeed
+  // TEST 15: A valid legacy PIN must not log in through the kiosk endpoint
   // ----------------------------------------------------
   {
     const layer = (authRoutes as any).stack.find((l: any) => 
@@ -273,8 +273,8 @@ async function runAuthBypassTestSuite() {
     };
 
     await handler(req, res);
-    const isSuccess = statusCode === 200 && !!responseBody?.token && responseBody?.success === true;
-    assert(isSuccess, 'PART B: POST /verify-staff with correct secret succeeds with authenticated session', `Got status ${statusCode}, success=${responseBody?.success}`);
+    const isRejected = (statusCode === 400 || statusCode === 401) && !responseBody?.token && !cookies[COOKIE_NAME];
+    assert(isRejected, 'POST /verify-staff rejects PIN-only credentials', `Got status ${statusCode}, success=${responseBody?.success}`);
   }
 
   console.log(`\n----------------------------------------------------`);

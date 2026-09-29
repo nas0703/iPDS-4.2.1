@@ -76,7 +76,7 @@ export function requireRbacAdmin(req: express.Request, res: express.Response, ne
  * Non-secret operational fields (id, role, label, estate_id, username,
  * allowedModules, quickAccess, ...) are preserved.
  */
-const RBAC_CREDENTIAL_FIELD_PATTERN = /pass(word)?|pin|secret|token|credential|hash/i;
+const RBAC_CREDENTIAL_FIELD_PATTERN = /pass(word)?|pin|secret|token|credential|hash|staff.?no/i;
 
 export function sanitizeRbacRegistryForResponse(
   registry: Record<string, unknown> | null | undefined
@@ -434,11 +434,20 @@ router.post(['/rbac', '/settings/rbac'], requireAuth, requireRbacAdmin, adminRat
   try {
     const { registry } = req.body || {};
     if (registry && typeof registry === 'object') {
-      cachedRbacRegistry = registry as RbacRegistry;
+      const safeRegistry: RbacRegistry = {};
+      for (const [key, entry] of Object.entries(registry as RbacRegistry)) {
+        if (!entry || typeof entry !== 'object') continue;
+        const safeEntry = { ...entry };
+        for (const field of Object.keys(safeEntry)) {
+          if (/staff.?no/i.test(field)) delete safeEntry[field];
+        }
+        safeRegistry[key] = safeEntry;
+      }
+      cachedRbacRegistry = safeRegistry;
 
       // Update server-side in-memory auth PINs & Identity Service
       const pinMap: Record<string, Record<string, unknown>> = {};
-      for (const [pin, user] of Object.entries(registry as RbacRegistry)) {
+      for (const [pin, user] of Object.entries(safeRegistry)) {
         if (user && (user.role || user.app_role)) {
           pinMap[pin] = {
             app_role: user.role || user.app_role,
@@ -459,7 +468,7 @@ router.post(['/rbac', '/settings/rbac'], requireAuth, requireRbacAdmin, adminRat
           fs.mkdirSync(dataDir, { recursive: true });
         }
         const rbacFilePath = path.join(dataDir, 'rbac_registry.json');
-        fs.writeFileSync(rbacFilePath, JSON.stringify(registry, null, 2), 'utf-8');
+        fs.writeFileSync(rbacFilePath, JSON.stringify(safeRegistry, null, 2), 'utf-8');
       } catch (fsErr) {
         console.warn('[RBAC_SYNC] Notice saving to local disk:', fsErr);
       }
@@ -470,7 +479,7 @@ router.post(['/rbac', '/settings/rbac'], requireAuth, requireRbacAdmin, adminRat
         try {
           await supabase.from('app_settings').upsert({
             key: 'rbac_registry',
-            value: registry,
+            value: safeRegistry,
             updated_at: new Date().toISOString(),
           });
         } catch (e: unknown) {

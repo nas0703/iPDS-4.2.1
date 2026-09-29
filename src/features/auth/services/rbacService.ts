@@ -392,13 +392,9 @@ export async function savePinRegistryAsync(registry: Record<string, RoleUserConf
     // Immediate background sync to server API
     try {
       const token = typeof window !== "undefined" ? (sessionStorage.getItem("ipds_token") || localStorage.getItem("ipds_token")) : null;
-      const lastPin = typeof window !== "undefined" ? localStorage.getItem("ipds_last_pin") : null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
-      }
-      if (lastPin) {
-        headers["x-auth-pin"] = lastPin;
       }
       const res = await safeFetch("/api/settings/rbac", {
         method: "POST",
@@ -443,10 +439,8 @@ export function savePinRegistry(registry: Record<string, RoleUserConfig>): boole
 export async function syncPinRegistryFromServer(): Promise<Record<string, RoleUserConfig> | null> {
   try {
     const token = typeof window !== "undefined" ? (sessionStorage.getItem("ipds_token") || localStorage.getItem("ipds_token")) : null;
-    const lastPin = typeof window !== "undefined" ? localStorage.getItem("ipds_last_pin") : null;
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    if (lastPin) headers["x-auth-pin"] = lastPin;
 
     let res = await safeFetch("/api/settings/rbac", {
       method: "GET",
@@ -514,10 +508,8 @@ if (typeof window !== "undefined") {
 export async function fetchPinVaultAsync(): Promise<Record<string, { pin: string; password?: string; operator_name?: string }> | null> {
   try {
     const token = typeof window !== "undefined" ? (sessionStorage.getItem("ipds_token") || localStorage.getItem("ipds_token")) : null;
-    const lastPin = typeof window !== "undefined" ? localStorage.getItem("ipds_last_pin") : null;
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    if (lastPin) headers["x-auth-pin"] = lastPin;
 
     const res = await safeFetch("/api/auth/super-admin/pin-vault", {
       method: "GET",
@@ -735,9 +727,6 @@ export function updateUserCredential(
   // If the logged in user changed their own PIN or Staff No, update local session keys
   if (typeof window !== "undefined") {
     try {
-      if (localStorage.getItem("ipds_last_pin") === cleanOldPin) {
-        localStorage.setItem("ipds_last_pin", cleanNewPin);
-      }
       if (sessionStorage.getItem("ipds_user_pin") === cleanOldPin) {
         sessionStorage.setItem("ipds_user_pin", cleanNewPin);
       }
@@ -823,9 +812,6 @@ export async function updateUserCredentialAsync(
 
   if (typeof window !== "undefined") {
     try {
-      if (localStorage.getItem("ipds_last_pin") === cleanOldPin) {
-        localStorage.setItem("ipds_last_pin", cleanNewPin);
-      }
       if (sessionStorage.getItem("ipds_user_pin") === cleanOldPin) {
         sessionStorage.setItem("ipds_user_pin", cleanNewPin);
       }
@@ -1088,17 +1074,8 @@ export function getAllowedModulesForUser(roleOrPin?: string | null): ModuleKey[]
     ];
   }
 
-  const storedPin = (localStorage.getItem("ipds_last_pin") || (roleOrPin && roleOrPin.length >= 6 ? roleOrPin : ""))
-    ?.trim()
-    .replace(/\s+/g, "");
-
-  const registry = getStoredPinRegistry();
-
-  if (storedPin && registry[storedPin] && Array.isArray(registry[storedPin].allowedModules)) {
-    return registry[storedPin].allowedModules;
-  }
-
   // Fallback to role match in registry
+  const registry = getStoredPinRegistry();
   if (sessionRole) {
     const userMatch = Object.values(registry).find((u) => u.role === sessionRole);
     if (userMatch && Array.isArray(userMatch.allowedModules)) {
@@ -1186,11 +1163,12 @@ export function getCurrentUserEstate(authRole?: string | null): string {
       const stored = sessionStorage.getItem("ipds_user_estate") || localStorage.getItem("ipds_user_estate");
       if (stored) return normalizeEstateId(stored);
 
-      const lastPin = localStorage.getItem("ipds_last_pin")?.trim().replace(/\s+/g, "");
-      if (lastPin) {
-        const reg = getStoredPinRegistry();
-        if (reg[lastPin]?.estate_id) {
-          return normalizeEstateId(reg[lastPin].estate_id);
+      // Registry fallback (PIN-independent): resolve home estate from the session role
+      const registry = getStoredPinRegistry();
+      if (authRole) {
+        const roleMatch = Object.values(registry).find((u) => u.role === authRole);
+        if (roleMatch?.estate_id) {
+          return normalizeEstateId(roleMatch.estate_id);
         }
       }
     } catch (_) {}

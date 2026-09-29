@@ -13,6 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import {
   deviceSecurityService,
   createApprovalCapability,
@@ -20,6 +21,7 @@ import {
 } from '../../../src/server/services/deviceSecurity.service.js';
 import devicesRoutes from '../../../src/server/routes/devices.routes.js';
 import authRoutes from '../../../src/server/routes/auth.routes.js';
+import { IdentityService } from '../../../src/server/services/identity.service.js';
 
 interface MockResult { status: number; body: any; allowed: boolean; }
 
@@ -180,12 +182,24 @@ export async function runDeviceApprovalCapabilityTests() {
     const enroll = await invokeHandler(enrollHandler, buildReq('GET', { query: { deviceId: 'DEV-CAP-ROUTE' } }));
     assert(enroll.body?.status === 'APPROVED', 'enrollment-status detects APPROVED', JSON.stringify(enroll.body));
 
-    // 6. Normal login proceeds after approval (verify-pin gate passes)
+    // 6. Kiosk login proceeds after device approval
     process.env.SUPABASE_JWT_SECRET = 'p0-16a-test-secret';
     process.env.SUPABASE_URL = 'https://test.supabase.co';
-    const verifyRoute = findRoute(authRoutes, 'post', '/verify-pin');
+    const staffNo = 'CAP-TEST-STAFF-01';
+    IdentityService.registerOrUpdateIdentity({
+      pin: '2401199',
+      staff_no_hash: bcrypt.hashSync(staffNo, 10),
+      app_role: 'staff',
+      full_name: 'Capability Test Staff',
+      operator_id: 'CAP-TEST-STAFF-01',
+      primary_estate_id: 'FPM_TUNGGAL',
+      station_name: 'Capability Test Station'
+    });
+    const verifyRoute = findRoute(authRoutes, 'post', '/verify-staff');
     const verifyHandler = routeHandlers(verifyRoute).slice(-1)[0];
-    const verifyRes = await invokeHandler(verifyHandler, buildReq('POST', { body: { pin: '2401199', deviceId: 'DEV-CAP-ROUTE', deviceName: 'Cap Route' } }));
+    const verifyRes = await invokeHandler(verifyHandler, buildReq('POST', { body: {
+      estate_code: 'FPM_TUNGGAL', staff_no: staffNo, deviceId: 'DEV-CAP-ROUTE', deviceName: 'Cap Route'
+    } }));
     assert(!(verifyRes.status === 403 && verifyRes.body?.code === 'DEVICE_NOT_APPROVED'),
       'login is no longer blocked by DEVICE_NOT_APPROVED after approval', `got ${verifyRes.status} ${JSON.stringify(verifyRes.body)?.slice(0,120)}`);
   } finally {
@@ -194,7 +208,7 @@ export async function runDeviceApprovalCapabilityTests() {
     }
   }
 
-  // 7. Client / URL / logging guards (FIX 1: approvalUrl is never returned to client in verify-pin response)
+  // 7. Client / URL / logging guards
   {
     const auth = read(AUTH_SRC);
     assert(!/res\.status\(403\)\.json\([^)]*approvalUrl/s.test(auth),

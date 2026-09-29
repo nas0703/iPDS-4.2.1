@@ -298,6 +298,21 @@ function verifyPasswordAgainstHash(inputPassword, passwordHash) {
     return false;
   }
 }
+function normalizeStaffNo(staffNo) {
+  return staffNo.trim().toUpperCase();
+}
+function verifyStaffNoAgainstHash(staffNo, staffNoHash) {
+  if (!staffNo || !staffNoHash || typeof staffNoHash !== "string" || !staffNoHash.startsWith("$2")) {
+    return false;
+  }
+  try {
+    const normalized = normalizeStaffNo(staffNo);
+    if (!normalized || Buffer.byteLength(normalized, "utf8") > 72) return false;
+    return bcrypt.compareSync(normalized, staffNoHash);
+  } catch {
+    return false;
+  }
+}
 var envCredPath, __dirnameCurrent, cachedCredentials;
 var init_credentials_loader = __esm({
   "src/server/services/credentials.loader.ts"() {
@@ -344,6 +359,7 @@ var init_identity_service = __esm({
       email: u.email || `${u.operator_id.toLowerCase()}@felda.gov.my`,
       pin: u.masked_pin || "******",
       pin_hash: u.pin_hash,
+      staff_no_hash: u.staff_no_hash,
       password_hash: u.password_hash,
       app_role: u.app_role,
       primary_estate_id: u.estate_id || "FPM_TUNGGAL",
@@ -368,6 +384,18 @@ var init_identity_service = __esm({
           }
         }
         return null;
+      }
+      static findIdentityByStaffNoCredential(staffNo) {
+        if (!staffNo || typeof staffNo !== "string") return null;
+        let match = null;
+        for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
+          const valid = profile.is_active && verifyStaffNoAgainstHash(staffNo, profile.staff_no_hash);
+          if (valid) {
+            if (match) return null;
+            match = profile;
+          }
+        }
+        return match;
       }
       /**
        * Resolve an identity profile by Staff No, Operator ID, or Username
@@ -472,6 +500,7 @@ var init_identity_service = __esm({
           email: profile.email || existing?.email || `${cleanPin}@felda.gov.my`,
           pin: cleanPin,
           pin_hash: pinHash,
+          staff_no_hash: profile.staff_no_hash || existing?.staff_no_hash,
           password_hash: passwordHash,
           app_role: profile.app_role,
           primary_estate_id: primaryEstate,
@@ -773,6 +802,1154 @@ var init_audit_service = __esm({
       }
     };
     auditService = AuditService.getInstance();
+  }
+});
+
+// src/utils/estateContext.ts
+var init_estateContext = __esm({
+  "src/utils/estateContext.ts"() {
+    init_estateRegistry();
+  }
+});
+
+// src/config/estateRegistry.ts
+function getEstateConfig(estateId) {
+  const cleanId = (estateId || "FPM_TUNGGAL").trim().toUpperCase();
+  const baseConfig = ESTATES_REGISTRY && (ESTATES_REGISTRY[cleanId] || ESTATES_REGISTRY["FPM_TUNGGAL"]) || {
+    id: "FPM_TUNGGAL",
+    name: "FPM Tunggal",
+    shortName: "Tunggal",
+    code: "TGL",
+    zoneId: "ZON_ADELA",
+    zoneName: "Zon Adela",
+    regionId: "WILAYAH_JB",
+    regionName: "FPM Wilayah Johor Bahru",
+    millName: "Kilang Sawit Adela",
+    totalHectares: 1563.15,
+    annualTargetPkt1: 28,
+    annualTargetPkt2: 28,
+    annualTargetFelda: 11.99,
+    monthlyTargets2026: DEFAULT_MONTHLY_TARGETS_2026,
+    status: "active",
+    isStandby: false,
+    blocks: {}
+  };
+  if (cleanId === "WILAYAH_JB" || cleanId === "WJB" || cleanId === "0001") {
+    const combinedBlocks = {};
+    const activeEstateKeys = ["FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING"];
+    activeEstateKeys.forEach((key) => {
+      const estate = ESTATES_REGISTRY[key];
+      if (estate && estate.blocks) {
+        Object.entries(estate.blocks).forEach(([blkKey, blkInfo]) => {
+          const uniqueKey = `${estate.code}_${blkKey}`;
+          combinedBlocks[uniqueKey] = {
+            ...blkInfo,
+            blok: `${estate.shortName} B${blkInfo.blok || blkKey}`
+          };
+        });
+      }
+    });
+    return {
+      ...baseConfig,
+      name: "FPM Wilayah Johor Bahru",
+      shortName: "Wilayah JB",
+      code: "WJB",
+      blocks: combinedBlocks,
+      totalHectares: baseConfig.totalHectares || 6835.45,
+      status: "active",
+      isStandby: false
+    };
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(`${CUSTOM_MASTER_KEY_PREFIX}${cleanId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.blocks && Object.keys(parsed.blocks).length > 0) {
+          const totalHectares = Object.values(parsed.blocks).reduce(
+            (acc, curr) => acc + (Number(curr.luas) || 0),
+            0
+          );
+          const sanitizedCode = parsed.code === "0001" ? "WJB" : parsed.code || baseConfig.code;
+          const sanitizedName = parsed.name && parsed.name.toLowerCase().includes("ibu pejabat") ? "FPM Wilayah Johor Bahru" : parsed.name || baseConfig.name;
+          return {
+            ...baseConfig,
+            ...parsed,
+            code: sanitizedCode,
+            name: sanitizedName,
+            totalHectares: parsed.totalHectares || totalHectares,
+            status: "active",
+            isStandby: false,
+            standbyNote: void 0
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to parse custom estate master data", e);
+    }
+  }
+  return baseConfig;
+}
+function normalizeEstateId(codeOrId) {
+  if (!codeOrId) return "FPM_TUNGGAL";
+  const val = String(codeOrId).trim().toUpperCase();
+  if (val === "0001" || val === "WJB" || val.includes("WILAYAH") || val === "WILAYAH_JB" || val === "FPM_WILAYAH_JB") return "WILAYAH_JB";
+  if (val === "5136" || val.includes("ADELA") || val === "ADL") return "FPM_ADELA";
+  if (val === "5176" || val.includes("KLEDANG") || val === "KLD") return "FPM_KLEDANG";
+  if (val === "5156" || val.includes("SENING") || val === "SNG") return "FPM_SENING";
+  if (val === "5155" || val.includes("TUNGGAL") || val === "TGL") return "FPM_TUNGGAL";
+  if (val.includes("SG_MAS") || val.includes("SG. MAS") || val.includes("SUNGAI MAS") || val === "SGM") return "FPM_SG_MAS";
+  if (val.includes("PAPAN_TIMUR") || val.includes("PAPAN TIMUR") || val === "PPT") return "FPM_PAPAN_TIMUR";
+  if (val.includes("SEMENCHU") || val === "SMC") return "FPM_SEMENCHU";
+  if (val.includes("AIR_TAWAR_1") || val.includes("AIR TAWAR 1") || val === "AT1") return "FPM_AIR_TAWAR_1";
+  if (val.includes("AIR_TAWAR_2") || val.includes("AIR TAWAR 2") || val === "AT2") return "FPM_AIR_TAWAR_2";
+  if (val.includes("AIR_TAWAR_3") || val.includes("AIR TAWAR 3") || val === "AT3") return "FPM_AIR_TAWAR_3";
+  if (val.includes("AIR_TAWAR_4") || val.includes("AIR TAWAR 4") || val === "AT4") return "FPM_AIR_TAWAR_4";
+  if (val.includes("AIR_TAWAR_5") || val.includes("AIR TAWAR 5") || val === "AT5") return "FPM_AIR_TAWAR_5";
+  if (val.includes("PASAK") || val === "PSK") return "FPM_PASAK";
+  if (val.includes("LOK_HENG_TIMUR") || val.includes("LOK HENG TIMUR") || val === "LHT") return "FPM_LOK_HENG_TIMUR";
+  if (val.includes("LOK_HENG_BARAT") || val.includes("LOK HENG BARAT") || val === "LHB") return "FPM_LOK_HENG_BARAT";
+  if (val.includes("LOK_HENG_SELATAN") || val.includes("LOK HENG SELATAN") || val === "LHS") return "FPM_LOK_HENG_SELATAN";
+  if (val.includes("BUKIT_WAHA") || val.includes("BUKIT WAHA") || val === "BWH") return "FPM_BUKIT_WAHA";
+  if (val.includes("SIMPANG_WAHA") || val.includes("SIMPANG WAHA") || val === "SWH") return "FPM_SIMPANG_WAHA";
+  if (val.includes("APING_TIMUR") || val.includes("APING TIMUR") || val === "APT") return "FPM_APING_TIMUR";
+  if (val.includes("APING_BARAT") || val.includes("APING BARAT") || val === "APB") return "FPM_APING_BARAT";
+  if (val.includes("TENGGAROH_1") || val.includes("TENGGAROH 1") || val === "TG1") return "FPM_TENGGAROH_1";
+  if (val.includes("TENGGAROH_2") || val.includes("TENGGAROH 2") || val === "TG2") return "FPM_TENGGAROH_2";
+  if (val.includes("TENGGAROH_3") || val.includes("TENGGAROH 3") || val === "TG3") return "FPM_TENGGAROH_3";
+  if (val.includes("TENGGAROH_4") || val.includes("TENGGAROH 4") || val === "TG4") return "FPM_TENGGAROH_4";
+  if (val.includes("TENGGAROH_5") || val.includes("TENGGAROH 5") || val === "TG5") return "FPM_TENGGAROH_5";
+  if (val.includes("TENGGAROH_6") || val.includes("TENGGAROH 6") || val === "TG6") return "FPM_TENGGAROH_6";
+  if (val.includes("TENGGAROH_7") || val.includes("TENGGAROH 7") || val === "TG7") return "FPM_TENGGAROH_7";
+  if (val.includes("TENGGAROH_TIMUR") || val.includes("TENGGAROH TIMUR") || val === "TGT") return "FPM_TENGGAROH_TIMUR";
+  if (val.includes("TENGGAROH_SELATAN") || val.includes("TENGGAROH SELATAN") || val === "TGS") return "FPM_TENGGAROH_SELATAN";
+  if (val.includes("BUKIT_RAMUN") || val.includes("BUKIT RAMUN") || val === "BRM") return "FPM_BUKIT_RAMUN";
+  if (val.includes("BUKIT_BESAR") || val.includes("BUKIT BESAR") || val === "BBS") return "FPM_BUKIT_BESAR";
+  if (val.includes("SG_SAYONG") || val.includes("SG. SAYONG") || val.includes("SUNGAI SAYONG") || val === "SSY") return "FPM_SG_SAYONG";
+  if (val.includes("PENGGELI_TIMUR") || val.includes("PENGGELI TIMUR") || val === "PGT") return "FPM_PENGGELI_TIMUR";
+  if (val.includes("SG_SIBOL") || val.includes("SG. SIBOL") || val.includes("SUNGAI SIBOL") || val === "SSB") return "FPM_SG_SIBOL";
+  if (val.includes("INAS_UTARA") || val.includes("INAS UTARA") || val === "INU") return "FPM_INAS_UTARA";
+  if (val.includes("LINGGIU") || val === "LGQ") return "FPM_LINGGIU";
+  if (val.includes("PASIR_RAJA") || val.includes("PASIR RAJA") || val === "PSR") return "FPM_PASIR_RAJA";
+  if (val.includes("ULU_TEBRAU") || val.includes("ULU TEBRAU") || val === "UTB") return "FPM_ULU_TEBRAU";
+  if (val.includes("TAIB_ANDAK") || val.includes("TAIB ANDAK") || val === "TBA") return "FPM_TAIB_ANDAK";
+  if (val.includes("ENDAU") || val === "END") return "FPM_ENDAU";
+  return val;
+}
+function getEstateBlockMasterData(estateId) {
+  const config = getEstateConfig(estateId);
+  return config.blocks;
+}
+function getBlockArea(blok, estateId) {
+  const blocks = getEstateBlockMasterData(estateId);
+  return blocks[blok]?.luas || 1;
+}
+function resolveCurrentEstateId(estateId) {
+  if (estateId) return estateId.trim().toUpperCase();
+  if (typeof window !== "undefined") {
+    const wId = window.__IPDS_ACTIVE_ESTATE_ID__;
+    if (wId) return String(wId).trim().toUpperCase();
+    try {
+      const stored = sessionStorage.getItem("ipds_active_estate_id") || localStorage.getItem("ipds_active_estate_id");
+      if (stored) return stored.trim().toUpperCase();
+    } catch (_) {
+    }
+  }
+  return "FPM_TUNGGAL";
+}
+function getPktDisplayName(pktCode, estateId) {
+  const cleanId = resolveCurrentEstateId(estateId);
+  const isAdelaOrTunggal = cleanId === "FPM_ADELA" || cleanId === "FPM_TUNGGAL";
+  if (pktCode === "001") return "PKT 001";
+  if (pktCode === "002") return "PKT 002";
+  if (pktCode === "003") {
+    return isAdelaOrTunggal ? "LOT FELDA" : "PKT 003";
+  }
+  if (pktCode === "004") return cleanId === "FPM_ADELA" ? "PKT 004 (Lot Tambahan)" : "PKT 004";
+  return `PKT ${pktCode}`;
+}
+var ZONES, DEFAULT_MONTHLY_TARGETS_2026, ESTATES_REGISTRY, CUSTOM_MASTER_KEY_PREFIX;
+var init_estateRegistry = __esm({
+  "src/config/estateRegistry.ts"() {
+    init_estateContext();
+    ZONES = {
+      ZON_ADELA: {
+        id: "ZON_ADELA",
+        name: "Zon Adela",
+        regionId: "WILAYAH_JB",
+        estates: ["FPM_TUNGGAL", "FPM_KLEDANG", "FPM_ADELA", "FPM_SENING"]
+      },
+      ZON_SEPAKAT: {
+        id: "ZON_SEPAKAT",
+        name: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        estates: [
+          "FPM_SG_MAS",
+          "FPM_PAPAN_TIMUR",
+          "FPM_SEMENCHU",
+          "FPM_AIR_TAWAR_1",
+          "FPM_AIR_TAWAR_2",
+          "FPM_AIR_TAWAR_3",
+          "FPM_AIR_TAWAR_4",
+          "FPM_AIR_TAWAR_5",
+          "FPM_PASAK"
+        ]
+      },
+      ZON_LAW: {
+        id: "ZON_LAW",
+        name: "Zon LAW",
+        regionId: "WILAYAH_JB",
+        estates: [
+          "FPM_LOK_HENG_TIMUR",
+          "FPM_LOK_HENG_BARAT",
+          "FPM_LOK_HENG_SELATAN",
+          "FPM_BUKIT_WAHA",
+          "FPM_SIMPANG_WAHA",
+          "FPM_APING_TIMUR",
+          "FPM_APING_BARAT"
+        ]
+      },
+      ZON_TENGGAROH: {
+        id: "ZON_TENGGAROH",
+        name: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        estates: [
+          "FPM_TENGGAROH_1",
+          "FPM_TENGGAROH_2",
+          "FPM_TENGGAROH_3",
+          "FPM_TENGGAROH_4",
+          "FPM_TENGGAROH_5",
+          "FPM_TENGGAROH_6",
+          "FPM_TENGGAROH_7",
+          "FPM_TENGGAROH_TIMUR",
+          "FPM_TENGGAROH_SELATAN"
+        ]
+      },
+      ZON_TAIB_ANDAK: {
+        id: "ZON_TAIB_ANDAK",
+        name: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        estates: [
+          "FPM_BUKIT_RAMUN",
+          "FPM_BUKIT_BESAR",
+          "FPM_SG_SAYONG",
+          "FPM_PENGGELI_TIMUR",
+          "FPM_SG_SIBOL",
+          "FPM_INAS_UTARA",
+          "FPM_LINGGIU",
+          "FPM_PASIR_RAJA",
+          "FPM_ULU_TEBRAU",
+          "FPM_TAIB_ANDAK",
+          "FPM_ENDAU"
+        ]
+      }
+    };
+    DEFAULT_MONTHLY_TARGETS_2026 = {
+      "001": [1.9, 1.8, 2.1, 1.9, 2, 2.2, 2.5, 2.7, 2.9, 2.95, 2.75, 2.4],
+      "002": [1.6, 1.5, 1.8, 2, 2.3, 2.3, 2.7, 2.6, 2.7, 2.8, 3, 2.7],
+      "003": [0.98, 0.78, 0.88, 0.88, 0.9, 1, 1.02, 1.5, 1.6, 1.6, 1.28, 1.35]
+    };
+    ESTATES_REGISTRY = {
+      // 0. WILAYAH JOHOR BAHRU (HQ)
+      WILAYAH_JB: {
+        id: "WILAYAH_JB",
+        name: "FPM Wilayah Johor Bahru",
+        shortName: "Wilayah JB",
+        code: "WJB",
+        zoneId: "ZON_ADELA",
+        zoneName: "Zon Adela",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Adela",
+        totalHectares: 6835.45,
+        annualTargetPkt1: 28,
+        annualTargetPkt2: 28,
+        annualTargetFelda: 20,
+        monthlyTargets2026: DEFAULT_MONTHLY_TARGETS_2026,
+        status: "active",
+        isStandby: false,
+        blocks: {}
+      },
+      // 1. FPM TUNGGAL
+      FPM_TUNGGAL: {
+        id: "FPM_TUNGGAL",
+        name: "FPM Tunggal",
+        shortName: "Tunggal",
+        code: "TGL",
+        zoneId: "ZON_ADELA",
+        zoneName: "Zon Adela",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Adela",
+        totalHectares: 1563.15,
+        annualTargetPkt1: 28,
+        annualTargetPkt2: 28,
+        annualTargetFelda: 11.99,
+        monthlyTargets2026: DEFAULT_MONTHLY_TARGETS_2026,
+        status: "active",
+        isStandby: false,
+        blocks: {
+          "1": { blok: "1", luas: 72.1498, target_mt: 137.08, target_hek: 1.9, pkt: "001", peneroka: 18 },
+          "2": { blok: "2", luas: 68.3738, target_mt: 129.91, target_hek: 1.9, pkt: "001", peneroka: 17 },
+          "3": { blok: "3", luas: 76.594, target_mt: 145.53, target_hek: 1.9, pkt: "001", peneroka: 19 },
+          "4": { blok: "4", luas: 92.3907, target_mt: 175.54, target_hek: 1.9, pkt: "001", peneroka: 23 },
+          "5": { blok: "5", luas: 60.1871, target_mt: 114.36, target_hek: 1.9, pkt: "001", peneroka: 15 },
+          "6": { blok: "6", luas: 80.4161, target_mt: 152.79, target_hek: 1.9, pkt: "001", peneroka: 20 },
+          "7": { blok: "7", luas: 89.462, target_mt: 169.98, target_hek: 1.9, pkt: "001", peneroka: 22 },
+          "8": { blok: "8", luas: 82.026, target_mt: 155.85, target_hek: 1.9, pkt: "001", peneroka: 20 },
+          "9": { blok: "9", luas: 83.614, target_mt: 158.87, target_hek: 1.9, pkt: "001", peneroka: 22 },
+          "10": { blok: "10", luas: 84.357, target_mt: 160.28, target_hek: 1.9, pkt: "001", peneroka: 21 },
+          "11": { blok: "11", luas: 47.8496, target_mt: 90.91, target_hek: 1.9, pkt: "001", peneroka: 12 },
+          "12": { blok: "12", luas: 76.497, target_mt: 145.34, target_hek: 1.9, pkt: "001", peneroka: 19 },
+          "13": { blok: "13", luas: 50.75, target_mt: 96.43, target_hek: 1.9, pkt: "001", peneroka: 13 },
+          "14": { blok: "14", luas: 70.445, target_mt: 133.85, target_hek: 1.9, pkt: "001", peneroka: 18 },
+          "15": { blok: "15", luas: 68.357, target_mt: 129.88, target_hek: 1.9, pkt: "001", peneroka: 17 },
+          "16": { blok: "16", luas: 64.4435, target_mt: 122.44, target_hek: 1.9, pkt: "001", peneroka: 16 },
+          "17": { blok: "17", luas: 84.077, target_mt: 159.75, target_hek: 1.9, pkt: "001", peneroka: 21 },
+          "18": { blok: "18", luas: 76.197, target_mt: 121.92, target_hek: 1.6, pkt: "002", peneroka: 19 },
+          "19": { blok: "19", luas: 81.75, target_mt: 130.8, target_hek: 1.6, pkt: "002", peneroka: 21 },
+          "20": { blok: "20", luas: 68.621, target_mt: 109.79, target_hek: 1.6, pkt: "002", peneroka: 17 },
+          "21": { blok: "21", luas: 24.264, target_mt: 38.82, target_hek: 1.6, pkt: "002", peneroka: 6 },
+          "22": { blok: "22", luas: 65.29, target_mt: 104.46, target_hek: 1.6, pkt: "002", peneroka: 16 },
+          "88": { blok: "88", luas: 98.51, target_mt: 86.69, target_hek: 0.88, pkt: "003", peneroka: 0 }
+        }
+      },
+      // 2. FPM KLEDANG (STATUS: STANDBY UNTUK MENERIMA DATA SET ASAS)
+      FPM_KLEDANG: {
+        id: "FPM_KLEDANG",
+        name: "FPM Kledang",
+        shortName: "Kledang",
+        code: "KLD",
+        zoneId: "ZON_ADELA",
+        zoneName: "Zon Adela",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Adela",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026). Sedia menerima pendaftaran blok.",
+        blocks: {}
+      },
+      // 3. FPM ADELA
+      FPM_ADELA: {
+        id: "FPM_ADELA",
+        name: "FPM Adela",
+        shortName: "Adela",
+        code: "ADL",
+        zoneId: "ZON_ADELA",
+        zoneName: "Zon Adela",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Adela",
+        totalHectares: 1041.22,
+        // Pkt 1 (613.64 Ha) + Pkt 2 (333.42 Ha) + Lot Tambahan (16.12 Ha) + Lot Felda (78.04 Ha) = 1,041.22 Ha
+        annualTargetPkt1: 25,
+        annualTargetPkt2: 25,
+        annualTargetFelda: 12.98,
+        annualTargetLotTambahan: 21,
+        status: "active",
+        isStandby: false,
+        monthlyTargets2026: {
+          "001": [1.8, 1.6, 1.8, 1.4, 1.8, 1.7, 2.2, 2.4, 2.9, 2.7, 2.4, 2.3],
+          // Pkt 1 (Total: 25.00 T/Hek, Jan: 1.80)
+          "002": [2.2, 2.2, 2.1, 2, 1.8, 1.7, 1.6, 1.6, 2.3, 2.4, 2.45, 2.65],
+          // Pkt 2 (Total: 25.00 T/Hek, Jan: 2.20)
+          "003": [0.97, 0.93, 0.91, 0.93, 0.96, 1.06, 1.11, 1.24, 1.24, 1.18, 1.23, 1.22],
+          // 1F Felda (Total: 12.98 T/Hek, Jan: 0.97)
+          "003_2F": [1.01, 0.95, 0.94, 0.95, 1, 1.14, 1.19, 1.26, 1.27, 1.03, 0.98, 1.26],
+          // 2F Felda (Total: 12.98 T/Hek, Jan: 1.01)
+          "004": [1.4, 1.15, 1.4, 1.3, 1.5, 1.7, 1.9, 2.2, 2.3, 2.25, 2, 1.9]
+          // Lot Tambahan 125Y/128Y/121V (Total: 21.00 T/Hek, Jan: 1.40)
+        },
+        blocks: {
+          // Pkt 1 (Blok 1 - 11, Total 613.6 Hektar, 156 Peneroka)
+          "1": { blok: "1", luas: 30.46, target_mt: 57.87, target_hek: 1.9, pkt: "001", peneroka: 8 },
+          "2": { blok: "2", luas: 58.07, target_mt: 110.33, target_hek: 1.9, pkt: "001", peneroka: 15 },
+          "3": { blok: "3", luas: 45.91, target_mt: 87.23, target_hek: 1.9, pkt: "001", peneroka: 12 },
+          "4": { blok: "4", luas: 57.89, target_mt: 110, target_hek: 1.9, pkt: "001", peneroka: 15 },
+          "5": { blok: "5", luas: 60.05, target_mt: 114.1, target_hek: 1.9, pkt: "001", peneroka: 15 },
+          "6": { blok: "6", luas: 64.64, target_mt: 122.82, target_hek: 1.9, pkt: "001", peneroka: 16 },
+          "7": { blok: "7", luas: 68.17, target_mt: 129.52, target_hek: 1.9, pkt: "001", peneroka: 17 },
+          "8": { blok: "8", luas: 77.53, target_mt: 147.31, target_hek: 1.9, pkt: "001", peneroka: 20 },
+          "9": { blok: "9", luas: 64.04, target_mt: 121.68, target_hek: 1.9, pkt: "001", peneroka: 16 },
+          "10": { blok: "10", luas: 63.01, target_mt: 119.72, target_hek: 1.9, pkt: "001", peneroka: 16 },
+          "11": { blok: "11", luas: 23.87, target_mt: 45.35, target_hek: 1.9, pkt: "001", peneroka: 6 },
+          // Pkt 2 (Blok 1 - 6, Total 333.4 Hektar, 83 Peneroka - mapped to 12-17 for numerical uniqueness)
+          "12": { blok: "12", luas: 59.93, target_mt: 95.89, target_hek: 1.6, pkt: "002", peneroka: 15 },
+          "13": { blok: "13", luas: 60.47, target_mt: 96.75, target_hek: 1.6, pkt: "002", peneroka: 15 },
+          "14": { blok: "14", luas: 40.4, target_mt: 64.64, target_hek: 1.6, pkt: "002", peneroka: 10 },
+          "15": { blok: "15", luas: 48.41, target_mt: 77.46, target_hek: 1.6, pkt: "002", peneroka: 12 },
+          "16": { blok: "16", luas: 67.76, target_mt: 108.42, target_hek: 1.6, pkt: "002", peneroka: 17 },
+          "17": { blok: "17", luas: 56.45, target_mt: 90.32, target_hek: 1.6, pkt: "002", peneroka: 14 },
+          // Lot FELDA (1F & 2F, Total 78.04 Hektar)
+          "1F": { blok: "1F", luas: 39.81, target_mt: 44.19, target_hek: 1.11, pkt: "003", peneroka: 0 },
+          "2F": { blok: "2F", luas: 38.23, target_mt: 45.49, target_hek: 1.19, pkt: "003", peneroka: 0 },
+          // Lot Tambahan (125Y, 128Y, 121V, Total 16.16 Hektar, 4 Peneroka)
+          "125Y": { blok: "125Y", luas: 8.06, target_mt: 15.31, target_hek: 1.9, pkt: "004", peneroka: 2 },
+          "128Y": { blok: "128Y", luas: 4.08, target_mt: 7.75, target_hek: 1.9, pkt: "004", peneroka: 1 },
+          "121V": { blok: "121V", luas: 4.02, target_mt: 7.64, target_hek: 1.9, pkt: "004", peneroka: 1 }
+        }
+      },
+      // 4. FPM SENING (STATUS: STANDBY UNTUK MENERIMA DATA SET ASAS)
+      FPM_SENING: {
+        id: "FPM_SENING",
+        name: "FPM Sening",
+        shortName: "Sening",
+        code: "SNG",
+        zoneId: "ZON_ADELA",
+        zoneName: "Zon Adela",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Adela",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026). Sedia menerima pendaftaran blok.",
+        blocks: {}
+      },
+      // ==========================================
+      // ZON SEPAKAT (9 LADANG)
+      // ==========================================
+      FPM_SG_MAS: {
+        id: "FPM_SG_MAS",
+        name: "FPM Sg. Mas",
+        shortName: "Sg. Mas",
+        code: "SGM",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_PAPAN_TIMUR: {
+        id: "FPM_PAPAN_TIMUR",
+        name: "FPM Papan Timur",
+        shortName: "Papan Timur",
+        code: "PPT",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_SEMENCHU: {
+        id: "FPM_SEMENCHU",
+        name: "FPM Semenchu",
+        shortName: "Semenchu",
+        code: "SMC",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_AIR_TAWAR_1: {
+        id: "FPM_AIR_TAWAR_1",
+        name: "FPM Air Tawar 1",
+        shortName: "Air Tawar 1",
+        code: "AT1",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_AIR_TAWAR_2: {
+        id: "FPM_AIR_TAWAR_2",
+        name: "FPM Air Tawar 2",
+        shortName: "Air Tawar 2",
+        code: "AT2",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_AIR_TAWAR_3: {
+        id: "FPM_AIR_TAWAR_3",
+        name: "FPM Air Tawar 3",
+        shortName: "Air Tawar 3",
+        code: "AT3",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_AIR_TAWAR_4: {
+        id: "FPM_AIR_TAWAR_4",
+        name: "FPM Air Tawar 4",
+        shortName: "Air Tawar 4",
+        code: "AT4",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_AIR_TAWAR_5: {
+        id: "FPM_AIR_TAWAR_5",
+        name: "FPM Air Tawar 5",
+        shortName: "Air Tawar 5",
+        code: "AT5",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_PASAK: {
+        id: "FPM_PASAK",
+        name: "FPM Pasak",
+        shortName: "Pasak",
+        code: "PSK",
+        zoneId: "ZON_SEPAKAT",
+        zoneName: "Zon Sepakat",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      // ==========================================
+      // ZON LAW (7 LADANG)
+      // ==========================================
+      FPM_LOK_HENG_TIMUR: {
+        id: "FPM_LOK_HENG_TIMUR",
+        name: "FPM Lok Heng Timur",
+        shortName: "Lok Heng Timur",
+        code: "LHT",
+        zoneId: "ZON_LAW",
+        zoneName: "Zon LAW",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_LOK_HENG_BARAT: {
+        id: "FPM_LOK_HENG_BARAT",
+        name: "FPM Lok Heng Barat",
+        shortName: "Lok Heng Barat",
+        code: "LHB",
+        zoneId: "ZON_LAW",
+        zoneName: "Zon LAW",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_LOK_HENG_SELATAN: {
+        id: "FPM_LOK_HENG_SELATAN",
+        name: "FPM Lok Heng Selatan",
+        shortName: "Lok Heng Selatan",
+        code: "LHS",
+        zoneId: "ZON_LAW",
+        zoneName: "Zon LAW",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_BUKIT_WAHA: {
+        id: "FPM_BUKIT_WAHA",
+        name: "FPM Bukit Waha",
+        shortName: "Bukit Waha",
+        code: "BWH",
+        zoneId: "ZON_LAW",
+        zoneName: "Zon LAW",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_SIMPANG_WAHA: {
+        id: "FPM_SIMPANG_WAHA",
+        name: "FPM Simpang Waha",
+        shortName: "Simpang Waha",
+        code: "SWH",
+        zoneId: "ZON_LAW",
+        zoneName: "Zon LAW",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_APING_TIMUR: {
+        id: "FPM_APING_TIMUR",
+        name: "FPM Aping Timur",
+        shortName: "Aping Timur",
+        code: "APT",
+        zoneId: "ZON_LAW",
+        zoneName: "Zon LAW",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_APING_BARAT: {
+        id: "FPM_APING_BARAT",
+        name: "FPM Aping Barat",
+        shortName: "Aping Barat",
+        code: "APB",
+        zoneId: "ZON_LAW",
+        zoneName: "Zon LAW",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      // ==========================================
+      // ZON TENGGAROH (9 LADANG)
+      // ==========================================
+      FPM_TENGGAROH_1: {
+        id: "FPM_TENGGAROH_1",
+        name: "FPM Tenggaroh 1",
+        shortName: "Tenggaroh 1",
+        code: "TG1",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TENGGAROH_2: {
+        id: "FPM_TENGGAROH_2",
+        name: "FPM Tenggaroh 2",
+        shortName: "Tenggaroh 2",
+        code: "TG2",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TENGGAROH_3: {
+        id: "FPM_TENGGAROH_3",
+        name: "FPM Tenggaroh 3",
+        shortName: "Tenggaroh 3",
+        code: "TG3",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TENGGAROH_4: {
+        id: "FPM_TENGGAROH_4",
+        name: "FPM Tenggaroh 4",
+        shortName: "Tenggaroh 4",
+        code: "TG4",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TENGGAROH_5: {
+        id: "FPM_TENGGAROH_5",
+        name: "FPM Tenggaroh 5",
+        shortName: "Tenggaroh 5",
+        code: "TG5",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TENGGAROH_6: {
+        id: "FPM_TENGGAROH_6",
+        name: "FPM Tenggaroh 6",
+        shortName: "Tenggaroh 6",
+        code: "TG6",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TENGGAROH_7: {
+        id: "FPM_TENGGAROH_7",
+        name: "FPM Tenggaroh 7",
+        shortName: "Tenggaroh 7",
+        code: "TG7",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TENGGAROH_TIMUR: {
+        id: "FPM_TENGGAROH_TIMUR",
+        name: "FPM Tenggaroh Timur",
+        shortName: "Tenggaroh Timur",
+        code: "TGT",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TENGGAROH_SELATAN: {
+        id: "FPM_TENGGAROH_SELATAN",
+        name: "FPM Tenggaroh Selatan",
+        shortName: "Tenggaroh Selatan",
+        code: "TGS",
+        zoneId: "ZON_TENGGAROH",
+        zoneName: "Zon Tenggaroh",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      // ==========================================
+      // ZON TAIB ANDAK (11 LADANG)
+      // ==========================================
+      FPM_BUKIT_RAMUN: {
+        id: "FPM_BUKIT_RAMUN",
+        name: "FPM Bukit Ramun",
+        shortName: "Bukit Ramun",
+        code: "BRM",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_BUKIT_BESAR: {
+        id: "FPM_BUKIT_BESAR",
+        name: "FPM Bukit Besar",
+        shortName: "Bukit Besar",
+        code: "BBS",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_SG_SAYONG: {
+        id: "FPM_SG_SAYONG",
+        name: "FPM Sg. Sayong",
+        shortName: "Sg. Sayong",
+        code: "SSY",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_PENGGELI_TIMUR: {
+        id: "FPM_PENGGELI_TIMUR",
+        name: "FPM Penggeli Timur",
+        shortName: "Penggeli Timur",
+        code: "PGT",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_SG_SIBOL: {
+        id: "FPM_SG_SIBOL",
+        name: "FPM Sg. Sibol",
+        shortName: "Sg. Sibol",
+        code: "SSB",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_INAS_UTARA: {
+        id: "FPM_INAS_UTARA",
+        name: "FPM Inas Utara",
+        shortName: "Inas Utara",
+        code: "INU",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_LINGGIU: {
+        id: "FPM_LINGGIU",
+        name: "FPM Linggiu",
+        shortName: "Linggiu",
+        code: "LGQ",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_PASIR_RAJA: {
+        id: "FPM_PASIR_RAJA",
+        name: "FPM Pasir Raja",
+        shortName: "Pasir Raja",
+        code: "PSR",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_ULU_TEBRAU: {
+        id: "FPM_ULU_TEBRAU",
+        name: "FPM Ulu Tebrau",
+        shortName: "Ulu Tebrau",
+        code: "UTB",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_TAIB_ANDAK: {
+        id: "FPM_TAIB_ANDAK",
+        name: "FPM Taib Andak",
+        shortName: "Taib Andak",
+        code: "TBA",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      },
+      FPM_ENDAU: {
+        id: "FPM_ENDAU",
+        name: "FPM Endau",
+        shortName: "Endau",
+        code: "END",
+        zoneId: "ZON_TAIB_ANDAK",
+        zoneName: "Zon Taib Andak",
+        regionId: "WILAYAH_JB",
+        regionName: "FPM Wilayah Johor Bahru",
+        millName: "Kilang Sawit Wilayah JB",
+        totalHectares: 0,
+        annualTargetPkt1: 0,
+        annualTargetPkt2: 0,
+        annualTargetFelda: 0,
+        monthlyTargets2026: {},
+        status: "standby",
+        isStandby: true,
+        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
+        blocks: {}
+      }
+    };
+    CUSTOM_MASTER_KEY_PREFIX = "fpm_custom_master_data_";
   }
 });
 
@@ -2287,1903 +3464,6 @@ var init_metrics = __esm({
   }
 });
 
-// src/utils/estateContext.ts
-var init_estateContext = __esm({
-  "src/utils/estateContext.ts"() {
-    init_estateRegistry();
-  }
-});
-
-// src/config/estateRegistry.ts
-function getEstateConfig(estateId) {
-  const cleanId = (estateId || "FPM_TUNGGAL").trim().toUpperCase();
-  const baseConfig = ESTATES_REGISTRY && (ESTATES_REGISTRY[cleanId] || ESTATES_REGISTRY["FPM_TUNGGAL"]) || {
-    id: "FPM_TUNGGAL",
-    name: "FPM Tunggal",
-    shortName: "Tunggal",
-    code: "TGL",
-    zoneId: "ZON_ADELA",
-    zoneName: "Zon Adela",
-    regionId: "WILAYAH_JB",
-    regionName: "FPM Wilayah Johor Bahru",
-    millName: "Kilang Sawit Adela",
-    totalHectares: 1563.15,
-    annualTargetPkt1: 28,
-    annualTargetPkt2: 28,
-    annualTargetFelda: 11.99,
-    monthlyTargets2026: DEFAULT_MONTHLY_TARGETS_2026,
-    status: "active",
-    isStandby: false,
-    blocks: {}
-  };
-  if (cleanId === "WILAYAH_JB" || cleanId === "WJB" || cleanId === "0001") {
-    const combinedBlocks = {};
-    const activeEstateKeys = ["FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING"];
-    activeEstateKeys.forEach((key) => {
-      const estate = ESTATES_REGISTRY[key];
-      if (estate && estate.blocks) {
-        Object.entries(estate.blocks).forEach(([blkKey, blkInfo]) => {
-          const uniqueKey = `${estate.code}_${blkKey}`;
-          combinedBlocks[uniqueKey] = {
-            ...blkInfo,
-            blok: `${estate.shortName} B${blkInfo.blok || blkKey}`
-          };
-        });
-      }
-    });
-    return {
-      ...baseConfig,
-      name: "FPM Wilayah Johor Bahru",
-      shortName: "Wilayah JB",
-      code: "WJB",
-      blocks: combinedBlocks,
-      totalHectares: baseConfig.totalHectares || 6835.45,
-      status: "active",
-      isStandby: false
-    };
-  }
-  if (typeof window !== "undefined") {
-    try {
-      const stored = localStorage.getItem(`${CUSTOM_MASTER_KEY_PREFIX}${cleanId}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && parsed.blocks && Object.keys(parsed.blocks).length > 0) {
-          const totalHectares = Object.values(parsed.blocks).reduce(
-            (acc, curr) => acc + (Number(curr.luas) || 0),
-            0
-          );
-          const sanitizedCode = parsed.code === "0001" ? "WJB" : parsed.code || baseConfig.code;
-          const sanitizedName = parsed.name && parsed.name.toLowerCase().includes("ibu pejabat") ? "FPM Wilayah Johor Bahru" : parsed.name || baseConfig.name;
-          return {
-            ...baseConfig,
-            ...parsed,
-            code: sanitizedCode,
-            name: sanitizedName,
-            totalHectares: parsed.totalHectares || totalHectares,
-            status: "active",
-            isStandby: false,
-            standbyNote: void 0
-          };
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to parse custom estate master data", e);
-    }
-  }
-  return baseConfig;
-}
-function normalizeEstateId(codeOrId) {
-  if (!codeOrId) return "FPM_TUNGGAL";
-  const val = String(codeOrId).trim().toUpperCase();
-  if (val === "0001" || val === "WJB" || val.includes("WILAYAH") || val === "WILAYAH_JB" || val === "FPM_WILAYAH_JB") return "WILAYAH_JB";
-  if (val === "5136" || val.includes("ADELA") || val === "ADL") return "FPM_ADELA";
-  if (val === "5176" || val.includes("KLEDANG") || val === "KLD") return "FPM_KLEDANG";
-  if (val === "5156" || val.includes("SENING") || val === "SNG") return "FPM_SENING";
-  if (val === "5155" || val.includes("TUNGGAL") || val === "TGL") return "FPM_TUNGGAL";
-  if (val.includes("SG_MAS") || val.includes("SG. MAS") || val.includes("SUNGAI MAS") || val === "SGM") return "FPM_SG_MAS";
-  if (val.includes("PAPAN_TIMUR") || val.includes("PAPAN TIMUR") || val === "PPT") return "FPM_PAPAN_TIMUR";
-  if (val.includes("SEMENCHU") || val === "SMC") return "FPM_SEMENCHU";
-  if (val.includes("AIR_TAWAR_1") || val.includes("AIR TAWAR 1") || val === "AT1") return "FPM_AIR_TAWAR_1";
-  if (val.includes("AIR_TAWAR_2") || val.includes("AIR TAWAR 2") || val === "AT2") return "FPM_AIR_TAWAR_2";
-  if (val.includes("AIR_TAWAR_3") || val.includes("AIR TAWAR 3") || val === "AT3") return "FPM_AIR_TAWAR_3";
-  if (val.includes("AIR_TAWAR_4") || val.includes("AIR TAWAR 4") || val === "AT4") return "FPM_AIR_TAWAR_4";
-  if (val.includes("AIR_TAWAR_5") || val.includes("AIR TAWAR 5") || val === "AT5") return "FPM_AIR_TAWAR_5";
-  if (val.includes("PASAK") || val === "PSK") return "FPM_PASAK";
-  if (val.includes("LOK_HENG_TIMUR") || val.includes("LOK HENG TIMUR") || val === "LHT") return "FPM_LOK_HENG_TIMUR";
-  if (val.includes("LOK_HENG_BARAT") || val.includes("LOK HENG BARAT") || val === "LHB") return "FPM_LOK_HENG_BARAT";
-  if (val.includes("LOK_HENG_SELATAN") || val.includes("LOK HENG SELATAN") || val === "LHS") return "FPM_LOK_HENG_SELATAN";
-  if (val.includes("BUKIT_WAHA") || val.includes("BUKIT WAHA") || val === "BWH") return "FPM_BUKIT_WAHA";
-  if (val.includes("SIMPANG_WAHA") || val.includes("SIMPANG WAHA") || val === "SWH") return "FPM_SIMPANG_WAHA";
-  if (val.includes("APING_TIMUR") || val.includes("APING TIMUR") || val === "APT") return "FPM_APING_TIMUR";
-  if (val.includes("APING_BARAT") || val.includes("APING BARAT") || val === "APB") return "FPM_APING_BARAT";
-  if (val.includes("TENGGAROH_1") || val.includes("TENGGAROH 1") || val === "TG1") return "FPM_TENGGAROH_1";
-  if (val.includes("TENGGAROH_2") || val.includes("TENGGAROH 2") || val === "TG2") return "FPM_TENGGAROH_2";
-  if (val.includes("TENGGAROH_3") || val.includes("TENGGAROH 3") || val === "TG3") return "FPM_TENGGAROH_3";
-  if (val.includes("TENGGAROH_4") || val.includes("TENGGAROH 4") || val === "TG4") return "FPM_TENGGAROH_4";
-  if (val.includes("TENGGAROH_5") || val.includes("TENGGAROH 5") || val === "TG5") return "FPM_TENGGAROH_5";
-  if (val.includes("TENGGAROH_6") || val.includes("TENGGAROH 6") || val === "TG6") return "FPM_TENGGAROH_6";
-  if (val.includes("TENGGAROH_7") || val.includes("TENGGAROH 7") || val === "TG7") return "FPM_TENGGAROH_7";
-  if (val.includes("TENGGAROH_TIMUR") || val.includes("TENGGAROH TIMUR") || val === "TGT") return "FPM_TENGGAROH_TIMUR";
-  if (val.includes("TENGGAROH_SELATAN") || val.includes("TENGGAROH SELATAN") || val === "TGS") return "FPM_TENGGAROH_SELATAN";
-  if (val.includes("BUKIT_RAMUN") || val.includes("BUKIT RAMUN") || val === "BRM") return "FPM_BUKIT_RAMUN";
-  if (val.includes("BUKIT_BESAR") || val.includes("BUKIT BESAR") || val === "BBS") return "FPM_BUKIT_BESAR";
-  if (val.includes("SG_SAYONG") || val.includes("SG. SAYONG") || val.includes("SUNGAI SAYONG") || val === "SSY") return "FPM_SG_SAYONG";
-  if (val.includes("PENGGELI_TIMUR") || val.includes("PENGGELI TIMUR") || val === "PGT") return "FPM_PENGGELI_TIMUR";
-  if (val.includes("SG_SIBOL") || val.includes("SG. SIBOL") || val.includes("SUNGAI SIBOL") || val === "SSB") return "FPM_SG_SIBOL";
-  if (val.includes("INAS_UTARA") || val.includes("INAS UTARA") || val === "INU") return "FPM_INAS_UTARA";
-  if (val.includes("LINGGIU") || val === "LGQ") return "FPM_LINGGIU";
-  if (val.includes("PASIR_RAJA") || val.includes("PASIR RAJA") || val === "PSR") return "FPM_PASIR_RAJA";
-  if (val.includes("ULU_TEBRAU") || val.includes("ULU TEBRAU") || val === "UTB") return "FPM_ULU_TEBRAU";
-  if (val.includes("TAIB_ANDAK") || val.includes("TAIB ANDAK") || val === "TBA") return "FPM_TAIB_ANDAK";
-  if (val.includes("ENDAU") || val === "END") return "FPM_ENDAU";
-  return val;
-}
-function getEstateBlockMasterData(estateId) {
-  const config = getEstateConfig(estateId);
-  return config.blocks;
-}
-function getBlockArea(blok, estateId) {
-  const blocks = getEstateBlockMasterData(estateId);
-  return blocks[blok]?.luas || 1;
-}
-function resolveCurrentEstateId(estateId) {
-  if (estateId) return estateId.trim().toUpperCase();
-  if (typeof window !== "undefined") {
-    const wId = window.__IPDS_ACTIVE_ESTATE_ID__;
-    if (wId) return String(wId).trim().toUpperCase();
-    try {
-      const stored = sessionStorage.getItem("ipds_active_estate_id") || localStorage.getItem("ipds_active_estate_id");
-      if (stored) return stored.trim().toUpperCase();
-    } catch (_) {
-    }
-  }
-  return "FPM_TUNGGAL";
-}
-function getPktDisplayName(pktCode, estateId) {
-  const cleanId = resolveCurrentEstateId(estateId);
-  const isAdelaOrTunggal = cleanId === "FPM_ADELA" || cleanId === "FPM_TUNGGAL";
-  if (pktCode === "001") return "PKT 001";
-  if (pktCode === "002") return "PKT 002";
-  if (pktCode === "003") {
-    return isAdelaOrTunggal ? "LOT FELDA" : "PKT 003";
-  }
-  if (pktCode === "004") return cleanId === "FPM_ADELA" ? "PKT 004 (Lot Tambahan)" : "PKT 004";
-  return `PKT ${pktCode}`;
-}
-var ZONES, DEFAULT_MONTHLY_TARGETS_2026, ESTATES_REGISTRY, CUSTOM_MASTER_KEY_PREFIX;
-var init_estateRegistry = __esm({
-  "src/config/estateRegistry.ts"() {
-    init_estateContext();
-    ZONES = {
-      ZON_ADELA: {
-        id: "ZON_ADELA",
-        name: "Zon Adela",
-        regionId: "WILAYAH_JB",
-        estates: ["FPM_TUNGGAL", "FPM_KLEDANG", "FPM_ADELA", "FPM_SENING"]
-      },
-      ZON_SEPAKAT: {
-        id: "ZON_SEPAKAT",
-        name: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        estates: [
-          "FPM_SG_MAS",
-          "FPM_PAPAN_TIMUR",
-          "FPM_SEMENCHU",
-          "FPM_AIR_TAWAR_1",
-          "FPM_AIR_TAWAR_2",
-          "FPM_AIR_TAWAR_3",
-          "FPM_AIR_TAWAR_4",
-          "FPM_AIR_TAWAR_5",
-          "FPM_PASAK"
-        ]
-      },
-      ZON_LAW: {
-        id: "ZON_LAW",
-        name: "Zon LAW",
-        regionId: "WILAYAH_JB",
-        estates: [
-          "FPM_LOK_HENG_TIMUR",
-          "FPM_LOK_HENG_BARAT",
-          "FPM_LOK_HENG_SELATAN",
-          "FPM_BUKIT_WAHA",
-          "FPM_SIMPANG_WAHA",
-          "FPM_APING_TIMUR",
-          "FPM_APING_BARAT"
-        ]
-      },
-      ZON_TENGGAROH: {
-        id: "ZON_TENGGAROH",
-        name: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        estates: [
-          "FPM_TENGGAROH_1",
-          "FPM_TENGGAROH_2",
-          "FPM_TENGGAROH_3",
-          "FPM_TENGGAROH_4",
-          "FPM_TENGGAROH_5",
-          "FPM_TENGGAROH_6",
-          "FPM_TENGGAROH_7",
-          "FPM_TENGGAROH_TIMUR",
-          "FPM_TENGGAROH_SELATAN"
-        ]
-      },
-      ZON_TAIB_ANDAK: {
-        id: "ZON_TAIB_ANDAK",
-        name: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        estates: [
-          "FPM_BUKIT_RAMUN",
-          "FPM_BUKIT_BESAR",
-          "FPM_SG_SAYONG",
-          "FPM_PENGGELI_TIMUR",
-          "FPM_SG_SIBOL",
-          "FPM_INAS_UTARA",
-          "FPM_LINGGIU",
-          "FPM_PASIR_RAJA",
-          "FPM_ULU_TEBRAU",
-          "FPM_TAIB_ANDAK",
-          "FPM_ENDAU"
-        ]
-      }
-    };
-    DEFAULT_MONTHLY_TARGETS_2026 = {
-      "001": [1.9, 1.8, 2.1, 1.9, 2, 2.2, 2.5, 2.7, 2.9, 2.95, 2.75, 2.4],
-      "002": [1.6, 1.5, 1.8, 2, 2.3, 2.3, 2.7, 2.6, 2.7, 2.8, 3, 2.7],
-      "003": [0.98, 0.78, 0.88, 0.88, 0.9, 1, 1.02, 1.5, 1.6, 1.6, 1.28, 1.35]
-    };
-    ESTATES_REGISTRY = {
-      // 0. WILAYAH JOHOR BAHRU (HQ)
-      WILAYAH_JB: {
-        id: "WILAYAH_JB",
-        name: "FPM Wilayah Johor Bahru",
-        shortName: "Wilayah JB",
-        code: "WJB",
-        zoneId: "ZON_ADELA",
-        zoneName: "Zon Adela",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Adela",
-        totalHectares: 6835.45,
-        annualTargetPkt1: 28,
-        annualTargetPkt2: 28,
-        annualTargetFelda: 20,
-        monthlyTargets2026: DEFAULT_MONTHLY_TARGETS_2026,
-        status: "active",
-        isStandby: false,
-        blocks: {}
-      },
-      // 1. FPM TUNGGAL
-      FPM_TUNGGAL: {
-        id: "FPM_TUNGGAL",
-        name: "FPM Tunggal",
-        shortName: "Tunggal",
-        code: "TGL",
-        zoneId: "ZON_ADELA",
-        zoneName: "Zon Adela",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Adela",
-        totalHectares: 1563.15,
-        annualTargetPkt1: 28,
-        annualTargetPkt2: 28,
-        annualTargetFelda: 11.99,
-        monthlyTargets2026: DEFAULT_MONTHLY_TARGETS_2026,
-        status: "active",
-        isStandby: false,
-        blocks: {
-          "1": { blok: "1", luas: 72.1498, target_mt: 137.08, target_hek: 1.9, pkt: "001", peneroka: 18 },
-          "2": { blok: "2", luas: 68.3738, target_mt: 129.91, target_hek: 1.9, pkt: "001", peneroka: 17 },
-          "3": { blok: "3", luas: 76.594, target_mt: 145.53, target_hek: 1.9, pkt: "001", peneroka: 19 },
-          "4": { blok: "4", luas: 92.3907, target_mt: 175.54, target_hek: 1.9, pkt: "001", peneroka: 23 },
-          "5": { blok: "5", luas: 60.1871, target_mt: 114.36, target_hek: 1.9, pkt: "001", peneroka: 15 },
-          "6": { blok: "6", luas: 80.4161, target_mt: 152.79, target_hek: 1.9, pkt: "001", peneroka: 20 },
-          "7": { blok: "7", luas: 89.462, target_mt: 169.98, target_hek: 1.9, pkt: "001", peneroka: 22 },
-          "8": { blok: "8", luas: 82.026, target_mt: 155.85, target_hek: 1.9, pkt: "001", peneroka: 20 },
-          "9": { blok: "9", luas: 83.614, target_mt: 158.87, target_hek: 1.9, pkt: "001", peneroka: 22 },
-          "10": { blok: "10", luas: 84.357, target_mt: 160.28, target_hek: 1.9, pkt: "001", peneroka: 21 },
-          "11": { blok: "11", luas: 47.8496, target_mt: 90.91, target_hek: 1.9, pkt: "001", peneroka: 12 },
-          "12": { blok: "12", luas: 76.497, target_mt: 145.34, target_hek: 1.9, pkt: "001", peneroka: 19 },
-          "13": { blok: "13", luas: 50.75, target_mt: 96.43, target_hek: 1.9, pkt: "001", peneroka: 13 },
-          "14": { blok: "14", luas: 70.445, target_mt: 133.85, target_hek: 1.9, pkt: "001", peneroka: 18 },
-          "15": { blok: "15", luas: 68.357, target_mt: 129.88, target_hek: 1.9, pkt: "001", peneroka: 17 },
-          "16": { blok: "16", luas: 64.4435, target_mt: 122.44, target_hek: 1.9, pkt: "001", peneroka: 16 },
-          "17": { blok: "17", luas: 84.077, target_mt: 159.75, target_hek: 1.9, pkt: "001", peneroka: 21 },
-          "18": { blok: "18", luas: 76.197, target_mt: 121.92, target_hek: 1.6, pkt: "002", peneroka: 19 },
-          "19": { blok: "19", luas: 81.75, target_mt: 130.8, target_hek: 1.6, pkt: "002", peneroka: 21 },
-          "20": { blok: "20", luas: 68.621, target_mt: 109.79, target_hek: 1.6, pkt: "002", peneroka: 17 },
-          "21": { blok: "21", luas: 24.264, target_mt: 38.82, target_hek: 1.6, pkt: "002", peneroka: 6 },
-          "22": { blok: "22", luas: 65.29, target_mt: 104.46, target_hek: 1.6, pkt: "002", peneroka: 16 },
-          "88": { blok: "88", luas: 98.51, target_mt: 86.69, target_hek: 0.88, pkt: "003", peneroka: 0 }
-        }
-      },
-      // 2. FPM KLEDANG (STATUS: STANDBY UNTUK MENERIMA DATA SET ASAS)
-      FPM_KLEDANG: {
-        id: "FPM_KLEDANG",
-        name: "FPM Kledang",
-        shortName: "Kledang",
-        code: "KLD",
-        zoneId: "ZON_ADELA",
-        zoneName: "Zon Adela",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Adela",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026). Sedia menerima pendaftaran blok.",
-        blocks: {}
-      },
-      // 3. FPM ADELA
-      FPM_ADELA: {
-        id: "FPM_ADELA",
-        name: "FPM Adela",
-        shortName: "Adela",
-        code: "ADL",
-        zoneId: "ZON_ADELA",
-        zoneName: "Zon Adela",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Adela",
-        totalHectares: 1041.22,
-        // Pkt 1 (613.64 Ha) + Pkt 2 (333.42 Ha) + Lot Tambahan (16.12 Ha) + Lot Felda (78.04 Ha) = 1,041.22 Ha
-        annualTargetPkt1: 25,
-        annualTargetPkt2: 25,
-        annualTargetFelda: 12.98,
-        annualTargetLotTambahan: 21,
-        status: "active",
-        isStandby: false,
-        monthlyTargets2026: {
-          "001": [1.8, 1.6, 1.8, 1.4, 1.8, 1.7, 2.2, 2.4, 2.9, 2.7, 2.4, 2.3],
-          // Pkt 1 (Total: 25.00 T/Hek, Jan: 1.80)
-          "002": [2.2, 2.2, 2.1, 2, 1.8, 1.7, 1.6, 1.6, 2.3, 2.4, 2.45, 2.65],
-          // Pkt 2 (Total: 25.00 T/Hek, Jan: 2.20)
-          "003": [0.97, 0.93, 0.91, 0.93, 0.96, 1.06, 1.11, 1.24, 1.24, 1.18, 1.23, 1.22],
-          // 1F Felda (Total: 12.98 T/Hek, Jan: 0.97)
-          "003_2F": [1.01, 0.95, 0.94, 0.95, 1, 1.14, 1.19, 1.26, 1.27, 1.03, 0.98, 1.26],
-          // 2F Felda (Total: 12.98 T/Hek, Jan: 1.01)
-          "004": [1.4, 1.15, 1.4, 1.3, 1.5, 1.7, 1.9, 2.2, 2.3, 2.25, 2, 1.9]
-          // Lot Tambahan 125Y/128Y/121V (Total: 21.00 T/Hek, Jan: 1.40)
-        },
-        blocks: {
-          // Pkt 1 (Blok 1 - 11, Total 613.6 Hektar, 156 Peneroka)
-          "1": { blok: "1", luas: 30.46, target_mt: 57.87, target_hek: 1.9, pkt: "001", peneroka: 8 },
-          "2": { blok: "2", luas: 58.07, target_mt: 110.33, target_hek: 1.9, pkt: "001", peneroka: 15 },
-          "3": { blok: "3", luas: 45.91, target_mt: 87.23, target_hek: 1.9, pkt: "001", peneroka: 12 },
-          "4": { blok: "4", luas: 57.89, target_mt: 110, target_hek: 1.9, pkt: "001", peneroka: 15 },
-          "5": { blok: "5", luas: 60.05, target_mt: 114.1, target_hek: 1.9, pkt: "001", peneroka: 15 },
-          "6": { blok: "6", luas: 64.64, target_mt: 122.82, target_hek: 1.9, pkt: "001", peneroka: 16 },
-          "7": { blok: "7", luas: 68.17, target_mt: 129.52, target_hek: 1.9, pkt: "001", peneroka: 17 },
-          "8": { blok: "8", luas: 77.53, target_mt: 147.31, target_hek: 1.9, pkt: "001", peneroka: 20 },
-          "9": { blok: "9", luas: 64.04, target_mt: 121.68, target_hek: 1.9, pkt: "001", peneroka: 16 },
-          "10": { blok: "10", luas: 63.01, target_mt: 119.72, target_hek: 1.9, pkt: "001", peneroka: 16 },
-          "11": { blok: "11", luas: 23.87, target_mt: 45.35, target_hek: 1.9, pkt: "001", peneroka: 6 },
-          // Pkt 2 (Blok 1 - 6, Total 333.4 Hektar, 83 Peneroka - mapped to 12-17 for numerical uniqueness)
-          "12": { blok: "12", luas: 59.93, target_mt: 95.89, target_hek: 1.6, pkt: "002", peneroka: 15 },
-          "13": { blok: "13", luas: 60.47, target_mt: 96.75, target_hek: 1.6, pkt: "002", peneroka: 15 },
-          "14": { blok: "14", luas: 40.4, target_mt: 64.64, target_hek: 1.6, pkt: "002", peneroka: 10 },
-          "15": { blok: "15", luas: 48.41, target_mt: 77.46, target_hek: 1.6, pkt: "002", peneroka: 12 },
-          "16": { blok: "16", luas: 67.76, target_mt: 108.42, target_hek: 1.6, pkt: "002", peneroka: 17 },
-          "17": { blok: "17", luas: 56.45, target_mt: 90.32, target_hek: 1.6, pkt: "002", peneroka: 14 },
-          // Lot FELDA (1F & 2F, Total 78.04 Hektar)
-          "1F": { blok: "1F", luas: 39.81, target_mt: 44.19, target_hek: 1.11, pkt: "003", peneroka: 0 },
-          "2F": { blok: "2F", luas: 38.23, target_mt: 45.49, target_hek: 1.19, pkt: "003", peneroka: 0 },
-          // Lot Tambahan (125Y, 128Y, 121V, Total 16.16 Hektar, 4 Peneroka)
-          "125Y": { blok: "125Y", luas: 8.06, target_mt: 15.31, target_hek: 1.9, pkt: "004", peneroka: 2 },
-          "128Y": { blok: "128Y", luas: 4.08, target_mt: 7.75, target_hek: 1.9, pkt: "004", peneroka: 1 },
-          "121V": { blok: "121V", luas: 4.02, target_mt: 7.64, target_hek: 1.9, pkt: "004", peneroka: 1 }
-        }
-      },
-      // 4. FPM SENING (STATUS: STANDBY UNTUK MENERIMA DATA SET ASAS)
-      FPM_SENING: {
-        id: "FPM_SENING",
-        name: "FPM Sening",
-        shortName: "Sening",
-        code: "SNG",
-        zoneId: "ZON_ADELA",
-        zoneName: "Zon Adela",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Adela",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026). Sedia menerima pendaftaran blok.",
-        blocks: {}
-      },
-      // ==========================================
-      // ZON SEPAKAT (9 LADANG)
-      // ==========================================
-      FPM_SG_MAS: {
-        id: "FPM_SG_MAS",
-        name: "FPM Sg. Mas",
-        shortName: "Sg. Mas",
-        code: "SGM",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_PAPAN_TIMUR: {
-        id: "FPM_PAPAN_TIMUR",
-        name: "FPM Papan Timur",
-        shortName: "Papan Timur",
-        code: "PPT",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_SEMENCHU: {
-        id: "FPM_SEMENCHU",
-        name: "FPM Semenchu",
-        shortName: "Semenchu",
-        code: "SMC",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_AIR_TAWAR_1: {
-        id: "FPM_AIR_TAWAR_1",
-        name: "FPM Air Tawar 1",
-        shortName: "Air Tawar 1",
-        code: "AT1",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_AIR_TAWAR_2: {
-        id: "FPM_AIR_TAWAR_2",
-        name: "FPM Air Tawar 2",
-        shortName: "Air Tawar 2",
-        code: "AT2",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_AIR_TAWAR_3: {
-        id: "FPM_AIR_TAWAR_3",
-        name: "FPM Air Tawar 3",
-        shortName: "Air Tawar 3",
-        code: "AT3",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_AIR_TAWAR_4: {
-        id: "FPM_AIR_TAWAR_4",
-        name: "FPM Air Tawar 4",
-        shortName: "Air Tawar 4",
-        code: "AT4",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_AIR_TAWAR_5: {
-        id: "FPM_AIR_TAWAR_5",
-        name: "FPM Air Tawar 5",
-        shortName: "Air Tawar 5",
-        code: "AT5",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_PASAK: {
-        id: "FPM_PASAK",
-        name: "FPM Pasak",
-        shortName: "Pasak",
-        code: "PSK",
-        zoneId: "ZON_SEPAKAT",
-        zoneName: "Zon Sepakat",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      // ==========================================
-      // ZON LAW (7 LADANG)
-      // ==========================================
-      FPM_LOK_HENG_TIMUR: {
-        id: "FPM_LOK_HENG_TIMUR",
-        name: "FPM Lok Heng Timur",
-        shortName: "Lok Heng Timur",
-        code: "LHT",
-        zoneId: "ZON_LAW",
-        zoneName: "Zon LAW",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_LOK_HENG_BARAT: {
-        id: "FPM_LOK_HENG_BARAT",
-        name: "FPM Lok Heng Barat",
-        shortName: "Lok Heng Barat",
-        code: "LHB",
-        zoneId: "ZON_LAW",
-        zoneName: "Zon LAW",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_LOK_HENG_SELATAN: {
-        id: "FPM_LOK_HENG_SELATAN",
-        name: "FPM Lok Heng Selatan",
-        shortName: "Lok Heng Selatan",
-        code: "LHS",
-        zoneId: "ZON_LAW",
-        zoneName: "Zon LAW",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_BUKIT_WAHA: {
-        id: "FPM_BUKIT_WAHA",
-        name: "FPM Bukit Waha",
-        shortName: "Bukit Waha",
-        code: "BWH",
-        zoneId: "ZON_LAW",
-        zoneName: "Zon LAW",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_SIMPANG_WAHA: {
-        id: "FPM_SIMPANG_WAHA",
-        name: "FPM Simpang Waha",
-        shortName: "Simpang Waha",
-        code: "SWH",
-        zoneId: "ZON_LAW",
-        zoneName: "Zon LAW",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_APING_TIMUR: {
-        id: "FPM_APING_TIMUR",
-        name: "FPM Aping Timur",
-        shortName: "Aping Timur",
-        code: "APT",
-        zoneId: "ZON_LAW",
-        zoneName: "Zon LAW",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_APING_BARAT: {
-        id: "FPM_APING_BARAT",
-        name: "FPM Aping Barat",
-        shortName: "Aping Barat",
-        code: "APB",
-        zoneId: "ZON_LAW",
-        zoneName: "Zon LAW",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      // ==========================================
-      // ZON TENGGAROH (9 LADANG)
-      // ==========================================
-      FPM_TENGGAROH_1: {
-        id: "FPM_TENGGAROH_1",
-        name: "FPM Tenggaroh 1",
-        shortName: "Tenggaroh 1",
-        code: "TG1",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TENGGAROH_2: {
-        id: "FPM_TENGGAROH_2",
-        name: "FPM Tenggaroh 2",
-        shortName: "Tenggaroh 2",
-        code: "TG2",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TENGGAROH_3: {
-        id: "FPM_TENGGAROH_3",
-        name: "FPM Tenggaroh 3",
-        shortName: "Tenggaroh 3",
-        code: "TG3",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TENGGAROH_4: {
-        id: "FPM_TENGGAROH_4",
-        name: "FPM Tenggaroh 4",
-        shortName: "Tenggaroh 4",
-        code: "TG4",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TENGGAROH_5: {
-        id: "FPM_TENGGAROH_5",
-        name: "FPM Tenggaroh 5",
-        shortName: "Tenggaroh 5",
-        code: "TG5",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TENGGAROH_6: {
-        id: "FPM_TENGGAROH_6",
-        name: "FPM Tenggaroh 6",
-        shortName: "Tenggaroh 6",
-        code: "TG6",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TENGGAROH_7: {
-        id: "FPM_TENGGAROH_7",
-        name: "FPM Tenggaroh 7",
-        shortName: "Tenggaroh 7",
-        code: "TG7",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TENGGAROH_TIMUR: {
-        id: "FPM_TENGGAROH_TIMUR",
-        name: "FPM Tenggaroh Timur",
-        shortName: "Tenggaroh Timur",
-        code: "TGT",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TENGGAROH_SELATAN: {
-        id: "FPM_TENGGAROH_SELATAN",
-        name: "FPM Tenggaroh Selatan",
-        shortName: "Tenggaroh Selatan",
-        code: "TGS",
-        zoneId: "ZON_TENGGAROH",
-        zoneName: "Zon Tenggaroh",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      // ==========================================
-      // ZON TAIB ANDAK (11 LADANG)
-      // ==========================================
-      FPM_BUKIT_RAMUN: {
-        id: "FPM_BUKIT_RAMUN",
-        name: "FPM Bukit Ramun",
-        shortName: "Bukit Ramun",
-        code: "BRM",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_BUKIT_BESAR: {
-        id: "FPM_BUKIT_BESAR",
-        name: "FPM Bukit Besar",
-        shortName: "Bukit Besar",
-        code: "BBS",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_SG_SAYONG: {
-        id: "FPM_SG_SAYONG",
-        name: "FPM Sg. Sayong",
-        shortName: "Sg. Sayong",
-        code: "SSY",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_PENGGELI_TIMUR: {
-        id: "FPM_PENGGELI_TIMUR",
-        name: "FPM Penggeli Timur",
-        shortName: "Penggeli Timur",
-        code: "PGT",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_SG_SIBOL: {
-        id: "FPM_SG_SIBOL",
-        name: "FPM Sg. Sibol",
-        shortName: "Sg. Sibol",
-        code: "SSB",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_INAS_UTARA: {
-        id: "FPM_INAS_UTARA",
-        name: "FPM Inas Utara",
-        shortName: "Inas Utara",
-        code: "INU",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_LINGGIU: {
-        id: "FPM_LINGGIU",
-        name: "FPM Linggiu",
-        shortName: "Linggiu",
-        code: "LGQ",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_PASIR_RAJA: {
-        id: "FPM_PASIR_RAJA",
-        name: "FPM Pasir Raja",
-        shortName: "Pasir Raja",
-        code: "PSR",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_ULU_TEBRAU: {
-        id: "FPM_ULU_TEBRAU",
-        name: "FPM Ulu Tebrau",
-        shortName: "Ulu Tebrau",
-        code: "UTB",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_TAIB_ANDAK: {
-        id: "FPM_TAIB_ANDAK",
-        name: "FPM Taib Andak",
-        shortName: "Taib Andak",
-        code: "TBA",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      },
-      FPM_ENDAU: {
-        id: "FPM_ENDAU",
-        name: "FPM Endau",
-        shortName: "Endau",
-        code: "END",
-        zoneId: "ZON_TAIB_ANDAK",
-        zoneName: "Zon Taib Andak",
-        regionId: "WILAYAH_JB",
-        regionName: "FPM Wilayah Johor Bahru",
-        millName: "Kilang Sawit Wilayah JB",
-        totalHectares: 0,
-        annualTargetPkt1: 0,
-        annualTargetPkt2: 0,
-        annualTargetFelda: 0,
-        monthlyTargets2026: {},
-        status: "standby",
-        isStandby: true,
-        standbyNote: "Mod Standby: Menunggu penyerahan data set asas (Keluasan Blok, Bilangan Peneroka, & Sasaran Bulanan 2026).",
-        blocks: {}
-      }
-    };
-    CUSTOM_MASTER_KEY_PREFIX = "fpm_custom_master_data_";
-  }
-});
-
-// src/server/services/deviceSecurity.service.ts
-import crypto3 from "crypto";
-import fs2 from "fs";
-import path2 from "path";
-function verifyBootstrapToken(token) {
-  const configured = (process.env.IPDS_DEVICE_BOOTSTRAP_TOKEN || "").trim();
-  if (!configured) return false;
-  if (!token || typeof token !== "string") return false;
-  const provided = token.trim();
-  if (!provided) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(configured);
-  if (a.length !== b.length) return false;
-  try {
-    return crypto3.timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
-}
-function hashApprovalCapability(capability) {
-  return crypto3.createHash("sha256").update(capability, "utf8").digest("hex");
-}
-function timingSafeEqualHex(a, b) {
-  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
-  try {
-    return crypto3.timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
-  } catch {
-    return false;
-  }
-}
-async function createApprovalCapability(params) {
-  const capability = crypto3.randomBytes(32).toString("base64url");
-  const tokenHash = hashApprovalCapability(capability);
-  const expiresAt = new Date(Date.now() + APPROVAL_CAPABILITY_TTL_MS).toISOString();
-  approvalCapabilities.set(tokenHash, {
-    deviceId: params.deviceId,
-    estateId: params.estateId,
-    deviceName: params.deviceName ?? null,
-    requesterName: params.requesterName ?? null,
-    requesterStaffId: params.requesterStaffId ?? null,
-    expiresAt,
-    usedAt: null,
-    createdBy: params.createdBy,
-    createdAt: (/* @__PURE__ */ new Date()).toISOString()
-  });
-  try {
-    const supabase = getSupabase();
-    if (supabase) {
-      await supabase.from("device_approval_capabilities").upsert([{
-        device_id: params.deviceId,
-        estate_id: params.estateId,
-        token_hash: tokenHash,
-        expires_at: expiresAt,
-        created_by: params.createdBy || null,
-        requester_name: params.requesterName ?? null,
-        requester_staff_id: params.requesterStaffId ?? null,
-        device_name: params.deviceName ?? null
-      }], { onConflict: "token_hash" });
-    }
-  } catch (err) {
-    console.warn("[DEVICE_SECURITY] Save approval capability error:", err);
-  }
-  return { capability, expiresAt };
-}
-async function sendApprovalLink(params) {
-  const contact = deviceSecurityService.getFcContact();
-  const webhookUrl = process.env.ALERT_WEBHOOK_URL?.trim();
-  if (webhookUrl) {
-    try {
-      await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "DEVICE_APPROVAL_REQUEST",
-          estateId: params.estateId,
-          deviceId: params.deviceId,
-          deviceName: params.deviceName || "Peranti Baharu",
-          requesterName: params.requesterName || "Kakitangan",
-          requesterStaffId: params.requesterStaffId || "N/A",
-          recipient: contact,
-          approvalUrl: params.approvalUrl,
-          message: `Permohonan kelulusan peranti baharu (${params.deviceName || "Peranti"}) untuk ladang ${params.estateId}. Sila hubungi/sahkan FC: ${contact.name} (${contact.phone}). Pautan: ${params.approvalUrl}`,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        })
-      });
-    } catch (err) {
-      console.warn("[DEVICE_SECURITY] Failed to dispatch approval notification via webhook:", err);
-    }
-  }
-  console.log(`[DEVICE_APPROVAL_DELIVERY] Approval link sent to FC contact (${contact.name} - ${contact.phone}): ${params.approvalUrl}`);
-  return true;
-}
-async function consumeApprovalCapability(capability) {
-  if (!capability || typeof capability !== "string") return { ok: false, reason: "invalid" };
-  const providedHash = hashApprovalCapability(capability);
-  let matchKey = null;
-  for (const key of approvalCapabilities.keys()) {
-    if (timingSafeEqualHex(key, providedHash)) {
-      matchKey = key;
-      break;
-    }
-  }
-  try {
-    const supabase = getSupabase();
-    if (supabase) {
-      const { data } = await supabase.from("device_approval_capabilities").update({ used_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("token_hash", providedHash).is("used_at", null).gt("expires_at", (/* @__PURE__ */ new Date()).toISOString()).select().maybeSingle();
-      if (data) {
-        const existing = approvalCapabilities.get(providedHash);
-        if (existing) existing.usedAt = (/* @__PURE__ */ new Date()).toISOString();
-        return {
-          ok: true,
-          deviceId: data.device_id,
-          estateId: data.estate_id,
-          deviceName: data.device_name,
-          requesterName: data.requester_name,
-          requesterStaffId: data.requester_staff_id,
-          createdAt: data.created_at,
-          expiresAt: data.expires_at
-        };
-      }
-    }
-  } catch (err) {
-    console.warn("[DEVICE_SECURITY] Consume approval capability error:", err);
-  }
-  if (!matchKey) return { ok: false, reason: "invalid" };
-  const entry = approvalCapabilities.get(matchKey);
-  if (entry.usedAt) return { ok: false, reason: "used" };
-  if (new Date(entry.expiresAt).getTime() <= Date.now()) return { ok: false, reason: "expired" };
-  entry.usedAt = (/* @__PURE__ */ new Date()).toISOString();
-  return {
-    ok: true,
-    deviceId: entry.deviceId,
-    estateId: entry.estateId,
-    deviceName: entry.deviceName,
-    requesterName: entry.requesterName,
-    requesterStaffId: entry.requesterStaffId,
-    createdAt: entry.createdAt,
-    expiresAt: entry.expiresAt
-  };
-}
-async function peekApprovalCapability(capability) {
-  if (!capability || typeof capability !== "string") return { ok: false, reason: "invalid" };
-  const providedHash = hashApprovalCapability(capability);
-  try {
-    const supabase = getSupabase();
-    if (supabase) {
-      const { data } = await supabase.from("device_approval_capabilities").select("device_id, estate_id, device_name, requester_name, requester_staff_id, created_at, expires_at, used_at").eq("token_hash", providedHash).maybeSingle();
-      if (data) {
-        if (data.used_at) return { ok: false, reason: "used" };
-        if (new Date(data.expires_at).getTime() <= Date.now()) return { ok: false, reason: "expired" };
-        return {
-          ok: true,
-          deviceId: data.device_id,
-          estateId: data.estate_id,
-          deviceName: data.device_name,
-          requesterName: data.requester_name,
-          requesterStaffId: data.requester_staff_id,
-          createdAt: data.created_at,
-          expiresAt: data.expires_at
-        };
-      }
-    }
-  } catch (err) {
-    console.warn("[DEVICE_SECURITY] Peek approval capability error:", err);
-  }
-  let matchKey = null;
-  for (const key of approvalCapabilities.keys()) {
-    if (timingSafeEqualHex(key, providedHash)) {
-      matchKey = key;
-      break;
-    }
-  }
-  if (!matchKey) return { ok: false, reason: "invalid" };
-  const entry = approvalCapabilities.get(matchKey);
-  if (entry.usedAt) return { ok: false, reason: "used" };
-  if (new Date(entry.expiresAt).getTime() <= Date.now()) return { ok: false, reason: "expired" };
-  return {
-    ok: true,
-    deviceId: entry.deviceId,
-    estateId: entry.estateId,
-    deviceName: entry.deviceName,
-    requesterName: entry.requesterName,
-    requesterStaffId: entry.requesterStaffId,
-    createdAt: entry.createdAt,
-    expiresAt: entry.expiresAt
-  };
-}
-function generateDeviceCredential() {
-  return crypto3.randomBytes(DEVICE_CREDENTIAL_BYTES).toString("base64url");
-}
-function hashDeviceCredential(credential) {
-  return crypto3.createHash("sha256").update(credential, "utf8").digest("hex");
-}
-async function rotateCredentialCas(deviceId, deps) {
-  for (let attempt = 0; attempt < MAX_CREDENTIAL_ROTATION_ATTEMPTS; attempt++) {
-    const currentVersion = await deps.readVersion(deviceId);
-    if (currentVersion === null) return { ok: false, reason: "DB_UNAVAILABLE" };
-    const credential = deps.generateCredential();
-    const credentialHash = deps.hashCredential(credential);
-    const rotatedAt = deps.now();
-    const newVersion = await deps.casUpdate(deviceId, currentVersion, credentialHash, rotatedAt);
-    if (newVersion !== null) {
-      return { ok: true, credential, credentialVersion: newVersion, rotatedAt };
-    }
-  }
-  return { ok: false, reason: "CONFLICT" };
-}
-async function issueDeviceCredential(deviceId) {
-  if (!deviceId || typeof deviceId !== "string") return null;
-  const outcome = await rotateCredentialCas(deviceId, DEFAULT_CREDENTIAL_ROTATION_DEPS);
-  return outcome.ok && outcome.credential ? outcome.credential : null;
-}
-function actorCanAdministerDeviceEstate(actor, deviceEstateId) {
-  const role = String(actor?.role || "").toLowerCase().trim();
-  if (!CREDENTIAL_ADMIN_ROLES.has(role)) return false;
-  if (isSuperAdminIdentity({ app_metadata: { app_role: actor?.role, estate_id: actor?.estateId } })) return true;
-  const own = String(actor?.estateId || "").trim().toUpperCase();
-  return !!own && own === String(deviceEstateId || "").trim().toUpperCase();
-}
-async function getRegisteredDeviceById(deviceId) {
-  if (!deviceId || typeof deviceId !== "string") return null;
-  const supabase = getSupabase();
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase.from("registered_devices").select("*").eq("device_id", deviceId).maybeSingle();
-    if (error || !data) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
-async function issueExistingDeviceCredential(deviceId, actor, deps = DEFAULT_DEVICE_CREDENTIAL_ROLLOUT_DEPS) {
-  const id = String(deviceId || "").trim();
-  if (!id) return { ok: false, code: "UNKNOWN_DEVICE" };
-  const device = await deps.findDevice(id);
-  if (!device || !device.device_id) return { ok: false, code: "UNKNOWN_DEVICE", deviceId: id };
-  if (device.status !== "APPROVED") {
-    return { ok: false, code: "DEVICE_NOT_APPROVED", deviceId: id };
-  }
-  const estateId = String(device.estate_id || "").trim().toUpperCase();
-  if (!isValidEstateId(estateId)) {
-    return { ok: false, code: "INVALID_ESTATE", deviceId: id };
-  }
-  if (!actorCanAdministerDeviceEstate(actor, estateId)) {
-    return { ok: false, code: "UNAUTHORIZED_ACTOR", deviceId: id, estateId };
-  }
-  const outcome = await rotateCredentialCas(id, deps);
-  if (!outcome.ok) {
-    return {
-      ok: false,
-      code: outcome.reason === "CONFLICT" ? "CONFLICT" : "DB_UNAVAILABLE",
-      deviceId: id,
-      estateId
-    };
-  }
-  return {
-    ok: true,
-    code: "OK",
-    deviceId: id,
-    estateId,
-    credential: outcome.credential,
-    credentialVersion: outcome.credentialVersion,
-    rotatedAt: outcome.rotatedAt
-  };
-}
-function isValidEstateId(estateId) {
-  if (!estateId || typeof estateId !== "string") return false;
-  const normalized = normalizeEstateId(estateId);
-  return Object.prototype.hasOwnProperty.call(ESTATES_REGISTRY, normalized);
-}
-async function getDeviceEstateAccess(deviceId, estateId) {
-  if (!deviceId || !estateId) return null;
-  const supabase = getSupabase();
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase.from("device_estate_access").select("*").eq("device_id", deviceId).eq("estate_id", estateId).maybeSingle();
-    if (error || !data) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
-async function isDeviceAuthorizedForEstate(deviceId, estateId) {
-  const access = await getDeviceEstateAccess(deviceId, estateId);
-  return !!access && access.status === "ACTIVE";
-}
-async function listDeviceEstateAccess(deviceId) {
-  if (!deviceId) return [];
-  const supabase = getSupabase();
-  if (!supabase) return [];
-  try {
-    const { data, error } = await supabase.from("device_estate_access").select("*").eq("device_id", deviceId).order("estate_id", { ascending: true });
-    if (error || !data) return [];
-    return data;
-  } catch {
-    return [];
-  }
-}
-async function grantDeviceEstateAccess(deviceId, estateId, actor) {
-  if (!deviceId || !estateId) return null;
-  if (!isValidEstateId(estateId)) return null;
-  const device = await deviceSecurityService.getDeviceStatus(deviceId);
-  if (!device) return null;
-  const supabase = getSupabase();
-  if (!supabase) return null;
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  try {
-    const { data, error } = await supabase.from("device_estate_access").upsert(
-      {
-        device_id: deviceId,
-        estate_id: estateId,
-        status: "ACTIVE",
-        granted_by: actor || null,
-        granted_at: now,
-        revoked_by: null,
-        revoked_at: null
-      },
-      { onConflict: "device_id,estate_id" }
-    ).select().maybeSingle();
-    if (error || !data) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
-async function revokeDeviceEstateAccess(deviceId, estateId, actor) {
-  if (!deviceId || !estateId) return false;
-  const supabase = getSupabase();
-  if (!supabase) return false;
-  try {
-    const { data, error } = await supabase.from("device_estate_access").update({
-      status: "REVOKED",
-      revoked_by: actor || null,
-      revoked_at: (/* @__PURE__ */ new Date()).toISOString()
-    }).eq("device_id", deviceId).eq("estate_id", estateId).select("device_id").maybeSingle();
-    if (error || !data) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
-async function getDeviceByCredentialHash(credentialHash) {
-  if (!credentialHash || typeof credentialHash !== "string") return null;
-  const supabase = getSupabase();
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase.from("registered_devices").select("*").eq("credential_hash", credentialHash).maybeSingle();
-    if (error || !data) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
-async function authorizeDeviceForEstate(params, deps = DEFAULT_DEVICE_AUTH_DEPS) {
-  const credential = typeof params?.credential === "string" ? params.credential.trim() : "";
-  const requestedEstate = String(params?.requestedEstateId || "").trim().toUpperCase();
-  if (!credential) return { allowed: false, code: "CREDENTIAL_MISSING" };
-  if (!requestedEstate || !isValidEstateId(requestedEstate)) return { allowed: false, code: "ESTATE_NOT_AUTHORIZED" };
-  const credentialHash = hashDeviceCredential(credential);
-  const device = await deps.findDeviceByCredentialHash(credentialHash);
-  if (!device || !device.device_id) return { allowed: false, code: "DEVICE_NOT_FOUND" };
-  if (device.merged_into) {
-    return { allowed: false, code: "DEVICE_MERGED", deviceId: device.device_id, mergedInto: device.merged_into };
-  }
-  if (device.status !== "APPROVED") return { allowed: false, code: "DEVICE_NOT_APPROVED", deviceId: device.device_id };
-  const access = await deps.getEstateAccess(device.device_id, requestedEstate);
-  if (!access || access.status !== "ACTIVE") {
-    return { allowed: false, code: "ESTATE_NOT_AUTHORIZED", deviceId: device.device_id };
-  }
-  return { allowed: true, code: "OK", deviceId: device.device_id };
-}
-function isStrictDeviceEnforcementEnabled() {
-  const raw = String(process.env.IPDS_DEVICE_STRICT_ENFORCEMENT || "").trim().toLowerCase();
-  return raw === "true" || raw === "1" || raw === "yes";
-}
-function resolveDeviceStatusRecord(cached, persisted) {
-  if (cached && cached.status === "APPROVED") return cached;
-  if (!persisted) return cached || null;
-  if (persisted.status === "APPROVED") return persisted;
-  if (cached && (cached.status === "BLOCKED" || cached.status === "REVOKED")) {
-    return cached;
-  }
-  return persisted;
-}
-var FC_CONTACT_FILE, deviceMemoryCache, APPROVAL_CAPABILITY_TTL_MS, approvalCapabilities, DEVICE_CREDENTIAL_BYTES, MAX_CREDENTIAL_ROTATION_ATTEMPTS, DEFAULT_CREDENTIAL_ROTATION_DEPS, CREDENTIAL_ADMIN_ROLES, DEFAULT_DEVICE_CREDENTIAL_ROLLOUT_DEPS, CANONICAL_ESTATE_IDS, DEFAULT_DEVICE_AUTH_DEPS, SEED_MASTER_DEVICES, DeviceSecurityService, deviceSecurityService;
-var init_deviceSecurity_service = __esm({
-  "src/server/services/deviceSecurity.service.ts"() {
-    init_db();
-    init_audit_service();
-    init_auth();
-    init_estateRegistry();
-    FC_CONTACT_FILE = path2.join(process.cwd(), "data", "fc_contact.json");
-    deviceMemoryCache = /* @__PURE__ */ new Map();
-    APPROVAL_CAPABILITY_TTL_MS = 12 * 60 * 1e3;
-    approvalCapabilities = /* @__PURE__ */ new Map();
-    DEVICE_CREDENTIAL_BYTES = 32;
-    MAX_CREDENTIAL_ROTATION_ATTEMPTS = 5;
-    DEFAULT_CREDENTIAL_ROTATION_DEPS = {
-      readVersion: async (deviceId) => {
-        const supabase = getSupabase();
-        if (!supabase) return null;
-        try {
-          const { data, error } = await supabase.from("registered_devices").select("credential_version").eq("device_id", deviceId).maybeSingle();
-          if (error || !data) return null;
-          return Number(data.credential_version ?? 0) || 0;
-        } catch {
-          return null;
-        }
-      },
-      casUpdate: async (deviceId, expectedVersion, credentialHash, rotatedAt) => {
-        const supabase = getSupabase();
-        if (!supabase) return null;
-        try {
-          const { data, error } = await supabase.from("registered_devices").update({
-            credential_hash: credentialHash,
-            credential_version: expectedVersion + 1,
-            credential_rotated_at: rotatedAt
-          }).eq("device_id", deviceId).eq("credential_version", expectedVersion).select("credential_version").maybeSingle();
-          if (error || !data) return null;
-          return Number(data.credential_version);
-        } catch {
-          return null;
-        }
-      },
-      generateCredential: generateDeviceCredential,
-      hashCredential: hashDeviceCredential,
-      now: () => (/* @__PURE__ */ new Date()).toISOString()
-    };
-    CREDENTIAL_ADMIN_ROLES = /* @__PURE__ */ new Set([
-      "rc",
-      "oc",
-      "pf",
-      "fc",
-      "superadmin",
-      "super_admin",
-      "admin",
-      "executive_hq",
-      "regional_controller"
-    ]);
-    DEFAULT_DEVICE_CREDENTIAL_ROLLOUT_DEPS = {
-      ...DEFAULT_CREDENTIAL_ROTATION_DEPS,
-      findDevice: getRegisteredDeviceById
-    };
-    CANONICAL_ESTATE_IDS = new Set(Object.keys(ESTATES_REGISTRY).map((k) => k.toUpperCase()));
-    DEFAULT_DEVICE_AUTH_DEPS = {
-      findDeviceByCredentialHash: getDeviceByCredentialHash,
-      getEstateAccess: getDeviceEstateAccess
-    };
-    SEED_MASTER_DEVICES = [
-      {
-        device_id: "DEV-MASTER-NAS-FC",
-        device_name: "Telefon Utama Pengurus / Field Controller (FC)",
-        estate_id: "FPM_TUNGGAL",
-        operator_name: "MD NASRUDDIN BIN BHSERAN",
-        role: "fc",
-        status: "APPROVED",
-        approved_by: "SYSTEM_SUPERADMIN",
-        approved_at: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    ];
-    DeviceSecurityService = class {
-      constructor() {
-        // Active FC WhatsApp Contact (Default with env override, loaded from Supabase on boot)
-        this.fcContact = {
-          phone: process.env.ADMIN_WHATSAPP_PHONE || process.env.FC_WHATSAPP_PHONE || "60177853551",
-          name: "MD NASRUDDIN (FC Tunggal / Admin)",
-          estate: "FPM_TUNGGAL"
-        };
-        this.isSupabaseLoaded = false;
-        for (const d of SEED_MASTER_DEVICES) {
-          deviceMemoryCache.set(d.device_id, d);
-        }
-        this.loadFromSupabase().catch(() => {
-        });
-      }
-      /**
-       * Check if a device is registered and approved
-       */
-      async getDeviceStatus(deviceId, estateId = "FPM_TUNGGAL") {
-        if (!deviceId) return null;
-        const cached = deviceMemoryCache.get(deviceId);
-        if (cached && cached.status === "APPROVED") {
-          return cached;
-        }
-        let persisted = null;
-        try {
-          const supabase = getSupabase();
-          if (supabase) {
-            const { data, error } = await supabase.from("registered_devices").select("*").eq("device_id", deviceId).maybeSingle();
-            if (!error && data) {
-              persisted = data;
-            }
-          }
-        } catch (err) {
-          console.warn("[DEVICE_SECURITY] Supabase lookup error:", err);
-        }
-        const resolved = resolveDeviceStatusRecord(cached, persisted);
-        if (resolved) {
-          if (persisted) {
-            deviceMemoryCache.set(deviceId, resolved);
-          }
-          return resolved;
-        }
-        return null;
-      }
-      /**
-       * Register a new device (Initial status: PENDING)
-       */
-      async registerDevice(payload) {
-        const bootstrapApproved = verifyBootstrapToken(payload.bootstrapToken);
-        const status = bootstrapApproved ? "APPROVED" : "PENDING";
-        const record = {
-          device_id: payload.deviceId,
-          device_name: payload.deviceName || "Peranti Baharu",
-          estate_id: payload.estateId || "FPM_TUNGGAL",
-          registered_by_pin: payload.pin ? "******" : void 0,
-          operator_name: payload.operatorName || "Tidak Diketahui",
-          role: payload.role || "staff",
-          status,
-          approved_by: bootstrapApproved ? "BOOTSTRAP_TOKEN" : void 0,
-          approved_at: bootstrapApproved ? (/* @__PURE__ */ new Date()).toISOString() : void 0,
-          last_seen_at: (/* @__PURE__ */ new Date()).toISOString(),
-          ip_address: payload.ip || "unknown",
-          user_agent: payload.userAgent || "unknown",
-          created_at: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        deviceMemoryCache.set(payload.deviceId, record);
-        try {
-          const supabase = getSupabase();
-          if (supabase) {
-            await supabase.from("registered_devices").upsert([record], { onConflict: "device_id" });
-          }
-        } catch (err) {
-          console.warn("[DEVICE_SECURITY] Save to Supabase error:", err);
-        }
-        auditService.record({
-          action: bootstrapApproved ? "DEVICE_BOOTSTRAP_APPROVED" : "DEVICE_REGISTRATION_REQUESTED",
-          resource: "devices",
-          userId: payload.deviceId,
-          userName: payload.operatorName,
-          authorizedEstate: payload.estateId,
-          result: bootstrapApproved ? "SUCCESS" : "PENDING",
-          ip: payload.ip || "unknown",
-          userAgent: payload.userAgent || "unknown",
-          details: {
-            deviceName: payload.deviceName,
-            status
-          }
-        });
-        return record;
-      }
-      /**
-       * Approve a pending device (by FC / PF / Admin)
-       */
-      async approveDevice(deviceId, approverName, approverRole) {
-        const existing = await this.getDeviceStatus(deviceId);
-        const updated = {
-          ...existing || {
-            device_id: deviceId,
-            device_name: "Peranti Baharu",
-            estate_id: "FPM_TUNGGAL",
-            status: "APPROVED"
-          },
-          status: "APPROVED",
-          approved_by: `${approverName} (${approverRole})`,
-          approved_at: (/* @__PURE__ */ new Date()).toISOString(),
-          last_seen_at: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        deviceMemoryCache.set(deviceId, updated);
-        try {
-          const supabase = getSupabase();
-          if (supabase) {
-            const { error } = await supabase.from("registered_devices").upsert(
-              {
-                device_id: updated.device_id,
-                device_name: updated.device_name,
-                estate_id: updated.estate_id,
-                operator_name: updated.operator_name,
-                role: updated.role,
-                status: "APPROVED",
-                approved_by: updated.approved_by,
-                approved_at: updated.approved_at,
-                last_seen_at: updated.last_seen_at
-              },
-              { onConflict: "device_id" }
-            );
-            if (error) {
-              console.warn("[DEVICE_SECURITY] Approve device upsert warning:", error.message);
-            }
-          }
-        } catch (err) {
-          console.warn("[DEVICE_SECURITY] Approve device error:", err);
-        }
-        auditService.record({
-          action: "DEVICE_APPROVED",
-          resource: "devices",
-          userId: deviceId,
-          userName: approverName,
-          result: "SUCCESS",
-          details: { approverRole }
-        });
-        return updated;
-      }
-      /**
-       * Block or revoke a device
-       */
-      async revokeDevice(deviceId, revokerName, reason = "Akses ditamatkan") {
-        const existing = await this.getDeviceStatus(deviceId);
-        if (!existing) return false;
-        const updated = {
-          ...existing,
-          status: "REVOKED",
-          last_seen_at: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        deviceMemoryCache.set(deviceId, updated);
-        try {
-          const supabase = getSupabase();
-          if (supabase) {
-            await supabase.from("registered_devices").update({
-              status: "REVOKED",
-              last_seen_at: updated.last_seen_at
-            }).eq("device_id", deviceId);
-          }
-        } catch (err) {
-          console.warn("[DEVICE_SECURITY] Revoke device error:", err);
-        }
-        auditService.record({
-          action: "DEVICE_REVOKED",
-          resource: "devices",
-          userId: deviceId,
-          userName: revokerName,
-          result: "BLOCKED",
-          details: { reason }
-        });
-        return true;
-      }
-      /**
-       * List all registered devices for an estate
-       */
-      async listDevices(estateId) {
-        try {
-          const supabase = getSupabase();
-          if (supabase) {
-            let query = supabase.from("registered_devices").select("*").order("created_at", { ascending: false });
-            if (estateId && estateId !== "WILAYAH_JB" && estateId !== "ALL") {
-              query = query.eq("estate_id", estateId);
-            }
-            const { data, error } = await query;
-            if (!error && data) {
-              for (const d of data) {
-                deviceMemoryCache.set(d.device_id, d);
-              }
-              return data;
-            }
-          }
-        } catch (err) {
-          console.warn("[DEVICE_SECURITY] List devices error:", err);
-        }
-        return Array.from(deviceMemoryCache.values());
-      }
-      /**
-       * Load active contact settings from Supabase app_settings table
-       */
-      async loadFromSupabase() {
-        try {
-          const sb = getSupabase();
-          if (!sb) return this.fcContact;
-          const { data, error } = await sb.from("app_settings").select("key, value").in("key", ["admin_fc_whatsapp_phone", "admin_fc_whatsapp_name"]);
-          if (!error && data && data.length > 0) {
-            for (const row of data) {
-              if (row.key === "admin_fc_whatsapp_phone" && row.value) {
-                this.fcContact.phone = row.value;
-              }
-              if (row.key === "admin_fc_whatsapp_name" && row.value) {
-                this.fcContact.name = row.value;
-              }
-            }
-            this.isSupabaseLoaded = true;
-            try {
-              const dir = path2.dirname(FC_CONTACT_FILE);
-              if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
-              fs2.writeFileSync(FC_CONTACT_FILE, JSON.stringify(this.fcContact, null, 2), "utf-8");
-            } catch {
-            }
-          }
-        } catch (e) {
-          console.warn("[DEVICE_SECURITY] Load fc contact from Supabase error:", e);
-        }
-        return this.fcContact;
-      }
-      getFcContact() {
-        try {
-          if (!this.isSupabaseLoaded) {
-            this.loadFromSupabase().catch(() => {
-            });
-            if (fs2.existsSync(FC_CONTACT_FILE)) {
-              const raw = fs2.readFileSync(FC_CONTACT_FILE, "utf-8");
-              const parsed = JSON.parse(raw);
-              if (parsed?.phone) {
-                this.fcContact = { ...this.fcContact, ...parsed };
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("[DEVICE_SECURITY] Read fc_contact.json error:", e);
-        }
-        return this.fcContact;
-      }
-      async setFcContact(phone, name) {
-        let cleaned = (phone || "").replace(/\D/g, "");
-        while (cleaned.startsWith("6060")) {
-          cleaned = cleaned.slice(2);
-        }
-        if (cleaned.startsWith("0")) {
-          cleaned = "60" + cleaned.slice(1);
-        } else if (!cleaned.startsWith("60") && cleaned.length >= 8) {
-          cleaned = "60" + cleaned;
-        }
-        this.fcContact = {
-          phone: cleaned || "601138404285",
-          name: name || this.fcContact.name,
-          estate: this.fcContact.estate
-        };
-        try {
-          const dir = path2.dirname(FC_CONTACT_FILE);
-          if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
-          fs2.writeFileSync(FC_CONTACT_FILE, JSON.stringify(this.fcContact, null, 2), "utf-8");
-        } catch (e) {
-          console.warn("[DEVICE_SECURITY] Write fc_contact.json error:", e);
-        }
-        try {
-          const sb = getSupabase();
-          if (sb) {
-            await sb.from("app_settings").upsert([
-              { key: "admin_fc_whatsapp_phone", value: this.fcContact.phone },
-              { key: "admin_fc_whatsapp_name", value: this.fcContact.name }
-            ], { onConflict: "key" });
-            this.isSupabaseLoaded = true;
-          }
-        } catch (e) {
-          console.warn("[DEVICE_SECURITY] Persist to Supabase app_settings error:", e);
-        }
-        return this.fcContact;
-      }
-    };
-    deviceSecurityService = new DeviceSecurityService();
-  }
-});
-
 // src/server/services/durableSessionStore.service.ts
 function isDurableSessionStoreConfigured() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -4303,7 +3583,6 @@ __export(auth_exports, {
   extractRawTokenFromRequest: () => extractRawTokenFromRequest,
   extractUserFromRequest: () => extractUserFromRequest,
   isFCTunggalSuperAdmin: () => isFCTunggalSuperAdmin,
-  isPinAuthRequest: () => isPinAuthRequest,
   isSuperAdminIdentity: () => isSuperAdminIdentity,
   requireAuth: () => requireAuth,
   requireEstateAccess: () => requireEstateAccess,
@@ -4349,109 +3628,17 @@ function extractDeviceCredential(req) {
   return String(fromBody || fromHeader || "").trim();
 }
 function extractUserFromRequest(req) {
-  let token = extractRawTokenFromRequest(req);
-  if (token) {
-    const user = AuthService.verifyToken(token);
-    if (user) {
-      if (user.session_id) {
-        if (!sessionManager.isSessionActive(user.session_id)) {
-          return { user: null, token: null };
-        }
-        sessionManager.touchSession(user.session_id);
-      }
-      return { user, token };
+  const token = extractRawTokenFromRequest(req);
+  if (!token) return { user: null, token: null };
+  const user = AuthService.verifyToken(token);
+  if (!user) return { user: null, token: null };
+  if (user.session_id) {
+    if (!sessionManager.isSessionActive(user.session_id)) {
+      return { user: null, token: null };
     }
-    if (/^\d{6,7}$/.test(token)) {
-      const requestedEstate = req.headers["x-estate-id"] || void 0;
-      const pinSession = (requestedEstate ? AuthService.verifyEstateStaffLogin(requestedEstate, token, token) : null) || AuthService.verifyPin(token);
-      if (pinSession) {
-        if (requestedEstate) {
-          const cleanReqEstate = requestedEstate.trim().toUpperCase();
-          const userEstate = pinSession.app_metadata.estate_id;
-          const isMultiEstate = ["rc", "oc"].includes((pinSession.app_metadata.app_role || "").toLowerCase());
-          if (!isMultiEstate && userEstate !== cleanReqEstate) {
-            return { user: null, token: null };
-          }
-        }
-        sessionManager.registerSession(
-          pinSession,
-          req.ip || req.headers["x-forwarded-for"] || "127.0.0.1",
-          req.headers["user-agent"] || "Kiosk Terminal"
-        );
-        const generatedToken = AuthService.generateToken(pinSession);
-        const verified = AuthService.verifyToken(generatedToken);
-        if (verified) {
-          sessionManager.touchSession(verified.session_id);
-          return { user: verified, token: generatedToken };
-        }
-      }
-    }
-    return { user: null, token: null };
+    sessionManager.touchSession(user.session_id);
   }
-  const pinHeader = req.headers["x-auth-pin"] || req.headers["x-kiosk-pin"] || req.headers["x-pin"];
-  if (pinHeader && typeof pinHeader === "string") {
-    const cleanPin = pinHeader.trim();
-    if (/^\d{6,7}$/.test(cleanPin)) {
-      const requestedEstate = req.headers["x-estate-id"] || void 0;
-      const pinSession = (requestedEstate ? AuthService.verifyEstateStaffLogin(requestedEstate, cleanPin, cleanPin) : null) || AuthService.verifyPin(cleanPin);
-      if (pinSession) {
-        if (requestedEstate) {
-          const cleanReqEstate = requestedEstate.trim().toUpperCase();
-          const userEstate = pinSession.app_metadata.estate_id;
-          const isMultiEstate = ["rc", "oc"].includes((pinSession.app_metadata.app_role || "").toLowerCase());
-          if (!isMultiEstate && userEstate !== cleanReqEstate) {
-            return { user: null, token: null };
-          }
-        }
-        sessionManager.registerSession(
-          pinSession,
-          req.ip || req.headers["x-forwarded-for"] || "127.0.0.1",
-          req.headers["user-agent"] || "Kiosk Header Terminal"
-        );
-        const generatedToken = AuthService.generateToken(pinSession);
-        const verified = AuthService.verifyToken(generatedToken);
-        if (verified) {
-          sessionManager.touchSession(verified.session_id);
-          return { user: verified, token: generatedToken };
-        }
-      }
-    }
-  }
-  return { user: null, token: null };
-}
-function isPinAuthRequest(req) {
-  const raw = extractRawTokenFromRequest(req);
-  if (raw && /^\d{6,7}$/.test(raw.trim())) return true;
-  if (!raw) {
-    const headerPin = req.headers["x-auth-pin"] || req.headers["x-kiosk-pin"] || req.headers["x-pin"];
-    if (typeof headerPin === "string" && /^\d{6,7}$/.test(headerPin.trim())) return true;
-  }
-  return false;
-}
-async function isPinAuthDeviceApproved(req) {
-  if (!isPinAuthRequest(req)) return true;
-  const deviceId = String(
-    req.body && (req.body.deviceId || req.body.device_id) || req.query && (req.query.deviceId || req.query.device_id) || req.headers["x-device-id"] || "DEV-UNSPECIFIED"
-  );
-  const estateId = String(req.user?.app_metadata?.estate_id || "FPM_TUNGGAL");
-  try {
-    const status = await deviceSecurityService.getDeviceStatus(deviceId, estateId);
-    const legacyApproved = !!status && status.status === "APPROVED";
-    if (!legacyApproved) return false;
-    if (!isStrictDeviceEnforcementEnabled()) return true;
-    const credential = extractDeviceCredential(req);
-    const auth = await authorizeDeviceForEstate({ credential, requestedEstateId: estateId });
-    return auth.allowed;
-  } catch {
-    return false;
-  }
-}
-function rejectUnapprovedDevice(res) {
-  return res.status(403).json({
-    success: false,
-    error: "Peranti ini belum diluluskan untuk mengakses API. Sila luluskan peranti terlebih dahulu.",
-    code: "DEVICE_NOT_APPROVED"
-  });
+  return { user, token };
 }
 async function isActingAsSessionAuthorized(user) {
   try {
@@ -4493,33 +3680,8 @@ function authenticate(req, res, next) {
       })();
       return;
     }
-    if (!isPinAuthRequest(req)) {
-      if (!validateTenantAccess(req, res)) {
-        return;
-      }
-      return next();
-    }
-    void (async () => {
-      let approved = false;
-      try {
-        approved = await isPinAuthDeviceApproved(req);
-      } catch {
-        approved = false;
-      }
-      if (!approved) {
-        delete req.user;
-        delete req.authRole;
-        delete req.estateId;
-        delete req.rawToken;
-        delete req.supabase;
-        return next();
-      }
-      if (!validateTenantAccess(req, res)) {
-        return;
-      }
-      next();
-    })();
-    return;
+    if (!validateTenantAccess(req, res)) return;
+    return next();
   }
   next();
 }
@@ -4528,7 +3690,7 @@ function requireAuth(req, res, next) {
   if (!user || !token) {
     return res.status(401).json({
       success: false,
-      error: "Sesi log masuk tidak sah atau telah tamat tempoh. Sila masukkan PIN semula.",
+      error: "Sesi log masuk tidak sah atau telah tamat tempoh. Sila log masuk semula.",
       code: "UNAUTHORIZED"
     });
   }
@@ -4552,25 +3714,8 @@ function requireAuth(req, res, next) {
     })();
     return;
   }
-  if (!isPinAuthRequest(req)) {
-    if (!validateTenantAccess(req, res)) {
-      return;
-    }
-    return next();
-  }
-  void (async () => {
-    let approved = false;
-    try {
-      approved = await isPinAuthDeviceApproved(req);
-    } catch {
-      approved = false;
-    }
-    if (!approved) return rejectUnapprovedDevice(res);
-    if (!validateTenantAccess(req, res)) {
-      return;
-    }
-    next();
-  })();
+  if (!validateTenantAccess(req, res)) return;
+  return next();
 }
 function requireRole(allowedRoles) {
   return (req, res, next) => {
@@ -4638,19 +3783,7 @@ function requireRole(allowedRoles) {
       })();
       return;
     }
-    if (!isPinAuthRequest(req)) {
-      return runRoleAndTenantChecks();
-    }
-    void (async () => {
-      let approved = false;
-      try {
-        approved = await isPinAuthDeviceApproved(req);
-      } catch {
-        approved = false;
-      }
-      if (!approved) return rejectUnapprovedDevice(res);
-      runRoleAndTenantChecks();
-    })();
+    return runRoleAndTenantChecks();
   };
 }
 function requireSuperAdmin(req, res, next) {
@@ -4814,7 +3947,6 @@ var init_auth = __esm({
     init_sessionManager_service();
     init_alerts();
     init_metrics();
-    init_deviceSecurity_service();
     init_durableSessionStore_service();
     COOKIE_NAME = "ipds_session";
     FC_TUNGGAL_ESTATES = ["FPM_TUNGGAL", "5155"];
@@ -4825,7 +3957,7 @@ var init_auth = __esm({
 
 // src/server/services/auth.service.ts
 import jwt from "jsonwebtoken";
-import crypto4 from "crypto";
+import crypto3 from "crypto";
 import bcrypt3 from "bcryptjs";
 import { v5 as uuidv52, v4 as uuidv43 } from "uuid";
 function applyIdentityOverridesFromEnv() {
@@ -4852,6 +3984,7 @@ function updateServerPinConfig(newConfig) {
       const existingKiosk = PIN_USERS_CONFIG[opId];
       const kioskId = existingKiosk?.kiosk_id || existingIdentity?.kiosk_id || `kiosk-custom-${cleanPin}`;
       const stationName = existingKiosk?.station_name || existingIdentity?.station_name || `Stesen Lapangan ${estateId}`;
+      const staffNoHash = info.staff_no_hash || existingKiosk?.staff_no_hash || existingIdentity?.staff_no_hash;
       const pinHash = bcrypt3.hashSync(cleanPin, 10);
       const passwordHash = info.password ? bcrypt3.hashSync(info.password, 10) : pinHash;
       const maskedPin = `****${cleanPin.slice(-2)}`;
@@ -4863,6 +3996,7 @@ function updateServerPinConfig(newConfig) {
         estate_id: estateId,
         station_name: stationName,
         pin_hash: pinHash,
+        staff_no_hash: staffNoHash,
         password_hash: passwordHash,
         masked_pin: maskedPin,
         username: info.username || cleanPin,
@@ -4871,6 +4005,7 @@ function updateServerPinConfig(newConfig) {
       IdentityService.registerOrUpdateIdentity({
         pin: cleanPin,
         pin_hash: pinHash,
+        staff_no_hash: staffNoHash,
         password_hash: passwordHash,
         app_role: role,
         full_name: opName,
@@ -4901,7 +4036,7 @@ function getSupabaseJwtSecret() {
     );
   }
   if (!devEphemeralJwtSecret) {
-    devEphemeralJwtSecret = crypto4.randomBytes(48).toString("hex");
+    devEphemeralJwtSecret = crypto3.randomBytes(48).toString("hex");
     console.warn("[AUTH_CONFIG_NOTICE] SUPABASE_JWT_SECRET/JWT_SECRET not set; using an ephemeral in-memory development secret. Production requires an explicitly configured secret.");
   }
   return devEphemeralJwtSecret;
@@ -4929,6 +4064,7 @@ var init_auth_service = __esm({
     init_identity_service();
     init_audit_service();
     init_credentials_loader();
+    init_estateRegistry();
     IPDS_NAMESPACE2 = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
     PIN_USERS_CONFIG = {
       ...loadHashedCredentials()
@@ -5043,6 +4179,23 @@ var init_auth_service = __esm({
           };
         }
         return null;
+      }
+      static verifyKioskLogin(estateCode, staffNo) {
+        return this.verifyKioskLoginResult(estateCode, staffNo).session || null;
+      }
+      static verifyKioskLoginResult(estateCode, staffNo) {
+        if (!estateCode || typeof estateCode !== "string" || !staffNo || typeof staffNo !== "string") {
+          return { session: null, failureReason: "INVALID_CREDENTIALS" };
+        }
+        const normalizedEstate = normalizeEstateId(estateCode);
+        const allowedEstates = ["WILAYAH_JB", "FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING"];
+        if (!allowedEstates.includes(normalizedEstate)) return { session: null, failureReason: "INVALID_CREDENTIALS" };
+        const normalizedStaffNo = normalizeStaffNo(staffNo);
+        const identity = IdentityService.findIdentityByStaffNoCredential(normalizedStaffNo);
+        if (!identity) return { session: null, failureReason: "INVALID_CREDENTIALS" };
+        const session = IdentityService.createUnifiedSession(identity, "KIOSK_STAFF_NO", normalizedEstate);
+        if (!session) return { session: null, failureReason: "UNAUTHORIZED_ESTATE", identity };
+        return { session, identity };
       }
       /**
        * Authoritatively verify an enterprise alphanumeric password on server-side using bcrypt hash comparison
@@ -5765,8 +4918,759 @@ var ActingAsService = class {
   }
 };
 
+// src/server/services/deviceSecurity.service.ts
+init_db();
+init_audit_service();
+init_auth();
+init_estateRegistry();
+import crypto4 from "crypto";
+import fs2 from "fs";
+import path2 from "path";
+var FC_CONTACT_FILE = path2.join(process.cwd(), "data", "fc_contact.json");
+var deviceMemoryCache = /* @__PURE__ */ new Map();
+function verifyBootstrapToken(token) {
+  const configured = (process.env.IPDS_DEVICE_BOOTSTRAP_TOKEN || "").trim();
+  if (!configured) return false;
+  if (!token || typeof token !== "string") return false;
+  const provided = token.trim();
+  if (!provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(configured);
+  if (a.length !== b.length) return false;
+  try {
+    return crypto4.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+var APPROVAL_CAPABILITY_TTL_MS = 12 * 60 * 1e3;
+var approvalCapabilities = /* @__PURE__ */ new Map();
+function hashApprovalCapability(capability) {
+  return crypto4.createHash("sha256").update(capability, "utf8").digest("hex");
+}
+function timingSafeEqualHex(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  try {
+    return crypto4.timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
+  } catch {
+    return false;
+  }
+}
+async function createApprovalCapability(params) {
+  const capability = crypto4.randomBytes(32).toString("base64url");
+  const tokenHash = hashApprovalCapability(capability);
+  const expiresAt = new Date(Date.now() + APPROVAL_CAPABILITY_TTL_MS).toISOString();
+  approvalCapabilities.set(tokenHash, {
+    deviceId: params.deviceId,
+    estateId: params.estateId,
+    deviceName: params.deviceName ?? null,
+    requesterName: params.requesterName ?? null,
+    requesterStaffId: params.requesterStaffId ?? null,
+    expiresAt,
+    usedAt: null,
+    createdBy: params.createdBy,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  });
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.from("device_approval_capabilities").upsert([{
+        device_id: params.deviceId,
+        estate_id: params.estateId,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+        created_by: params.createdBy || null,
+        requester_name: params.requesterName ?? null,
+        requester_staff_id: params.requesterStaffId ?? null,
+        device_name: params.deviceName ?? null
+      }], { onConflict: "token_hash" });
+    }
+  } catch (err) {
+    console.warn("[DEVICE_SECURITY] Save approval capability error:", err);
+  }
+  return { capability, expiresAt };
+}
+async function sendApprovalLink(params) {
+  const contact = deviceSecurityService.getFcContact();
+  const rawWebhook = process.env.ALERT_WEBHOOK_URL?.trim();
+  const isValidWebhook = Boolean(
+    rawWebhook && !rawWebhook.startsWith("#") && (rawWebhook.startsWith("http://") || rawWebhook.startsWith("https://"))
+  );
+  if (isValidWebhook && rawWebhook) {
+    try {
+      const parsedUrl = new URL(rawWebhook);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5e3);
+      await fetch(parsedUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          type: "DEVICE_APPROVAL_REQUEST",
+          estateId: params.estateId,
+          deviceId: params.deviceId,
+          deviceName: params.deviceName || "Peranti Baharu",
+          requesterName: params.requesterName || "Kakitangan",
+          requesterStaffId: params.requesterStaffId || "N/A",
+          recipient: contact,
+          approvalUrl: params.approvalUrl,
+          message: `Permohonan kelulusan peranti baharu (${params.deviceName || "Peranti"}) untuk ladang ${params.estateId}. Sila hubungi/sahkan FC: ${contact.name} (${contact.phone}). Pautan: ${params.approvalUrl}`,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        })
+      });
+      clearTimeout(timeoutId);
+    } catch (err) {
+      console.warn("[DEVICE_SECURITY] Failed to dispatch approval notification via webhook:", err);
+    }
+  }
+  console.log(`[DEVICE_APPROVAL_DELIVERY] Approval link sent to FC contact (${contact.name} - ${contact.phone}): ${params.approvalUrl}`);
+  return true;
+}
+async function consumeApprovalCapability(capability) {
+  if (!capability || typeof capability !== "string") return { ok: false, reason: "invalid" };
+  const providedHash = hashApprovalCapability(capability);
+  let matchKey = null;
+  for (const key of approvalCapabilities.keys()) {
+    if (timingSafeEqualHex(key, providedHash)) {
+      matchKey = key;
+      break;
+    }
+  }
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data } = await supabase.from("device_approval_capabilities").update({ used_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("token_hash", providedHash).is("used_at", null).gt("expires_at", (/* @__PURE__ */ new Date()).toISOString()).select().maybeSingle();
+      if (data) {
+        const existing = approvalCapabilities.get(providedHash);
+        if (existing) existing.usedAt = (/* @__PURE__ */ new Date()).toISOString();
+        return {
+          ok: true,
+          deviceId: data.device_id,
+          estateId: data.estate_id,
+          deviceName: data.device_name,
+          requesterName: data.requester_name,
+          requesterStaffId: data.requester_staff_id,
+          createdAt: data.created_at,
+          expiresAt: data.expires_at
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[DEVICE_SECURITY] Consume approval capability error:", err);
+  }
+  if (!matchKey) return { ok: false, reason: "invalid" };
+  const entry = approvalCapabilities.get(matchKey);
+  if (entry.usedAt) return { ok: false, reason: "used" };
+  if (new Date(entry.expiresAt).getTime() <= Date.now()) return { ok: false, reason: "expired" };
+  entry.usedAt = (/* @__PURE__ */ new Date()).toISOString();
+  return {
+    ok: true,
+    deviceId: entry.deviceId,
+    estateId: entry.estateId,
+    deviceName: entry.deviceName,
+    requesterName: entry.requesterName,
+    requesterStaffId: entry.requesterStaffId,
+    createdAt: entry.createdAt,
+    expiresAt: entry.expiresAt
+  };
+}
+async function peekApprovalCapability(capability) {
+  if (!capability || typeof capability !== "string") return { ok: false, reason: "invalid" };
+  const providedHash = hashApprovalCapability(capability);
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data } = await supabase.from("device_approval_capabilities").select("device_id, estate_id, device_name, requester_name, requester_staff_id, created_at, expires_at, used_at").eq("token_hash", providedHash).maybeSingle();
+      if (data) {
+        if (data.used_at) return { ok: false, reason: "used" };
+        if (new Date(data.expires_at).getTime() <= Date.now()) return { ok: false, reason: "expired" };
+        return {
+          ok: true,
+          deviceId: data.device_id,
+          estateId: data.estate_id,
+          deviceName: data.device_name,
+          requesterName: data.requester_name,
+          requesterStaffId: data.requester_staff_id,
+          createdAt: data.created_at,
+          expiresAt: data.expires_at
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[DEVICE_SECURITY] Peek approval capability error:", err);
+  }
+  let matchKey = null;
+  for (const key of approvalCapabilities.keys()) {
+    if (timingSafeEqualHex(key, providedHash)) {
+      matchKey = key;
+      break;
+    }
+  }
+  if (!matchKey) return { ok: false, reason: "invalid" };
+  const entry = approvalCapabilities.get(matchKey);
+  if (entry.usedAt) return { ok: false, reason: "used" };
+  if (new Date(entry.expiresAt).getTime() <= Date.now()) return { ok: false, reason: "expired" };
+  return {
+    ok: true,
+    deviceId: entry.deviceId,
+    estateId: entry.estateId,
+    deviceName: entry.deviceName,
+    requesterName: entry.requesterName,
+    requesterStaffId: entry.requesterStaffId,
+    createdAt: entry.createdAt,
+    expiresAt: entry.expiresAt
+  };
+}
+var DEVICE_CREDENTIAL_BYTES = 32;
+function generateDeviceCredential() {
+  return crypto4.randomBytes(DEVICE_CREDENTIAL_BYTES).toString("base64url");
+}
+function hashDeviceCredential(credential) {
+  return crypto4.createHash("sha256").update(credential, "utf8").digest("hex");
+}
+var MAX_CREDENTIAL_ROTATION_ATTEMPTS = 5;
+var DEFAULT_CREDENTIAL_ROTATION_DEPS = {
+  readVersion: async (deviceId) => {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+    try {
+      const { data, error } = await supabase.from("registered_devices").select("credential_version").eq("device_id", deviceId).maybeSingle();
+      if (error || !data) return null;
+      return Number(data.credential_version ?? 0) || 0;
+    } catch {
+      return null;
+    }
+  },
+  casUpdate: async (deviceId, expectedVersion, credentialHash, rotatedAt) => {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+    try {
+      const { data, error } = await supabase.from("registered_devices").update({
+        credential_hash: credentialHash,
+        credential_version: expectedVersion + 1,
+        credential_rotated_at: rotatedAt
+      }).eq("device_id", deviceId).eq("credential_version", expectedVersion).select("credential_version").maybeSingle();
+      if (error || !data) return null;
+      return Number(data.credential_version);
+    } catch {
+      return null;
+    }
+  },
+  generateCredential: generateDeviceCredential,
+  hashCredential: hashDeviceCredential,
+  now: () => (/* @__PURE__ */ new Date()).toISOString()
+};
+async function rotateCredentialCas(deviceId, deps) {
+  for (let attempt = 0; attempt < MAX_CREDENTIAL_ROTATION_ATTEMPTS; attempt++) {
+    const currentVersion = await deps.readVersion(deviceId);
+    if (currentVersion === null) return { ok: false, reason: "DB_UNAVAILABLE" };
+    const credential = deps.generateCredential();
+    const credentialHash = deps.hashCredential(credential);
+    const rotatedAt = deps.now();
+    const newVersion = await deps.casUpdate(deviceId, currentVersion, credentialHash, rotatedAt);
+    if (newVersion !== null) {
+      return { ok: true, credential, credentialVersion: newVersion, rotatedAt };
+    }
+  }
+  return { ok: false, reason: "CONFLICT" };
+}
+async function issueDeviceCredential(deviceId) {
+  if (!deviceId || typeof deviceId !== "string") return null;
+  const outcome = await rotateCredentialCas(deviceId, DEFAULT_CREDENTIAL_ROTATION_DEPS);
+  return outcome.ok && outcome.credential ? outcome.credential : null;
+}
+var CREDENTIAL_ADMIN_ROLES = /* @__PURE__ */ new Set([
+  "rc",
+  "oc",
+  "pf",
+  "fc",
+  "superadmin",
+  "super_admin",
+  "admin",
+  "executive_hq",
+  "regional_controller"
+]);
+function actorCanAdministerDeviceEstate(actor, deviceEstateId) {
+  const role = String(actor?.role || "").toLowerCase().trim();
+  if (!CREDENTIAL_ADMIN_ROLES.has(role)) return false;
+  if (isSuperAdminIdentity({ app_metadata: { app_role: actor?.role, estate_id: actor?.estateId } })) return true;
+  const own = String(actor?.estateId || "").trim().toUpperCase();
+  return !!own && own === String(deviceEstateId || "").trim().toUpperCase();
+}
+async function getRegisteredDeviceById(deviceId) {
+  if (!deviceId || typeof deviceId !== "string") return null;
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from("registered_devices").select("*").eq("device_id", deviceId).maybeSingle();
+    if (error || !data) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+var DEFAULT_DEVICE_CREDENTIAL_ROLLOUT_DEPS = {
+  ...DEFAULT_CREDENTIAL_ROTATION_DEPS,
+  findDevice: getRegisteredDeviceById
+};
+async function issueExistingDeviceCredential(deviceId, actor, deps = DEFAULT_DEVICE_CREDENTIAL_ROLLOUT_DEPS) {
+  const id = String(deviceId || "").trim();
+  if (!id) return { ok: false, code: "UNKNOWN_DEVICE" };
+  const device = await deps.findDevice(id);
+  if (!device || !device.device_id) return { ok: false, code: "UNKNOWN_DEVICE", deviceId: id };
+  if (device.status !== "APPROVED") {
+    return { ok: false, code: "DEVICE_NOT_APPROVED", deviceId: id };
+  }
+  const estateId = String(device.estate_id || "").trim().toUpperCase();
+  if (!isValidEstateId(estateId)) {
+    return { ok: false, code: "INVALID_ESTATE", deviceId: id };
+  }
+  if (!actorCanAdministerDeviceEstate(actor, estateId)) {
+    return { ok: false, code: "UNAUTHORIZED_ACTOR", deviceId: id, estateId };
+  }
+  const outcome = await rotateCredentialCas(id, deps);
+  if (!outcome.ok) {
+    return {
+      ok: false,
+      code: outcome.reason === "CONFLICT" ? "CONFLICT" : "DB_UNAVAILABLE",
+      deviceId: id,
+      estateId
+    };
+  }
+  return {
+    ok: true,
+    code: "OK",
+    deviceId: id,
+    estateId,
+    credential: outcome.credential,
+    credentialVersion: outcome.credentialVersion,
+    rotatedAt: outcome.rotatedAt
+  };
+}
+function isValidEstateId(estateId) {
+  if (!estateId || typeof estateId !== "string") return false;
+  const normalized = normalizeEstateId(estateId);
+  return Object.prototype.hasOwnProperty.call(ESTATES_REGISTRY, normalized);
+}
+async function getDeviceEstateAccess(deviceId, estateId) {
+  if (!deviceId || !estateId) return null;
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from("device_estate_access").select("*").eq("device_id", deviceId).eq("estate_id", estateId).maybeSingle();
+    if (error || !data) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+async function isDeviceAuthorizedForEstate(deviceId, estateId) {
+  const access = await getDeviceEstateAccess(deviceId, estateId);
+  return !!access && access.status === "ACTIVE";
+}
+var CANONICAL_ESTATE_IDS = new Set(Object.keys(ESTATES_REGISTRY).map((k) => k.toUpperCase()));
+async function listDeviceEstateAccess(deviceId) {
+  if (!deviceId) return [];
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.from("device_estate_access").select("*").eq("device_id", deviceId).order("estate_id", { ascending: true });
+    if (error || !data) return [];
+    return data;
+  } catch {
+    return [];
+  }
+}
+async function grantDeviceEstateAccess(deviceId, estateId, actor) {
+  if (!deviceId || !estateId) return null;
+  if (!isValidEstateId(estateId)) return null;
+  const device = await deviceSecurityService.getDeviceStatus(deviceId);
+  if (!device) return null;
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  try {
+    const { data, error } = await supabase.from("device_estate_access").upsert(
+      {
+        device_id: deviceId,
+        estate_id: estateId,
+        status: "ACTIVE",
+        granted_by: actor || null,
+        granted_at: now,
+        revoked_by: null,
+        revoked_at: null
+      },
+      { onConflict: "device_id,estate_id" }
+    ).select().maybeSingle();
+    if (error || !data) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+async function revokeDeviceEstateAccess(deviceId, estateId, actor) {
+  if (!deviceId || !estateId) return false;
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.from("device_estate_access").update({
+      status: "REVOKED",
+      revoked_by: actor || null,
+      revoked_at: (/* @__PURE__ */ new Date()).toISOString()
+    }).eq("device_id", deviceId).eq("estate_id", estateId).select("device_id").maybeSingle();
+    if (error || !data) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function getDeviceByCredentialHash(credentialHash) {
+  if (!credentialHash || typeof credentialHash !== "string") return null;
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from("registered_devices").select("*").eq("credential_hash", credentialHash).maybeSingle();
+    if (error || !data) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+var DEFAULT_DEVICE_AUTH_DEPS = {
+  findDeviceByCredentialHash: getDeviceByCredentialHash,
+  getEstateAccess: getDeviceEstateAccess
+};
+async function authorizeDeviceForEstate(params, deps = DEFAULT_DEVICE_AUTH_DEPS) {
+  const credential = typeof params?.credential === "string" ? params.credential.trim() : "";
+  const requestedEstate = String(params?.requestedEstateId || "").trim().toUpperCase();
+  if (!credential) return { allowed: false, code: "CREDENTIAL_MISSING" };
+  if (!requestedEstate || !isValidEstateId(requestedEstate)) return { allowed: false, code: "ESTATE_NOT_AUTHORIZED" };
+  const credentialHash = hashDeviceCredential(credential);
+  const device = await deps.findDeviceByCredentialHash(credentialHash);
+  if (!device || !device.device_id) return { allowed: false, code: "DEVICE_NOT_FOUND" };
+  if (device.merged_into) {
+    return { allowed: false, code: "DEVICE_MERGED", deviceId: device.device_id, mergedInto: device.merged_into };
+  }
+  if (device.status !== "APPROVED") return { allowed: false, code: "DEVICE_NOT_APPROVED", deviceId: device.device_id };
+  const access = await deps.getEstateAccess(device.device_id, requestedEstate);
+  if (!access || access.status !== "ACTIVE") {
+    return { allowed: false, code: "ESTATE_NOT_AUTHORIZED", deviceId: device.device_id };
+  }
+  return { allowed: true, code: "OK", deviceId: device.device_id };
+}
+function isStrictDeviceEnforcementEnabled() {
+  const raw = String(process.env.IPDS_DEVICE_STRICT_ENFORCEMENT || "").trim().toLowerCase();
+  return raw === "true" || raw === "1" || raw === "yes";
+}
+var SEED_MASTER_DEVICES = [
+  {
+    device_id: "DEV-MASTER-NAS-FC",
+    device_name: "Telefon Utama Pengurus / Field Controller (FC)",
+    estate_id: "FPM_TUNGGAL",
+    operator_name: "MD NASRUDDIN BIN BHSERAN",
+    role: "fc",
+    status: "APPROVED",
+    approved_by: "SYSTEM_SUPERADMIN",
+    approved_at: (/* @__PURE__ */ new Date()).toISOString()
+  }
+];
+function resolveDeviceStatusRecord(cached, persisted) {
+  if (cached && cached.status === "APPROVED") return cached;
+  if (!persisted) return cached || null;
+  if (persisted.status === "APPROVED") return persisted;
+  if (cached && (cached.status === "BLOCKED" || cached.status === "REVOKED")) {
+    return cached;
+  }
+  return persisted;
+}
+var DeviceSecurityService = class {
+  constructor() {
+    // Active FC WhatsApp Contact (Default with env override, loaded from Supabase on boot)
+    this.fcContact = {
+      phone: process.env.ADMIN_WHATSAPP_PHONE || process.env.FC_WHATSAPP_PHONE || "60177853551",
+      name: "MD NASRUDDIN (FC Tunggal / Admin)",
+      estate: "FPM_TUNGGAL"
+    };
+    this.isSupabaseLoaded = false;
+    for (const d of SEED_MASTER_DEVICES) {
+      deviceMemoryCache.set(d.device_id, d);
+    }
+    this.loadFromSupabase().catch(() => {
+    });
+  }
+  /**
+   * Check if a device is registered and approved
+   */
+  async getDeviceStatus(deviceId, estateId = "FPM_TUNGGAL") {
+    if (!deviceId) return null;
+    const cached = deviceMemoryCache.get(deviceId);
+    if (cached && cached.status === "APPROVED") {
+      return cached;
+    }
+    let persisted = null;
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        const { data, error } = await supabase.from("registered_devices").select("*").eq("device_id", deviceId).maybeSingle();
+        if (!error && data) {
+          persisted = data;
+        }
+      }
+    } catch (err) {
+      console.warn("[DEVICE_SECURITY] Supabase lookup error:", err);
+    }
+    const resolved = resolveDeviceStatusRecord(cached, persisted);
+    if (resolved) {
+      if (persisted) {
+        deviceMemoryCache.set(deviceId, resolved);
+      }
+      return resolved;
+    }
+    return null;
+  }
+  /**
+   * Register a new device (Initial status: PENDING)
+   */
+  async registerDevice(payload) {
+    const bootstrapApproved = verifyBootstrapToken(payload.bootstrapToken);
+    const status = bootstrapApproved ? "APPROVED" : "PENDING";
+    const record = {
+      device_id: payload.deviceId,
+      device_name: payload.deviceName || "Peranti Baharu",
+      estate_id: payload.estateId || "FPM_TUNGGAL",
+      registered_by_pin: payload.pin ? "******" : void 0,
+      operator_name: payload.operatorName || "Tidak Diketahui",
+      role: payload.role || "staff",
+      status,
+      approved_by: bootstrapApproved ? "BOOTSTRAP_TOKEN" : void 0,
+      approved_at: bootstrapApproved ? (/* @__PURE__ */ new Date()).toISOString() : void 0,
+      last_seen_at: (/* @__PURE__ */ new Date()).toISOString(),
+      ip_address: payload.ip || "unknown",
+      user_agent: payload.userAgent || "unknown",
+      created_at: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    deviceMemoryCache.set(payload.deviceId, record);
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from("registered_devices").upsert([record], { onConflict: "device_id" });
+      }
+    } catch (err) {
+      console.warn("[DEVICE_SECURITY] Save to Supabase error:", err);
+    }
+    auditService.record({
+      action: bootstrapApproved ? "DEVICE_BOOTSTRAP_APPROVED" : "DEVICE_REGISTRATION_REQUESTED",
+      resource: "devices",
+      userId: payload.deviceId,
+      userName: payload.operatorName,
+      authorizedEstate: payload.estateId,
+      result: bootstrapApproved ? "SUCCESS" : "PENDING",
+      ip: payload.ip || "unknown",
+      userAgent: payload.userAgent || "unknown",
+      details: {
+        deviceName: payload.deviceName,
+        status
+      }
+    });
+    return record;
+  }
+  /**
+   * Approve a pending device (by FC / PF / Admin)
+   */
+  async approveDevice(deviceId, approverName, approverRole) {
+    const existing = await this.getDeviceStatus(deviceId);
+    const updated = {
+      ...existing || {
+        device_id: deviceId,
+        device_name: "Peranti Baharu",
+        estate_id: "FPM_TUNGGAL",
+        status: "APPROVED"
+      },
+      status: "APPROVED",
+      approved_by: `${approverName} (${approverRole})`,
+      approved_at: (/* @__PURE__ */ new Date()).toISOString(),
+      last_seen_at: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    deviceMemoryCache.set(deviceId, updated);
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        const { error } = await supabase.from("registered_devices").upsert(
+          {
+            device_id: updated.device_id,
+            device_name: updated.device_name,
+            estate_id: updated.estate_id,
+            operator_name: updated.operator_name,
+            role: updated.role,
+            status: "APPROVED",
+            approved_by: updated.approved_by,
+            approved_at: updated.approved_at,
+            last_seen_at: updated.last_seen_at
+          },
+          { onConflict: "device_id" }
+        );
+        if (error) {
+          console.warn("[DEVICE_SECURITY] Approve device upsert warning:", error.message);
+        }
+      }
+    } catch (err) {
+      console.warn("[DEVICE_SECURITY] Approve device error:", err);
+    }
+    auditService.record({
+      action: "DEVICE_APPROVED",
+      resource: "devices",
+      userId: deviceId,
+      userName: approverName,
+      result: "SUCCESS",
+      details: { approverRole }
+    });
+    return updated;
+  }
+  /**
+   * Block or revoke a device
+   */
+  async revokeDevice(deviceId, revokerName, reason = "Akses ditamatkan") {
+    const existing = await this.getDeviceStatus(deviceId);
+    if (!existing) return false;
+    const updated = {
+      ...existing,
+      status: "REVOKED",
+      last_seen_at: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    deviceMemoryCache.set(deviceId, updated);
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from("registered_devices").update({
+          status: "REVOKED",
+          last_seen_at: updated.last_seen_at
+        }).eq("device_id", deviceId);
+      }
+    } catch (err) {
+      console.warn("[DEVICE_SECURITY] Revoke device error:", err);
+    }
+    auditService.record({
+      action: "DEVICE_REVOKED",
+      resource: "devices",
+      userId: deviceId,
+      userName: revokerName,
+      result: "BLOCKED",
+      details: { reason }
+    });
+    return true;
+  }
+  /**
+   * List all registered devices for an estate
+   */
+  async listDevices(estateId) {
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        let query = supabase.from("registered_devices").select("*").order("created_at", { ascending: false });
+        if (estateId && estateId !== "WILAYAH_JB" && estateId !== "ALL") {
+          query = query.eq("estate_id", estateId);
+        }
+        const { data, error } = await query;
+        if (!error && data) {
+          for (const d of data) {
+            deviceMemoryCache.set(d.device_id, d);
+          }
+          return data;
+        }
+      }
+    } catch (err) {
+      console.warn("[DEVICE_SECURITY] List devices error:", err);
+    }
+    return Array.from(deviceMemoryCache.values());
+  }
+  /**
+   * Load active contact settings from Supabase app_settings table
+   */
+  async loadFromSupabase() {
+    try {
+      const sb = getSupabase();
+      if (!sb) return this.fcContact;
+      const { data, error } = await sb.from("app_settings").select("key, value").in("key", ["admin_fc_whatsapp_phone", "admin_fc_whatsapp_name"]);
+      if (!error && data && data.length > 0) {
+        for (const row of data) {
+          if (row.key === "admin_fc_whatsapp_phone" && row.value) {
+            this.fcContact.phone = row.value;
+          }
+          if (row.key === "admin_fc_whatsapp_name" && row.value) {
+            this.fcContact.name = row.value;
+          }
+        }
+        this.isSupabaseLoaded = true;
+        try {
+          const dir = path2.dirname(FC_CONTACT_FILE);
+          if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
+          fs2.writeFileSync(FC_CONTACT_FILE, JSON.stringify(this.fcContact, null, 2), "utf-8");
+        } catch {
+        }
+      }
+    } catch (e) {
+      console.warn("[DEVICE_SECURITY] Load fc contact from Supabase error:", e);
+    }
+    return this.fcContact;
+  }
+  getFcContact() {
+    try {
+      if (!this.isSupabaseLoaded) {
+        this.loadFromSupabase().catch(() => {
+        });
+        if (fs2.existsSync(FC_CONTACT_FILE)) {
+          const raw = fs2.readFileSync(FC_CONTACT_FILE, "utf-8");
+          const parsed = JSON.parse(raw);
+          if (parsed?.phone) {
+            this.fcContact = { ...this.fcContact, ...parsed };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[DEVICE_SECURITY] Read fc_contact.json error:", e);
+    }
+    return this.fcContact;
+  }
+  async setFcContact(phone, name) {
+    let cleaned = (phone || "").replace(/\D/g, "");
+    while (cleaned.startsWith("6060")) {
+      cleaned = cleaned.slice(2);
+    }
+    if (cleaned.startsWith("0")) {
+      cleaned = "60" + cleaned.slice(1);
+    } else if (!cleaned.startsWith("60") && cleaned.length >= 8) {
+      cleaned = "60" + cleaned;
+    }
+    this.fcContact = {
+      phone: cleaned || "601138404285",
+      name: name || this.fcContact.name,
+      estate: this.fcContact.estate
+    };
+    try {
+      const dir = path2.dirname(FC_CONTACT_FILE);
+      if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
+      fs2.writeFileSync(FC_CONTACT_FILE, JSON.stringify(this.fcContact, null, 2), "utf-8");
+    } catch (e) {
+      console.warn("[DEVICE_SECURITY] Write fc_contact.json error:", e);
+    }
+    try {
+      const sb = getSupabase();
+      if (sb) {
+        await sb.from("app_settings").upsert([
+          { key: "admin_fc_whatsapp_phone", value: this.fcContact.phone },
+          { key: "admin_fc_whatsapp_name", value: this.fcContact.name }
+        ], { onConflict: "key" });
+        this.isSupabaseLoaded = true;
+      }
+    } catch (e) {
+      console.warn("[DEVICE_SECURITY] Persist to Supabase app_settings error:", e);
+    }
+    return this.fcContact;
+  }
+};
+var deviceSecurityService = new DeviceSecurityService();
+
 // src/server/routes/auth.routes.ts
-init_deviceSecurity_service();
 init_db();
 import crypto5 from "crypto";
 import fs3 from "fs";
@@ -5826,218 +5730,12 @@ function recordAttempt(ip, success) {
     entry.lockedUntil = now + LOCKOUT_MS;
   }
 }
-router.post(["/verify-pin", "/auth/verify-pin"], authRateLimiter, async (req, res) => {
-  try {
-    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
-    const rateCheck = checkRateLimit(clientIp);
-    if (!rateCheck.allowed) {
-      auditService.record({
-        action: "LOGIN_FAILURE",
-        resource: "auth/verify-pin",
-        result: "DENIED",
-        ip: clientIp,
-        userAgent: req.headers["user-agent"] || "unknown",
-        errorMessage: "Rate limit / lockout exceeded on login attempt"
-      });
-      return res.status(429).json({
-        success: false,
-        error: `Terlalu banyak percubaan log masuk gagal. Sila cuba lagi dalam ${rateCheck.remainingSec} saat.`,
-        code: "RATE_LIMITED"
-      });
-    }
-    const { pin, deviceId, deviceName } = req.body || {};
-    if (!pin || typeof pin !== "string") {
-      return res.status(400).json({
-        success: false,
-        error: "PIN 6-digit diperlukan.",
-        code: "MISSING_PIN"
-      });
-    }
-    const userSession = AuthService.verifyPin(pin);
-    if (!userSession) {
-      recordAttempt(clientIp, false);
-      sessionManager.logLoginAttempt({
-        authMethod: "PIN_KIOSK",
-        identifier: "PIN_SUBMITTED",
-        operatorName: "Unknown Operator",
-        role: "UNKNOWN",
-        attemptedEstate: "UNKNOWN",
-        status: "INVALID_CREDENTIALS",
-        threatLevel: "MEDIUM",
-        ip: clientIp,
-        userAgent: req.headers["user-agent"] || "unknown",
-        notes: "Cubaan PIN Kiosk tidak sah atau tidak berdaftar."
-      });
-      auditService.record({
-        action: "LOGIN_FAILURE",
-        resource: "auth/verify-pin",
-        result: "FAILURE",
-        ip: clientIp,
-        userAgent: req.headers["user-agent"] || "unknown",
-        errorMessage: "Invalid PIN submitted"
-      });
-      await new Promise((r) => setTimeout(r, 200));
-      return res.status(401).json({
-        success: false,
-        error: "PIN tidak sah. Sila masukkan PIN yang betul.",
-        code: "INVALID_PIN"
-      });
-    }
-    const effectiveDeviceId = deviceId || req.headers["x-device-id"] || "DEV-UNSPECIFIED";
-    const operatorRole = userSession.app_metadata.app_role;
-    const operatorName = userSession.user_metadata.operator_name;
-    const estateId = userSession.app_metadata.estate_id || "FPM_TUNGGAL";
-    let deviceStatus = await deviceSecurityService.getDeviceStatus(effectiveDeviceId, estateId);
-    const bootstrapToken = req.headers["x-device-bootstrap-token"] || req.body && req.body.bootstrapToken || void 0;
-    if (!deviceStatus) {
-      deviceStatus = await deviceSecurityService.registerDevice({
-        deviceId: effectiveDeviceId,
-        deviceName: deviceName || "Peranti Staf Baharu",
-        estateId,
-        pin,
-        operatorName,
-        role: operatorRole,
-        ip: clientIp,
-        userAgent: req.headers["user-agent"] || "unknown",
-        bootstrapToken
-      });
-    } else if (deviceStatus.status !== "APPROVED" && verifyBootstrapToken(bootstrapToken)) {
-      deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, "BOOTSTRAP_TOKEN", "bootstrap");
-    }
-    if (redirectMergedDevice(deviceStatus, res)) return;
-    if (deviceStatus.status !== "APPROVED") {
-      auditService.record({
-        action: "LOGIN_BLOCKED_UNREGISTERED_DEVICE",
-        resource: "auth/verify-pin",
-        userId: userSession.app_metadata.operator_id,
-        userName: operatorName,
-        authorizedEstate: estateId,
-        result: "DENIED",
-        ip: clientIp,
-        userAgent: req.headers["user-agent"] || "unknown",
-        details: {
-          deviceId: effectiveDeviceId,
-          deviceStatus: deviceStatus.status,
-          deviceName: deviceStatus.device_name
-        }
-      });
-      const approvalCapability = await createApprovalCapability({
-        deviceId: deviceStatus.device_id,
-        estateId,
-        createdBy: operatorName,
-        requesterName: operatorName,
-        requesterStaffId: userSession.app_metadata.operator_id,
-        deviceName: deviceStatus.device_name
-      });
-      const approvalUrl = `/api/devices/approve-link?cap=${encodeURIComponent(approvalCapability.capability)}`;
-      await sendApprovalLink({
-        approvalUrl,
-        estateId,
-        deviceId: deviceStatus.device_id,
-        deviceName: deviceStatus.device_name,
-        requesterName: operatorName,
-        requesterStaffId: userSession.app_metadata.operator_id
-      });
-      return res.status(403).json({
-        success: false,
-        error: "PIN sah, tetapi peranti ini belum diluluskan untuk akses aplikasi.",
-        code: "DEVICE_NOT_APPROVED",
-        device: {
-          deviceId: deviceStatus.device_id,
-          deviceName: deviceStatus.device_name,
-          status: deviceStatus.status,
-          operatorName: deviceStatus.operator_name,
-          createdAt: deviceStatus.created_at
-        }
-      });
-    }
-    if (isStrictDeviceEnforcementEnabled()) {
-      const deviceCredential = extractDeviceCredential(req);
-      const deviceAuth = await authorizeDeviceForEstate({ credential: deviceCredential, requestedEstateId: estateId });
-      if (redirectMergedDevice(deviceAuth, res)) return;
-      if (!deviceAuth.allowed) {
-        auditService.record({
-          action: "LOGIN_BLOCKED_DEVICE_NOT_AUTHORIZED",
-          resource: "auth/verify-pin",
-          userId: userSession.app_metadata.operator_id,
-          userName: operatorName,
-          authorizedEstate: estateId,
-          result: "DENIED",
-          ip: clientIp,
-          userAgent: req.headers["user-agent"] || "unknown",
-          details: { reason: deviceAuth.code }
-        });
-        return res.status(403).json({
-          success: false,
-          error: "Peranti tidak dibenarkan untuk ladang ini. Sila hubungi Pentadbir.",
-          code: "DEVICE_NOT_AUTHORIZED"
-        });
-      }
-    }
-    recordAttempt(clientIp, true);
-    const activeSession = sessionManager.registerSession(
-      userSession,
-      clientIp,
-      req.headers["user-agent"] || "unknown"
-    );
-    sessionManager.logLoginAttempt({
-      authMethod: "PIN_KIOSK",
-      identifier: userSession.app_metadata.operator_id,
-      operatorName: userSession.user_metadata.operator_name,
-      role: userSession.app_metadata.app_role,
-      attemptedEstate: userSession.app_metadata.estate_id,
-      assignedEstate: userSession.app_metadata.estate_id,
-      status: "SUCCESS",
-      threatLevel: "LOW",
-      ip: clientIp,
-      userAgent: req.headers["user-agent"] || "unknown",
-      notes: `Log masuk berjaya di ${userSession.user_metadata.station_name}.`
-    });
-    const token = AuthService.generateToken(userSession);
-    auditService.record({
-      action: "LOGIN_SUCCESS",
-      resource: "auth/verify-pin",
-      userId: userSession.app_metadata.operator_id,
-      userName: userSession.user_metadata.operator_name,
-      role: userSession.app_metadata.app_role,
-      authorizedEstate: userSession.app_metadata.estate_id,
-      result: "SUCCESS",
-      ip: clientIp,
-      userAgent: req.headers["user-agent"] || "unknown",
-      details: {
-        kiosk_id: userSession.app_metadata.kiosk_id,
-        station_name: userSession.user_metadata.station_name
-      }
-    });
-    const isProduction = process.env.NODE_ENV === "production";
-    res.cookie(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-      maxAge: COOKIE_SESSION_MAX_AGE_MS,
-      path: "/"
-    });
-    return res.json({
-      success: true,
-      user: {
-        role: userSession.app_metadata.app_role,
-        name: userSession.user_metadata.operator_name,
-        estate_id: userSession.app_metadata.estate_id,
-        kiosk_id: userSession.app_metadata.kiosk_id,
-        operator_id: userSession.app_metadata.operator_id,
-        station_name: userSession.user_metadata.station_name,
-        is_super_admin: isSuperAdminIdentity(userSession)
-      },
-      token
-    });
-  } catch (err) {
-    console.error("Verify PIN error:", err);
-    return res.status(500).json({
-      success: false,
-      error: "Ralat pelayan semasa memproses pengesahan PIN.",
-      code: "SERVER_ERROR"
-    });
-  }
+router.post(["/verify-pin", "/auth/verify-pin"], authRateLimiter, (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: "Kaedah log masuk ini tidak lagi tersedia. Sila gunakan Kod Ladang dan No. Kakitangan.",
+    code: "AUTH_METHOD_REMOVED"
+  });
 });
 router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req, res) => {
   try {
@@ -6058,42 +5756,45 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
         code: "RATE_LIMITED"
       });
     }
-    const { estate_code, estateCode, staff_no, staffNo, pin, secret, deviceId, deviceName } = req.body || {};
-    const targetEstate = estateCode || estate_code || "FPM_TUNGGAL";
+    const { estate_code, estateCode, staff_no, staffNo, deviceId, deviceName } = req.body || {};
+    const targetEstate = estateCode || estate_code;
     const targetStaffNo = staffNo || staff_no;
-    const targetSecret = secret || pin;
-    if (!targetStaffNo || typeof targetStaffNo !== "string" || !targetSecret || typeof targetSecret !== "string") {
+    if (!targetEstate || typeof targetEstate !== "string" || targetEstate.trim().length > 64 || !targetStaffNo || typeof targetStaffNo !== "string" || targetStaffNo.trim().length > 64) {
       return res.status(400).json({
         success: false,
-        error: "Kod Ladang, No. Kakitangan, dan PIN/Rahsia diperlukan.",
+        error: "Kod Ladang dan No. Kakitangan diperlukan.",
         code: "MISSING_CREDENTIALS"
       });
     }
-    const userSession = AuthService.verifyEstateStaffLogin(targetEstate, targetStaffNo, targetSecret);
+    const loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
+    const userSession = loginResult.session;
     if (!userSession) {
       recordAttempt(clientIp, false);
-      const staffConfig = AuthService.getStaffConfig(targetStaffNo);
-      const isCrossEstate = staffConfig && staffConfig.estate_id && staffConfig.estate_id !== targetEstate;
+      const isCrossEstate = loginResult.failureReason === "UNAUTHORIZED_ESTATE";
       sessionManager.logLoginAttempt({
-        authMethod: "ESTATE_STAFF_PIN",
-        identifier: targetStaffNo,
-        operatorName: staffConfig?.operator_name || "Tidak Diketahui",
-        role: staffConfig?.app_role || "UNKNOWN",
+        authMethod: "KIOSK_STAFF_NO",
+        identifier: loginResult.identity?.operator_id || "INVALID_KIOSK_CREDENTIALS",
+        operatorName: loginResult.identity?.full_name || "Tidak Diketahui",
+        role: loginResult.identity?.app_role || "UNKNOWN",
         attemptedEstate: targetEstate,
-        assignedEstate: staffConfig?.estate_id,
+        assignedEstate: loginResult.identity?.primary_estate_id,
         status: isCrossEstate ? "UNAUTHORIZED_CROSS_ESTATE" : "INVALID_CREDENTIALS",
         threatLevel: isCrossEstate ? "HIGH" : "MEDIUM",
         ip: clientIp,
         userAgent: req.headers["user-agent"] || "unknown",
-        notes: isCrossEstate ? `AMARAN KESELAMATAN: Cubaan log masuk silang ladang disekat serta-merta. Kakitangan berdaftar di ${staffConfig.estate_id} cuba mengakses portal ${targetEstate}.` : `Cubaan log masuk gagal: No. Kakitangan / PIN '${targetStaffNo}' tidak berdaftar.`
+        notes: isCrossEstate ? `Cubaan log masuk silang ladang disekat untuk identiti ${loginResult.identity?.operator_id}.` : "Cubaan log masuk kiosk gagal; kod ladang atau No. Kakitangan tidak sah."
       });
       auditService.record({
         action: isCrossEstate ? "ESTATE_ACCESS_DENIED" : "LOGIN_FAILURE",
         resource: "auth/verify-staff",
+        userId: loginResult.identity?.operator_id,
+        userName: loginResult.identity?.full_name,
+        role: loginResult.identity?.app_role,
+        authorizedEstate: loginResult.identity?.primary_estate_id,
         result: "FAILURE",
         ip: clientIp,
         userAgent: req.headers["user-agent"] || "unknown",
-        errorMessage: `Invalid staff credentials: Estate=${targetEstate}, StaffNo=${targetStaffNo}`
+        errorMessage: isCrossEstate ? "Unauthorized estate selected for kiosk identity" : "Invalid kiosk credentials"
       });
       await new Promise((r) => setTimeout(r, 200));
       return res.status(401).json({
@@ -6113,7 +5814,6 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
         deviceId: effectiveDeviceId,
         deviceName: deviceName || "Peranti Staf Baharu",
         estateId,
-        pin: targetStaffNo,
         operatorName,
         role: operatorRole,
         ip: clientIp,
@@ -6200,7 +5900,7 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
       req.headers["user-agent"] || "unknown"
     );
     sessionManager.logLoginAttempt({
-      authMethod: "ESTATE_STAFF_PIN",
+      authMethod: "KIOSK_STAFF_NO",
       identifier: userSession.app_metadata.operator_id,
       operatorName: userSession.user_metadata.operator_name,
       role: userSession.app_metadata.app_role,
@@ -6225,8 +5925,7 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
       userAgent: req.headers["user-agent"] || "unknown",
       details: {
         auth_type: "estate_code_staff_no",
-        estate_code: targetEstate,
-        staff_no: targetStaffNo
+        estate_id: userSession.app_metadata.estate_id
       }
     });
     const isProduction = process.env.NODE_ENV === "production";
@@ -6259,152 +5958,12 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
     });
   }
 });
-router.post(["/verify-password", "/auth/verify-password"], authRateLimiter, async (req, res) => {
-  try {
-    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
-    const rateCheck = checkRateLimit(clientIp);
-    if (!rateCheck.allowed) {
-      auditService.record({
-        action: "LOGIN_FAILURE",
-        resource: "auth/verify-password",
-        result: "DENIED",
-        ip: clientIp,
-        userAgent: req.headers["user-agent"] || "unknown",
-        errorMessage: "Rate limit / lockout exceeded on password login attempt"
-      });
-      return res.status(429).json({
-        success: false,
-        error: `Terlalu banyak percubaan log masuk gagal. Sila cuba lagi dalam ${rateCheck.remainingSec} saat.`,
-        code: "RATE_LIMITED"
-      });
-    }
-    const { username, identity, password } = req.body || {};
-    const userIdentity = identity || username;
-    if (!userIdentity || !password || typeof userIdentity !== "string" || typeof password !== "string") {
-      return res.status(400).json({
-        success: false,
-        error: "Identiti (Emel/ID/Nama Pengguna) dan Kata Laluan Alfanumerik diperlukan.",
-        code: "MISSING_CREDENTIALS"
-      });
-    }
-    const userSession = AuthService.verifyPassword(userIdentity, password);
-    if (!userSession) {
-      recordAttempt(clientIp, false);
-      sessionManager.logLoginAttempt({
-        authMethod: "ENTERPRISE_PASSWORD",
-        identifier: userIdentity,
-        operatorName: "Unknown Identity",
-        role: "UNKNOWN",
-        attemptedEstate: "UNKNOWN",
-        status: "INVALID_CREDENTIALS",
-        threatLevel: "MEDIUM",
-        ip: clientIp,
-        userAgent: req.headers["user-agent"] || "unknown",
-        notes: `Percubaan log masuk kata laluan gagal bagi akaun/ID '${userIdentity}'.`
-      });
-      auditService.record({
-        action: "LOGIN_FAILURE",
-        resource: "auth/verify-password",
-        result: "FAILURE",
-        ip: clientIp,
-        userAgent: req.headers["user-agent"] || "unknown",
-        errorMessage: `Invalid password credentials for identity: ${userIdentity}`
-      });
-      await new Promise((r) => setTimeout(r, 250));
-      return res.status(401).json({
-        success: false,
-        error: "Identiti atau Kata Laluan tidak sah. Sila semak semula kredensial anda.",
-        code: "INVALID_CREDENTIALS"
-      });
-    }
-    if (isStrictDeviceEnforcementEnabled()) {
-      const enterpriseEstate = String(userSession.app_metadata.estate_id || "FPM_TUNGGAL").toUpperCase();
-      const deviceCredential = extractDeviceCredential(req);
-      const deviceAuth = await authorizeDeviceForEstate({ credential: deviceCredential, requestedEstateId: enterpriseEstate });
-      if (redirectMergedDevice(deviceAuth, res)) return;
-      if (!deviceAuth.allowed) {
-        auditService.record({
-          action: "LOGIN_BLOCKED_DEVICE_NOT_AUTHORIZED",
-          resource: "auth/verify-password",
-          userId: userSession.app_metadata.operator_id,
-          userName: userSession.user_metadata.operator_name,
-          authorizedEstate: enterpriseEstate,
-          result: "DENIED",
-          ip: clientIp,
-          userAgent: req.headers["user-agent"] || "unknown",
-          details: { reason: deviceAuth.code }
-        });
-        return res.status(403).json({
-          success: false,
-          error: "Peranti tidak dibenarkan untuk ladang ini. Sila hubungi Pentadbir.",
-          code: "DEVICE_NOT_AUTHORIZED"
-        });
-      }
-    }
-    recordAttempt(clientIp, true);
-    sessionManager.registerSession(
-      userSession,
-      clientIp,
-      req.headers["user-agent"] || "unknown"
-    );
-    sessionManager.logLoginAttempt({
-      authMethod: "ENTERPRISE_PASSWORD",
-      identifier: userSession.app_metadata.operator_id,
-      operatorName: userSession.user_metadata.operator_name,
-      role: userSession.app_metadata.app_role,
-      attemptedEstate: userSession.app_metadata.estate_id,
-      assignedEstate: userSession.app_metadata.estate_id,
-      status: "SUCCESS",
-      threatLevel: "LOW",
-      ip: clientIp,
-      userAgent: req.headers["user-agent"] || "unknown",
-      notes: `Log masuk Enterprise Password berjaya bagi ${userSession.user_metadata.operator_name}.`
-    });
-    const token = AuthService.generateToken(userSession);
-    auditService.record({
-      action: "LOGIN_SUCCESS",
-      resource: "auth/verify-password",
-      userId: userSession.app_metadata.operator_id,
-      userName: userSession.user_metadata.operator_name,
-      role: userSession.app_metadata.app_role,
-      authorizedEstate: userSession.app_metadata.estate_id,
-      result: "SUCCESS",
-      ip: clientIp,
-      userAgent: req.headers["user-agent"] || "unknown",
-      details: {
-        auth_type: "enterprise_password",
-        station_name: userSession.user_metadata.station_name
-      }
-    });
-    const isProduction = process.env.NODE_ENV === "production";
-    res.cookie(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-      maxAge: COOKIE_SESSION_MAX_AGE_MS,
-      path: "/"
-    });
-    return res.json({
-      success: true,
-      user: {
-        role: userSession.app_metadata.app_role,
-        name: userSession.user_metadata.operator_name,
-        estate_id: userSession.app_metadata.estate_id,
-        kiosk_id: userSession.app_metadata.kiosk_id,
-        operator_id: userSession.app_metadata.operator_id,
-        station_name: userSession.user_metadata.station_name,
-        is_super_admin: isSuperAdminIdentity(userSession)
-      },
-      token
-    });
-  } catch (err) {
-    console.error("Verify Password error:", err);
-    return res.status(500).json({
-      success: false,
-      error: "Ralat pelayan semasa memproses pengesahan kata laluan.",
-      code: "SERVER_ERROR"
-    });
-  }
+router.post(["/verify-password", "/auth/verify-password"], authRateLimiter, (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: "Kaedah log masuk ini tidak lagi tersedia. Sila gunakan Kod Ladang dan No. Kakitangan.",
+    code: "AUTH_METHOD_REMOVED"
+  });
 });
 router.post(["/refresh", "/auth/refresh"], requireAuth, async (req, res) => {
   try {
@@ -7029,8 +6588,6 @@ function csrfProtection(req, res, next) {
     "/cron",
     "/api/telemetry/client-error",
     "/telemetry/client-error",
-    "/api/auth/verify-pin",
-    "/auth/verify-pin",
     "/api/auth/logout",
     "/auth/logout",
     "/api/devices/approve-link",
@@ -11672,7 +11229,7 @@ function requireRbacAdmin(req, res, next) {
   }
   next();
 }
-var RBAC_CREDENTIAL_FIELD_PATTERN = /pass(word)?|pin|secret|token|credential|hash/i;
+var RBAC_CREDENTIAL_FIELD_PATTERN = /pass(word)?|pin|secret|token|credential|hash|staff.?no/i;
 function sanitizeRbacRegistryForResponse(registry) {
   const safe = {};
   if (!registry || typeof registry !== "object") return safe;
@@ -11927,9 +11484,18 @@ router8.post(["/rbac", "/settings/rbac"], requireAuth, requireRbacAdmin, adminRa
   try {
     const { registry } = req.body || {};
     if (registry && typeof registry === "object") {
-      cachedRbacRegistry = registry;
+      const safeRegistry = {};
+      for (const [key, entry] of Object.entries(registry)) {
+        if (!entry || typeof entry !== "object") continue;
+        const safeEntry = { ...entry };
+        for (const field of Object.keys(safeEntry)) {
+          if (/staff.?no/i.test(field)) delete safeEntry[field];
+        }
+        safeRegistry[key] = safeEntry;
+      }
+      cachedRbacRegistry = safeRegistry;
       const pinMap = {};
-      for (const [pin, user] of Object.entries(registry)) {
+      for (const [pin, user] of Object.entries(safeRegistry)) {
         if (user && (user.role || user.app_role)) {
           pinMap[pin] = {
             app_role: user.role || user.app_role,
@@ -11948,7 +11514,7 @@ router8.post(["/rbac", "/settings/rbac"], requireAuth, requireRbacAdmin, adminRa
           fs6.mkdirSync(dataDir, { recursive: true });
         }
         const rbacFilePath = path6.join(dataDir, "rbac_registry.json");
-        fs6.writeFileSync(rbacFilePath, JSON.stringify(registry, null, 2), "utf-8");
+        fs6.writeFileSync(rbacFilePath, JSON.stringify(safeRegistry, null, 2), "utf-8");
       } catch (fsErr) {
         console.warn("[RBAC_SYNC] Notice saving to local disk:", fsErr);
       }
@@ -11957,7 +11523,7 @@ router8.post(["/rbac", "/settings/rbac"], requireAuth, requireRbacAdmin, adminRa
         try {
           await supabase.from("app_settings").upsert({
             key: "rbac_registry",
-            value: registry,
+            value: safeRegistry,
             updated_at: (/* @__PURE__ */ new Date()).toISOString()
           });
         } catch (e) {
@@ -24253,13 +23819,11 @@ router23.post(
 var gradingTasks_routes_default = router23;
 
 // src/server/routes/devices.routes.ts
-init_deviceSecurity_service();
 import express23 from "express";
 
 // src/server/services/deviceBulkRotation.service.ts
 init_db();
 init_audit_service();
-init_deviceSecurity_service();
 var OPERATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 var MAX_DEVICES_PER_OPERATION = 200;
 var APP_SETTINGS_KEY_PREFIX = "device_rotation_op:";
@@ -24587,7 +24151,6 @@ async function runBulkDeviceCredentialRotation(params, deps = DEFAULT_BULK_ROTAT
 // src/server/services/deviceMerge.service.ts
 init_db();
 init_audit_service();
-init_deviceSecurity_service();
 var MERGE_OPERATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 function fail(code, error) {
   return { ok: false, code, error };
@@ -26403,6 +25966,13 @@ router25.post("/employees", requireRole([...EMPLOYEE_WRITE_ROLES]), async (req, 
       });
       rpcError = createError || null;
       rpcRow = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      if (rpcError && (rpcError.code === "PGRST202" || isMissingTableError(rpcError) || String(rpcError.message || "").includes("schema cache") || String(rpcError.message || "").includes("Could not find the function"))) {
+        console.warn("[EMPLOYEE_ROUTE] RPC create_employee_with_assignment not found in schema cache. Falling back to local store...");
+        const fallbackEmpId = newEmployeeRecord.id || getUUID2();
+        const fallbackAsgId = newEmployeeRecord.current_assignment?.id || getUUID2();
+        rpcRow = { employee_id: fallbackEmpId, assignment_id: fallbackAsgId };
+        rpcError = null;
+      }
     } catch (dbErr) {
       console.error("Database write error for employee:", dbErr);
       return res.status(500).json({

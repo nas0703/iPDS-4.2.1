@@ -1,6 +1,7 @@
 import { IdentityService, UnifiedIdentityProfile } from '../../../src/server/services/identity.service.js';
 import { AuthService } from '../../../src/server/services/auth.service.js';
 import { extractUserFromRequest, COOKIE_NAME } from '../../../src/server/middleware/auth.js';
+import bcrypt from 'bcryptjs';
 
 export async function runUnifiedIdentityTests() {
   console.log('\n----------------------------------------------------');
@@ -43,7 +44,7 @@ export async function runUnifiedIdentityTests() {
     'IdentityService resolves Enterprise Admin credentials to RC-0001'
   );
 
-  // 4. Session Claims Standardization for PIN Kiosk Login
+  // 4. Session Claims Standardization for privileged PIN verification
   const pinSession = AuthService.verifyPin('654321');
   assert(
     pinSession !== null &&
@@ -51,7 +52,7 @@ export async function runUnifiedIdentityTests() {
     pinSession.app_metadata.auth_method === 'PIN_KIOSK' &&
     !!pinSession.app_metadata.user_id &&
     Array.isArray(pinSession.app_metadata.assigned_estates),
-    'PIN Kiosk login produces standardized unified claims schema'
+    'PIN verification still produces standardized claims for privileged flows'
   );
 
   // 5. Session Claims Standardization for Staff No Login (Requires valid secret)
@@ -82,6 +83,28 @@ export async function runUnifiedIdentityTests() {
     crossEstateDenied === null,
     'Single-estate staff attempting cross-estate login is strictly rejected by Identity Service'
   );
+
+  const kioskStaffNo = 'ADL-STAFF-9001';
+  IdentityService.registerOrUpdateIdentity({
+    pin: '900101',
+    staff_no_hash: bcrypt.hashSync(kioskStaffNo, 10),
+    app_role: 'staff',
+    full_name: 'Kiosk Test Staff',
+    operator_id: 'TEST-KIOSK-STAFF-01',
+    primary_estate_id: 'FPM_ADELA',
+    station_name: 'Kiosk Test Adela'
+  });
+  const kioskSession = AuthService.verifyKioskLogin('5136', ` ${kioskStaffNo.toLowerCase()} `);
+  assert(
+    kioskSession?.app_metadata.operator_id === 'TEST-KIOSK-STAFF-01' &&
+    kioskSession.app_metadata.estate_id === 'FPM_ADELA' &&
+    kioskSession.app_metadata.auth_method === 'KIOSK_STAFF_NO',
+    'Kiosk staff-number hash authenticates the active identity in its assigned estate'
+  );
+  assert(AuthService.verifyKioskLogin('5155', kioskStaffNo) === null, 'Valid staff-number hash is rejected for an unauthorized estate');
+  assert(AuthService.verifyKioskLogin('FPM_ADELA', 'UNKNOWN-STAFF-9001') === null, 'Unknown staff number is rejected');
+  assert(AuthService.verifyKioskLogin('FPM_ADELA', 'STF-ADL-01') === null, 'Missing staff_no_hash does not fall back to PIN or password');
+  assert(AuthService.verifyKioskLogin('INVALID-ESTATE', kioskStaffNo) === null, 'Unknown estate code is rejected instead of defaulting');
 
   // 7. Multi-Estate Role Cross-Estate Authorization (RC Wilayah JB accessing Sening)
   const rcCrossEstate = AuthService.verifyEstateStaffLogin('FPM_SENING', 'RC-0001', '111111');

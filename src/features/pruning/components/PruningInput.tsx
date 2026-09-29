@@ -119,14 +119,12 @@ export const PruningInput: React.FC<PruningInputProps> = ({
       };
 
       const token = typeof window !== 'undefined' ? (sessionStorage.getItem('ipds_token') || localStorage.getItem('ipds_token')) : null;
-      const lastPin = typeof window !== 'undefined' ? localStorage.getItem('ipds_last_pin') : null;
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'x-estate-id': targetEstate
       };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (lastPin) headers['x-auth-pin'] = lastPin;
 
       const res = await fetch(`/api/pruning?estate_id=${targetEstate}`, {
         method: 'POST',

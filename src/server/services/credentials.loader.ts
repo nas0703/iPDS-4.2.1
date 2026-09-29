@@ -33,6 +33,7 @@ export interface UserCredentialConfig {
   estate_id: string;
   station_name: string;
   pin_hash?: string;
+  staff_no_hash?: string;
   password_hash?: string;
   masked_pin?: string;
   email?: string;
@@ -153,6 +154,31 @@ export function verifyPasswordAgainstHash(inputPassword: string, passwordHash?: 
   }
   try {
     return bcrypt.compareSync(clean, passwordHash);
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeStaffNo(staffNo: string): string {
+  return staffNo.trim().toUpperCase();
+}
+
+export function hashStaffNo(staffNo: string): string {
+  const normalized = normalizeStaffNo(staffNo);
+  if (!normalized || Buffer.byteLength(normalized, 'utf8') > 72) {
+    throw new Error('Staff number is empty or exceeds the bcrypt input limit.');
+  }
+  return bcrypt.hashSync(normalized, 10);
+}
+
+export function verifyStaffNoAgainstHash(staffNo: string, staffNoHash?: string | null): boolean {
+  if (!staffNo || !staffNoHash || typeof staffNoHash !== 'string' || !staffNoHash.startsWith('$2')) {
+    return false;
+  }
+  try {
+    const normalized = normalizeStaffNo(staffNo);
+    if (!normalized || Buffer.byteLength(normalized, 'utf8') > 72) return false;
+    return bcrypt.compareSync(normalized, staffNoHash);
   } catch {
     return false;
   }

@@ -35,7 +35,7 @@ export interface ActiveSessionRecord {
 export interface LoginAuditRecord {
   id: string;
   timestamp: string;
-  authMethod: 'ESTATE_STAFF_PIN' | 'PIN_KIOSK' | 'ENTERPRISE_PASSWORD' | 'TOKEN_RESUME';
+  authMethod: 'ESTATE_STAFF_PIN' | 'KIOSK_STAFF_NO' | 'PIN_KIOSK' | 'ENTERPRISE_PASSWORD' | 'TOKEN_RESUME';
   identifier: string; // Staff ID / PIN / Username
   operatorName?: string;
   role?: AuthRole | 'UNKNOWN';
@@ -257,7 +257,7 @@ class SessionManagerService {
    * Log an incoming login attempt (both success and rejected/failed)
    */
   public logLoginAttempt(entry: {
-    authMethod: 'ESTATE_STAFF_PIN' | 'PIN_KIOSK' | 'ENTERPRISE_PASSWORD' | 'TOKEN_RESUME';
+    authMethod: 'ESTATE_STAFF_PIN' | 'KIOSK_STAFF_NO' | 'PIN_KIOSK' | 'ENTERPRISE_PASSWORD' | 'TOKEN_RESUME';
     identifier: string;
     operatorName?: string;
     role?: AuthRole | 'UNKNOWN';

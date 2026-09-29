@@ -163,16 +163,17 @@ export async function runDeviceBootstrapTests() {
   // 6. Login flow forwards the bootstrap token
   {
     const auth = read(AUTH_SRC);
-    assert(auth.includes('x-device-bootstrap-token') && auth.includes('verifyBootstrapToken'),
-      'verify-pin/verify-staff forward and validate the bootstrap token');
-    assert((auth.match(/bootstrapToken/g) || []).length >= 2, 'both login flows pass bootstrapToken');
+    const staffRoute = auth.slice(auth.indexOf("router.post(['/verify-staff"), auth.indexOf("router.post(['/verify-password"));
+    assert(staffRoute.includes('x-device-bootstrap-token') && staffRoute.includes('verifyBootstrapToken'),
+      'kiosk login forwards and validates the bootstrap token');
+    assert((staffRoute.match(/bootstrapToken/g) || []).length >= 2, 'kiosk login passes bootstrapToken through device registration');
   }
 
   // 7. Preserve P0-11-A device-gate behavior
   {
     const mw = read('src/server/middleware/auth.ts');
-    assert(mw.includes('isPinAuthDeviceApproved') && mw.includes('DEVICE_NOT_APPROVED'),
-      'P0-11-A PIN/device gate remains intact');
+    assert(!/x-auth-pin|x-kiosk-pin|x-pin|AuthService\.verifyPin/.test(mw),
+      'generic raw-PIN API authentication remains disabled');
   }
 
   console.log(`\nMODULE 37 RESULT: ${passed}/${total} TESTS PASSED`);

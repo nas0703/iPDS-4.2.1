@@ -27,7 +27,6 @@ export const PruningModule: React.FC<PruningModuleProps> = ({ isDarkMode, onShow
   // Helper for API calls with automatic session auth headers and tenant isolation
   const safeFetch = async (url: string, options?: RequestInit): Promise<any> => {
     const token = typeof window !== 'undefined' ? (sessionStorage.getItem('ipds_token') || localStorage.getItem('ipds_token')) : null;
-    const lastPin = typeof window !== 'undefined' ? localStorage.getItem('ipds_last_pin') : null;
     const activeEstate = getActiveEstateId();
 
     const headers: Record<string, string> = {
@@ -35,7 +34,6 @@ export const PruningModule: React.FC<PruningModuleProps> = ({ isDarkMode, onShow
       'x-estate-id': activeEstate
     };
     if (token && !headers['Authorization']) headers['Authorization'] = `Bearer ${token}`;
-    if (lastPin && !headers['x-auth-pin']) headers['x-auth-pin'] = lastPin;
 
     const res = await fetch(url, {
       ...options,
