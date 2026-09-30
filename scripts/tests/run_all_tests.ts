@@ -63,6 +63,7 @@ import { runGradingTaskTests } from './modules/grading_tasks.test.js';
 import { runSecurityHeadersAndCorsTests } from './modules/security_headers_cors.test.js';
 import { runRlsTenantIsolationGapsTests } from './modules/rls_tenant_isolation_gaps.test.js';
 import { runKioskLoginTests } from './modules/kiosk_login.test.js';
+import { runKioskRosterProvisioningTests } from './modules/kiosk_roster_provisioning.test.js';
 
 async function runMasterRegressionSuite() {
   console.log('================================================================');
@@ -137,6 +138,7 @@ async function runMasterRegressionSuite() {
     { name: '61. Enterprise Security Headers & CORS Allow-List', fn: runSecurityHeadersAndCorsTests },
     { name: '62. RLS Tenant Isolation Gaps & Policy Consolidation Proof', fn: runRlsTenantIsolationGapsTests },
     { name: '63. Kiosk Login Hash, Estate & Retry Regressions', fn: runKioskLoginTests },
+    { name: '64. Kiosk Roster Provisioning (Staff-No Hash) Safety', fn: runKioskRosterProvisioningTests },
   ];
 
   for (const mod of modules) {
