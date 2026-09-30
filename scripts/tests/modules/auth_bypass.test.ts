@@ -186,7 +186,10 @@ export async function runAuthBypassTests() {
     };
 
     await handler(req, res);
-    const isRejected = (statusCode === 400 || statusCode === 401) && !responseBody?.token && !cookies[COOKIE_NAME];
+    const isRejected =
+  (statusCode === 400 || statusCode === 401 || statusCode === 403) &&
+  !responseBody?.token &&
+  !cookies[COOKIE_NAME];
     assert(isRejected, 'POST /verify-staff rejects a staff number without a provisioned hash', `Got status ${statusCode}, token=${!!responseBody?.token}`);
   }
 
@@ -215,7 +218,10 @@ export async function runAuthBypassTests() {
     };
 
     await handler(req, res);
-    const isRejected = (statusCode === 400 || statusCode === 401) && !responseBody?.token && !cookies[COOKIE_NAME];
+    const isRejected =
+  (statusCode === 400 || statusCode === 401 || statusCode === 403) &&
+  !responseBody?.token &&
+  !cookies[COOKIE_NAME];
     assert(isRejected, 'POST /verify-staff does not fall back to PIN/password fields', `Got status ${statusCode}, token=${!!responseBody?.token}`);
   }
 
