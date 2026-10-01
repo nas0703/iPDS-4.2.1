@@ -64,6 +64,14 @@ import { runSecurityHeadersAndCorsTests } from './modules/security_headers_cors.
 import { runRlsTenantIsolationGapsTests } from './modules/rls_tenant_isolation_gaps.test.js';
 import { runKioskLoginTests } from './modules/kiosk_login.test.js';
 import { runKioskRosterProvisioningTests } from './modules/kiosk_roster_provisioning.test.js';
+import { runP2_1EmployeeIdReconciliationTests } from './modules/p2_1_employee_id_reconciliation.test.js';
+import { runP3_1EmployeeRlsEstateScopingTests } from './modules/p3_1_employee_rls_estate_scoping.test.js';
+import { runP4_1AssignmentWriteEstateScopingTests } from './modules/p4_1_assignment_write_estate_scoping.test.js';
+import { runP5_1AssignmentBlockWriteEstateScopingTests } from './modules/p5_1_assignment_block_write_estate_scoping.test.js';
+import { runP6A_1OrgBlocksSeedTests } from './modules/p6a_1_org_blocks_seed.test.js';
+import { runP6B_1AssignmentBlockPersistenceTests } from './modules/p6b_1_employee_assignment_block_persistence.test.js';
+import { runP7_1OrgDivisionsSeedTests } from './modules/p7_1_org_divisions_seed.test.js';
+import { runP7_2AuthHelperAlignmentTests } from './modules/p7_2_auth_helper_alignment.test.js';
 
 async function runMasterRegressionSuite() {
   console.log('================================================================');
@@ -139,6 +147,14 @@ async function runMasterRegressionSuite() {
     { name: '62. RLS Tenant Isolation Gaps & Policy Consolidation Proof', fn: runRlsTenantIsolationGapsTests },
     { name: '63. Kiosk Login Hash, Estate & Retry Regressions', fn: runKioskLoginTests },
     { name: '64. Kiosk Roster Provisioning (Staff-No Hash) Safety', fn: runKioskRosterProvisioningTests },
+    { name: '65. P2-1 Employee Create Server ID Reconciliation', fn: runP2_1EmployeeIdReconciliationTests },
+    { name: '66. P3-1 Employee Master RLS Estate Scoping', fn: runP3_1EmployeeRlsEstateScopingTests },
+    { name: '67. P4-1 Employee Assignment Write Estate Scoping', fn: runP4_1AssignmentWriteEstateScopingTests },
+    { name: '68. P5-1 Employee Assignment Block Write Estate Scoping', fn: runP5_1AssignmentBlockWriteEstateScopingTests },
+    { name: '69. P6A-1 org_blocks Master-Data Seed', fn: runP6A_1OrgBlocksSeedTests },
+    { name: '70. P6B-1 Employee Assignment Block Persistence', fn: runP6B_1AssignmentBlockPersistenceTests },
+    { name: '71. P7-1 org_divisions Master-Data Seed', fn: runP7_1OrgDivisionsSeedTests },
+    { name: '72. P7-2 Auth Helper Alignment', fn: runP7_2AuthHelperAlignmentTests },
   ];
 
   for (const mod of modules) {

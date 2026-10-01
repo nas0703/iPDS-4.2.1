@@ -324,15 +324,10 @@ router.post('/employees', requireRole([...EMPLOYEE_WRITE_ROLES]), async (req: Re
     const tenantId = '00000000-0000-0000-0000-000000000001';
     const companyId = '10000000-0000-0000-0000-000000000001';
 
-    const blocks = blockIds.map((code: string) => ({
-      id: getUUID(),
-      tenant_id: tenantId,
-      estate_id: estateId,
-      division_id: divisionId,
-      block_code: code,
-      hectarage: 50.0,
-      is_active: true
-    }));
+    // Assignment blocks are NOT fabricated here. The RPC persists the resolved
+    // org_blocks rows (P6B-1); the persisted rows are read back below and pushed
+    // into this array, which newEmployeeRecord shares.
+    const blocks: any[] = [];
 
     const newEmployeeRecord = {
       id: employeeId,
@@ -463,14 +458,20 @@ router.post('/employees', requireRole([...EMPLOYEE_WRITE_ROLES]), async (req: Re
         p_division_id: divisionId,
         p_assignment_role: 'PRIMARY',
         p_effective_from: hireDate,
-        p_transfer_reason: null
+        p_transfer_reason: null,
+        // Additive optional parameter (P6B-1). Only sent when block codes were
+        // supplied, so a database that has not yet applied 20261008 keeps
+        // working for block-less employee creation.
+        ...(blockIds.length > 0 ? { p_block_ids: blockIds } : {})
       });
 
       rpcError = createError || null;
       rpcRow = Array.isArray(rpcData) ? rpcData[0] : rpcData;
 
       // Schema Cache Fallback: If RPC function is not yet registered in live Supabase database
-      if (rpcError && (
+      // Restricted to block-less creation: reporting success while dropping a
+      // requested block selection would hide invalid persistence (P6B-1).
+      if (blockIds.length === 0 && rpcError && (
         rpcError.code === 'PGRST202' ||
         isMissingTableError(rpcError) ||
         String(rpcError.message || '').includes('schema cache') ||
@@ -512,6 +513,37 @@ router.post('/employees', requireRole([...EMPLOYEE_WRITE_ROLES]), async (req: Re
     newEmployeeRecord.current_assignment.employee_id = rpcRow.employee_id;
     if (rpcRow.assignment_id) {
       newEmployeeRecord.current_assignment.id = rpcRow.assignment_id;
+    }
+
+    // P6B-1: read back the blocks the RPC actually persisted (via the scoped
+    // client, so RLS applies) rather than echoing client-supplied codes or
+    // fabricating ids. An empty result can never mask a validation failure,
+    // because an invalid block aborts the RPC before this point.
+    if (blockIds.length > 0 && rpcRow.assignment_id) {
+      try {
+        const { data: blockRows } = await supabase
+          .from('employee_assignment_blocks')
+          .select('block_id, org_blocks (id, block_code, hectarage, division_id, is_active)')
+          .eq('assignment_id', rpcRow.assignment_id);
+
+        if (Array.isArray(blockRows)) {
+          for (const row of blockRows as any[]) {
+            const ob = row?.org_blocks;
+            if (!ob || !ob.block_code) continue;
+            blocks.push({
+              id: ob.id ?? row.block_id,
+              tenant_id: tenantId,
+              estate_id: estateId,
+              division_id: ob.division_id ?? null,
+              block_code: ob.block_code,
+              hectarage: ob.hectarage ?? 0,
+              is_active: ob.is_active ?? true
+            });
+          }
+        }
+      } catch (blockReadErr: any) {
+        console.warn('[EMPLOYEE_ROUTE] Persisted block read-back failed:', blockReadErr?.message || blockReadErr);
+      }
     }
 
     saveLocalEmployees(reconcileLocalEmployees(getLocalEmployees(), [newEmployeeRecord], estateId));

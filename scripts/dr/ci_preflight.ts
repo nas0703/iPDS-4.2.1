@@ -129,6 +129,14 @@ async function runCIPreflightCheck(): Promise<boolean> {
     'p1_1c_local_cache_post.test.ts',
     'p1_1c_scoped_client.test.ts',
     'p1_1d_atomic_create.test.ts',
+    'p2_1_employee_id_reconciliation.test.ts',
+    'p3_1_employee_rls_estate_scoping.test.ts',
+    'p4_1_assignment_write_estate_scoping.test.ts',
+    'p5_1_assignment_block_write_estate_scoping.test.ts',
+    'p6a_1_org_blocks_seed.test.ts',
+    'p6b_1_employee_assignment_block_persistence.test.ts',
+    'p7_1_org_divisions_seed.test.ts',
+    'p7_2_auth_helper_alignment.test.ts',
     'grading_tasks.test.ts'
   ];
   const allModulesExist = testModules.every(mod => 
