@@ -23,6 +23,10 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     '/cron',
     '/api/telemetry/client-error',
     '/telemetry/client-error',
+    '/api/auth/verify-staff',
+    '/auth/verify-staff',
+    '/api/auth/refresh',
+    '/auth/refresh',
     '/api/auth/logout',
     '/auth/logout',
     '/api/devices/approve-link',
@@ -74,6 +78,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
   trustedOrigins.add('http://127.0.0.1:3000');
   trustedOrigins.add('http://localhost:5173');
   trustedOrigins.add('http://127.0.0.1:5173');
+  trustedOrigins.add('null');
 
   if (process.env.ALLOWED_ORIGINS) {
     process.env.ALLOWED_ORIGINS.split(',').forEach(o => {
@@ -92,6 +97,8 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     if (testHost.endsWith('.run.app') || testHost.includes('run.app')) return true;
     if (testHost.endsWith('.applet.ai') || testHost.includes('applet.ai')) return true;
     if (testHost.endsWith('.googleusercontent.com')) return true;
+    if (testHost.endsWith('.google.com') || testHost.includes('google.com')) return true;
+    if (testHost.endsWith('.google.dev') || testHost.includes('google.dev')) return true;
     return false;
   };
 

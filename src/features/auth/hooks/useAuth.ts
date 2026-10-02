@@ -148,22 +148,40 @@ export function useAuth({ onLoginSuccess, onLogout }: UseAuthProps) {
     const targetEstate = normalizeEstateId(estateCode);
     const clientInfo = getClientDeviceInfo();
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const res = await fetch("/api/auth/verify-staff", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          estate_code: targetEstate,
-          staff_no: normalizedStaffNo,
-          deviceId: clientInfo.deviceId,
-          deviceName: clientInfo.deviceName,
-          deviceCredential: getDeviceCredential()
-        }),
-        signal: controller.signal
+      const payload = JSON.stringify({
+        estate_code: targetEstate,
+        staff_no: normalizedStaffNo,
+        deviceId: clientInfo.deviceId,
+        deviceName: clientInfo.deviceName,
+        deviceCredential: getDeviceCredential()
       });
+
+      let res: Response;
+      try {
+        res = await fetch("/api/auth/verify-staff", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: payload,
+          signal: controller.signal
+        });
+      } catch (firstErr) {
+        // Fallback for sandboxed or cross-site iframes where credentials: 'include' is restricted by browser
+        try {
+          res = await fetch("/api/auth/verify-staff", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: payload,
+            signal: controller.signal
+          });
+        } catch {
+          throw firstErr;
+        }
+      }
       const data = await res.json().catch(() => null);
 
       if (adoptCanonicalDeviceId(data) && allowMergeRetry) {

@@ -754,10 +754,12 @@ router.post('/approve-with-pin', authRateLimiter, async (req: Request, res: Resp
     // Grant active access for the estate
     await grantDeviceEstateAccess(targetDeviceId, targetEstate, resolvedApprover);
     if (resolvedRole === 'rc' || resolvedRole === 'superadmin' || isSuperAdminIdentity({ app_metadata: { app_role: resolvedRole, estate_id: targetEstate } })) {
-      await grantDeviceEstateAccess(targetDeviceId, 'FPM_TUNGGAL', resolvedApprover);
-      await grantDeviceEstateAccess(targetDeviceId, 'FPM_ADELA', resolvedApprover);
-      await grantDeviceEstateAccess(targetDeviceId, 'FPM_KLEDANG', resolvedApprover);
-      await grantDeviceEstateAccess(targetDeviceId, 'FPM_SENING', resolvedApprover);
+      await Promise.allSettled([
+        grantDeviceEstateAccess(targetDeviceId, 'FPM_TUNGGAL', resolvedApprover),
+        grantDeviceEstateAccess(targetDeviceId, 'FPM_ADELA', resolvedApprover),
+        grantDeviceEstateAccess(targetDeviceId, 'FPM_KLEDANG', resolvedApprover),
+        grantDeviceEstateAccess(targetDeviceId, 'FPM_SENING', resolvedApprover)
+      ]);
     }
 
     // Issue a device credential for the approved device

@@ -1,11 +1,11 @@
 import express from 'express';
-import { AuthService, COOKIE_SESSION_MAX_AGE_MS, getServerPinConfig } from '../services/auth.service.js';
+import { AuthService, COOKIE_SESSION_MAX_AGE_MS, getServerPinConfig, syncRbacFromSupabase } from '../services/auth.service.js';
 import { requireAuth, COOKIE_NAME, extractDeviceCredential, requireSuperAdmin, isSuperAdminIdentity } from '../middleware/auth.js';
 import { auditService } from '../services/audit.service.js';
 import { authRateLimiter, adminRateLimiter } from '../middleware/rateLimiter.js';
 import { sessionManager } from '../services/sessionManager.service.js';
 import { ActingAsService } from '../services/actingAs.service.js';
-import { deviceSecurityService, verifyBootstrapToken, createApprovalCapability, sendApprovalLink, authorizeDeviceForEstate, isStrictDeviceEnforcementEnabled } from '../services/deviceSecurity.service.js';
+import { deviceSecurityService, verifyBootstrapToken, createApprovalCapability, sendApprovalLink, authorizeDeviceForEstate, isStrictDeviceEnforcementEnabled, grantDeviceEstateAccess } from '../services/deviceSecurity.service.js';
 import crypto from 'crypto';
 
 import fs from 'fs';
@@ -146,7 +146,11 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
       });
     }
 
-    const loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
+    let loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
+    if (!loginResult.session) {
+      await syncRbacFromSupabase(true);
+      loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
+    }
     const userSession = loginResult.session;
 
     if (!userSession) {
@@ -213,9 +217,30 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
         userAgent: (req.headers['user-agent'] as string) || 'unknown',
         bootstrapToken
       });
-    } else if (deviceStatus.status !== 'APPROVED' && verifyBootstrapToken(bootstrapToken)) {
-      // P0-16: secure bootstrap upgrade for an already-PENDING device.
-      deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, 'BOOTSTRAP_TOKEN', 'bootstrap');
+      if (isSuperAdminIdentity(userSession)) {
+        deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, operatorName, operatorRole);
+        await Promise.allSettled([
+          grantDeviceEstateAccess(effectiveDeviceId, 'FPM_TUNGGAL', operatorName),
+          grantDeviceEstateAccess(effectiveDeviceId, 'FPM_ADELA', operatorName),
+          grantDeviceEstateAccess(effectiveDeviceId, 'FPM_KLEDANG', operatorName),
+          grantDeviceEstateAccess(effectiveDeviceId, 'FPM_SENING', operatorName),
+          grantDeviceEstateAccess(effectiveDeviceId, 'WILAYAH_JB', operatorName)
+        ]);
+      }
+    } else if (deviceStatus.status !== 'APPROVED') {
+      if (verifyBootstrapToken(bootstrapToken) || isSuperAdminIdentity(userSession)) {
+        // P0-16: secure bootstrap upgrade or Super Admin device approval
+        deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, operatorName || 'BOOTSTRAP_TOKEN', operatorRole || 'bootstrap');
+        if (isSuperAdminIdentity(userSession)) {
+          await Promise.allSettled([
+            grantDeviceEstateAccess(effectiveDeviceId, 'FPM_TUNGGAL', operatorName),
+            grantDeviceEstateAccess(effectiveDeviceId, 'FPM_ADELA', operatorName),
+            grantDeviceEstateAccess(effectiveDeviceId, 'FPM_KLEDANG', operatorName),
+            grantDeviceEstateAccess(effectiveDeviceId, 'FPM_SENING', operatorName),
+            grantDeviceEstateAccess(effectiveDeviceId, 'WILAYAH_JB', operatorName)
+          ]);
+        }
+      }
     }
 
     if (redirectMergedDevice(deviceStatus, res)) return;
@@ -364,7 +389,8 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
     return res.status(500).json({
       success: false,
       error: 'Ralat pelayan semasa memproses pengesahan kakitangan.',
-      code: 'SERVER_ERROR'
+      code: 'SERVER_ERROR',
+      debugError: err instanceof Error ? err.message : String(err)
     });
   }
 });

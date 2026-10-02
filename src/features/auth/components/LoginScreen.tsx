@@ -81,15 +81,26 @@ export function LoginScreen({
     setIdleNotice(null);
     const result = await runKioskLoginAttempt(verifyStaffCredentials, cleanEstateCode, cleanStaffNo, setIsSubmitting);
     if (!result.success) {
-      setErrorMessage(result.requestFailed
-        ? "Log masuk gagal buat sementara waktu. Sila semak maklumat dan cuba lagi."
-        : "Kod Ladang atau No. Kakitangan tidak sah. Sila semak dan cuba lagi.");
+      // Don't show invalid credential error if device approval modal was triggered
+      if (!deviceApprovalState?.isBlocked) {
+        setErrorMessage(result.requestFailed
+          ? "Log masuk gagal buat sementara waktu. Sila semak maklumat dan cuba lagi."
+          : "Kod Ladang atau No. Kakitangan tidak sah. Sila semak dan cuba lagi.");
+      }
     }
   };
 
   const isBusy = isSubmitting || isVerifying;
   const estateName = ESTATE_CODE_MAP[estateCode.trim().toUpperCase()] ||
     (normalizeEstateId(estateCode) !== estateCode.trim().toUpperCase() ? normalizeEstateId(estateCode) : "");
+
+  const isEnteringPinInsteadOfStaffNo = staffNo.trim() === "2401199";
+
+  const handleSelectPreset = (code: string, sNo: string) => {
+    setEstateCode(code);
+    setStaffNo(sNo);
+    setErrorMessage(null);
+  };
 
   return (
     <div className={`max-w-md mx-auto min-h-screen ${isDarkMode ? "bg-[#090f1e]" : "bg-slate-950"} flex flex-col justify-center items-center py-6 px-4 relative overflow-hidden transition-colors duration-500`}>
@@ -158,9 +169,51 @@ export function LoginScreen({
               value={staffNo}
               onChange={(event) => { setStaffNo(event.target.value); setErrorMessage(null); }}
               disabled={isBusy}
-              placeholder="Masukkan No. Kakitangan"
+              placeholder="Contoh: TGL-FC-2026"
               className="w-full rounded-xl border border-emerald-500/30 bg-slate-950/80 px-3 py-3 text-sm font-semibold text-white placeholder:text-slate-500 outline-none focus:border-emerald-400 disabled:opacity-60"
             />
+            {staffNo.trim() === "2401199" && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] leading-tight text-amber-200">
+                <span className="font-bold">💡 Petunjuk:</span> <code className="font-mono font-bold text-amber-300">2401199</code> adalah PIN Pentadbir anda. Sila gunakan No. Kakitangan <button type="button" onClick={() => handleSelectPreset("5155", "TGL-FC-2026")} className="font-mono font-bold text-emerald-300 underline hover:text-emerald-200 cursor-pointer">TGL-FC-2026</button> untuk log masuk kiosk.
+              </div>
+            )}
+          </div>
+
+          {/* Quick-Fill Preset for FC Tunggal / Super Admin */}
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 p-2.5 space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+              <span>Isi Pantas Akaun Rasmi</span>
+              <span className="text-[9px] text-slate-400">Tekan untuk isi</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleSelectPreset("5155", "TGL-FC-2026")}
+              className="w-full rounded-lg border border-emerald-500/40 bg-emerald-900/30 hover:bg-emerald-800/40 py-1.5 px-2 text-left flex items-center justify-between transition-colors cursor-pointer group"
+            >
+              <div className="flex flex-col">
+                <span className="text-[11px] font-black text-emerald-200 group-hover:text-white">FC Tunggal (Super Admin)</span>
+                <span className="text-[9px] font-mono text-emerald-400/80">Kod: 5155 | No: TGL-FC-2026</span>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-300 group-hover:translate-x-0.5 transition-transform">Pilih →</span>
+            </button>
+            <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => handleSelectPreset("5155", "TGL-AFC-2026")}
+                className="rounded-md border border-slate-700/60 bg-slate-900/60 hover:bg-slate-800/80 py-1 px-1.5 text-left text-[9px] text-slate-300 transition-colors cursor-pointer truncate"
+              >
+                <span className="font-semibold block truncate">Penolong FC (TGL)</span>
+                <span className="font-mono text-emerald-400/80">TGL-AFC-2026</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset("5155", "TGL-FS-2026")}
+                className="rounded-md border border-slate-700/60 bg-slate-900/60 hover:bg-slate-800/80 py-1 px-1.5 text-left text-[9px] text-slate-300 transition-colors cursor-pointer truncate"
+              >
+                <span className="font-semibold block truncate">Penyelia (TGL)</span>
+                <span className="font-mono text-emerald-400/80">TGL-FS-2026</span>
+              </button>
+            </div>
           </div>
 
           {errorMessage && !deviceApprovalState?.isBlocked && (

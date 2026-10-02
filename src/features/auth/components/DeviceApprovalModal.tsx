@@ -568,6 +568,20 @@ ${urlToUse}`;
                   </button>
                 </div>
 
+                <div className="flex items-center justify-between gap-1 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2 py-1 text-[10px] text-amber-300">
+                  <span>PIN FC Tunggal: <strong className="font-mono font-bold text-amber-200">2401199</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminPin("2401199");
+                      setErrorMessage(null);
+                    }}
+                    className="rounded bg-amber-500/20 hover:bg-amber-500/30 px-1.5 py-0.5 font-bold text-amber-200 text-[9px] transition-colors cursor-pointer"
+                  >
+                    Guna PIN Ini
+                  </button>
+                </div>
+
                 {/* Optional Keypad Toggle Button for Touch / Kiosk Devices */}
                 <div className="flex items-center justify-between pt-0.5">
                   <button

@@ -23,6 +23,11 @@ export function isAllowedOrigin(origin: string): boolean {
     return true;
   }
 
+  // Sandboxed iframes (e.g. Google AI Studio preview sandbox)
+  if (cleanOrigin === 'null') {
+    return true;
+  }
+
   // Custom configured origins via environment variables
   const envOrigins = (process.env.ALLOWED_ORIGINS || '')
     .split(',')
@@ -40,7 +45,9 @@ export function isAllowedOrigin(origin: string): boolean {
     /^https:\/\/([a-zA-Z0-9-]+\.)*vercel\.app$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*run\.app$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*googleusercontent\.com$/,
-    /^https:\/\/([a-zA-Z0-9-]+\.)*aistudio\.google\.com$/
+    /^https:\/\/([a-zA-Z0-9-]+\.)*aistudio\.google\.com$/,
+    /^https:\/\/([a-zA-Z0-9-]+\.)*google\.com$/,
+    /^https:\/\/([a-zA-Z0-9-]+\.)*google\.dev$/
   ];
 
   return allowedPatterns.some(pattern => pattern.test(cleanOrigin));

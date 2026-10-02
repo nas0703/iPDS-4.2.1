@@ -1,6 +1,6 @@
 import { v5 as uuidv5, v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
-import { loadHashedCredentials, verifyPinAgainstHash, verifyPasswordAgainstHash, verifyStaffNoAgainstHash } from './credentials.loader.js';
+import { loadHashedCredentials, verifyPinAgainstHash, verifyPasswordAgainstHash, verifyStaffNoAgainstHash, hashStaffNo } from './credentials.loader.js';
 
 export type AuthRole = 'staff' | 'mandur' | 'pf' | 'fc' | 'afc' | 'fs' | 'eqi' | 'oc' | 'rc' | 'superadmin';
 
@@ -113,7 +113,7 @@ export class IdentityService {
     if (!staffNo || typeof staffNo !== 'string') return null;
     let match: UnifiedIdentityProfile | null = null;
     for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
-      const valid = profile.is_active && verifyStaffNoAgainstHash(staffNo, profile.staff_no_hash);
+      const valid = profile.is_active && Boolean(profile.staff_no_hash && verifyStaffNoAgainstHash(staffNo, profile.staff_no_hash));
       if (valid) {
         if (match) return null;
         match = profile;

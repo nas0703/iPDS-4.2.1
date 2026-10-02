@@ -6,6 +6,7 @@ import { IdentityService, UnifiedIdentityProfile } from './identity.service.js';
 import { auditService } from './audit.service.js';
 import { hashStaffNo, loadHashedCredentials, normalizeStaffNo, verifyPinAgainstHash, verifyPasswordAgainstHash, verifyStaffNoAgainstHash, type UserCredentialConfig } from './credentials.loader.js';
 import { normalizeEstateId } from '../../config/estateRegistry.js';
+import { getPrivilegedSupabase } from '../db.js';
 
 export type AuthRole = 'staff' | 'mandur' | 'pf' | 'fc' | 'afc' | 'fs' | 'eqi' | 'oc' | 'rc' | 'superadmin';
 
@@ -122,6 +123,56 @@ export function updateServerPinConfig(newConfig: Record<string, { app_role?: Aut
     }
   }
 }
+
+let lastSupabaseRbacSync = 0;
+const RBAC_SYNC_INTERVAL_MS = 30 * 1000; // 30s cache for high performance
+
+/**
+ * Synchronize RBAC and user credentials dynamically from Supabase database (app_settings.rbac_registry)
+ */
+export async function syncRbacFromSupabase(force = false): Promise<void> {
+  const now = Date.now();
+  if (!force && now - lastSupabaseRbacSync < RBAC_SYNC_INTERVAL_MS) {
+    return;
+  }
+  try {
+    const supabase = getPrivilegedSupabase();
+    if (!supabase) return;
+    const fetchPromise = supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'rbac_registry')
+      .maybeSingle();
+    const timeoutPromise = new Promise<{ data: null; error: Error }>((_, reject) =>
+      setTimeout(() => reject(new Error('Supabase RBAC sync timed out after 2500ms')), 2500)
+    );
+    const { data: rbacData, error } = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+
+    if (!error && rbacData && rbacData.value && typeof rbacData.value === 'object') {
+      const pinMap: Record<string, Record<string, unknown>> = {};
+      for (const [pin, user] of Object.entries(rbacData.value as Record<string, any>)) {
+        if (user && (user.role || user.app_role)) {
+          pinMap[pin] = {
+            app_role: user.role || user.app_role,
+            operator_name: user.label || user.operator_name || 'Staf Ladang',
+            estate_id: user.estate_id || 'FPM_TUNGGAL',
+            password: user.password || user.pin || pin,
+            username: user.username || user.pin || pin,
+            email: user.email || `${pin}@felda.gov.my`,
+          };
+        }
+      }
+      updateServerPinConfig(pinMap);
+      lastSupabaseRbacSync = now;
+      console.log(`[AUTH_SYNC] Synced ${Object.keys(pinMap).length} user credentials from Supabase app_settings.`);
+    }
+  } catch (err) {
+    console.warn('[AUTH_SYNC] Notice syncing rbac from Supabase:', err);
+  }
+}
+
+// Initial background sync on module load
+syncRbacFromSupabase(true).catch(() => {});
 
 export function getServerPinConfig(): Record<string, any> {
   return { ...PIN_USERS_CONFIG };

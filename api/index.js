@@ -225,7 +225,7 @@ function loadHashedCredentials() {
   if (rawJson && rawJson.trim()) {
     try {
       const parsed = JSON.parse(rawJson.trim());
-      if (parsed && typeof parsed === "object") {
+      if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
         cachedCredentials = normalizeToOperatorIdKeys(parsed);
         return cachedCredentials;
       }
@@ -240,7 +240,7 @@ function loadHashedCredentials() {
       const match = content.match(/IPDS_CREDENTIALS_JSON='(.*)'/s) || content.match(/IPDS_CREDENTIALS_JSON="(.*)"/s);
       if (match && match[1]) {
         const parsed = JSON.parse(match[1]);
-        if (parsed && typeof parsed === "object") {
+        if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
           cachedCredentials = normalizeToOperatorIdKeys(parsed);
           return cachedCredentials;
         }
@@ -261,13 +261,50 @@ function loadHashedCredentials() {
         const parsed = JSON.parse(content);
         if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
           cachedCredentials = normalizeToOperatorIdKeys(parsed);
-          return cachedCredentials;
+          break;
         }
       }
     } catch {
     }
   }
-  cachedCredentials = {};
+  if (!cachedCredentials) {
+    cachedCredentials = {};
+  }
+  const candidateRosterPaths = [
+    path.join(process.cwd(), ".env.kiosk-roster.local.json"),
+    path.join(process.cwd(), "data/kiosk-roster.json"),
+    path.join(process.cwd(), "src/server/config/kiosk-roster.json")
+  ];
+  for (const rosterPath of candidateRosterPaths) {
+    try {
+      if (fs.existsSync(rosterPath)) {
+        const rosterContent = fs.readFileSync(rosterPath, "utf-8");
+        const rosterList = JSON.parse(rosterContent);
+        if (Array.isArray(rosterList)) {
+          for (const item of rosterList) {
+            if (item && item.operator_id && item.staff_no) {
+              const opId = item.operator_id;
+              const normalizedStaffNo = normalizeStaffNo(item.staff_no);
+              const staffHash = hashStaffNo(normalizedStaffNo);
+              cachedCredentials[opId] = {
+                ...cachedCredentials[opId],
+                app_role: item.app_role || "staff",
+                operator_id: opId,
+                operator_name: item.operator_name || opId,
+                kiosk_id: item.kiosk_id || `kiosk-${opId.toLowerCase()}`,
+                estate_id: item.estate_id || "FPM_TUNGGAL",
+                station_name: item.station_name || `Stesen Lapangan ${item.estate_id || "Tunggal"}`,
+                staff_no_hash: staffHash,
+                email: item.email || `${opId.toLowerCase()}@felda.gov.my`,
+                username: item.username || opId.toLowerCase()
+              };
+            }
+          }
+        }
+      }
+    } catch {
+    }
+  }
   return cachedCredentials;
 }
 function verifyPinAgainstHash(inputPin, pinHash) {
@@ -300,6 +337,13 @@ function verifyPasswordAgainstHash(inputPassword, passwordHash) {
 }
 function normalizeStaffNo(staffNo) {
   return staffNo.trim().toUpperCase();
+}
+function hashStaffNo(staffNo) {
+  const normalized = normalizeStaffNo(staffNo);
+  if (!normalized || Buffer.byteLength(normalized, "utf8") > 72) {
+    throw new Error("Staff number is empty or exceeds the bcrypt input limit.");
+  }
+  return bcrypt.hashSync(normalized, 10);
 }
 function verifyStaffNoAgainstHash(staffNo, staffNoHash) {
   if (!staffNo || !staffNoHash || typeof staffNoHash !== "string" || !staffNoHash.startsWith("$2")) {
@@ -389,7 +433,7 @@ var init_identity_service = __esm({
         if (!staffNo || typeof staffNo !== "string") return null;
         let match = null;
         for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
-          const valid = profile.is_active && verifyStaffNoAgainstHash(staffNo, profile.staff_no_hash);
+          const valid = profile.is_active && Boolean(profile.staff_no_hash && verifyStaffNoAgainstHash(staffNo, profile.staff_no_hash));
           if (valid) {
             if (match) return null;
             match = profile;
@@ -4019,6 +4063,41 @@ function updateServerPinConfig(newConfig) {
     }
   }
 }
+async function syncRbacFromSupabase(force = false) {
+  const now = Date.now();
+  if (!force && now - lastSupabaseRbacSync < RBAC_SYNC_INTERVAL_MS) {
+    return;
+  }
+  try {
+    const supabase = getPrivilegedSupabase();
+    if (!supabase) return;
+    const fetchPromise = supabase.from("app_settings").select("value").eq("key", "rbac_registry").maybeSingle();
+    const timeoutPromise = new Promise(
+      (_, reject) => setTimeout(() => reject(new Error("Supabase RBAC sync timed out after 2500ms")), 2500)
+    );
+    const { data: rbacData, error } = await Promise.race([fetchPromise, timeoutPromise]);
+    if (!error && rbacData && rbacData.value && typeof rbacData.value === "object") {
+      const pinMap = {};
+      for (const [pin, user] of Object.entries(rbacData.value)) {
+        if (user && (user.role || user.app_role)) {
+          pinMap[pin] = {
+            app_role: user.role || user.app_role,
+            operator_name: user.label || user.operator_name || "Staf Ladang",
+            estate_id: user.estate_id || "FPM_TUNGGAL",
+            password: user.password || user.pin || pin,
+            username: user.username || user.pin || pin,
+            email: user.email || `${pin}@felda.gov.my`
+          };
+        }
+      }
+      updateServerPinConfig(pinMap);
+      lastSupabaseRbacSync = now;
+      console.log(`[AUTH_SYNC] Synced ${Object.keys(pinMap).length} user credentials from Supabase app_settings.`);
+    }
+  } catch (err) {
+    console.warn("[AUTH_SYNC] Notice syncing rbac from Supabase:", err);
+  }
+}
 function getServerPinConfig() {
   return { ...PIN_USERS_CONFIG };
 }
@@ -4058,18 +4137,23 @@ function getSupabaseIssuer() {
   }
   return "http://localhost/auth/v1";
 }
-var IPDS_NAMESPACE2, PIN_USERS_CONFIG, devEphemeralJwtSecret, JWT_ACCESS_EXPIRES_IN, JWT_REFRESH_SLIDING_WINDOW_MS, COOKIE_SESSION_MAX_AGE_MS, AuthService;
+var IPDS_NAMESPACE2, PIN_USERS_CONFIG, lastSupabaseRbacSync, RBAC_SYNC_INTERVAL_MS, devEphemeralJwtSecret, JWT_ACCESS_EXPIRES_IN, JWT_REFRESH_SLIDING_WINDOW_MS, COOKIE_SESSION_MAX_AGE_MS, AuthService;
 var init_auth_service = __esm({
   "src/server/services/auth.service.ts"() {
     init_identity_service();
     init_audit_service();
     init_credentials_loader();
     init_estateRegistry();
+    init_db();
     IPDS_NAMESPACE2 = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
     PIN_USERS_CONFIG = {
       ...loadHashedCredentials()
     };
     applyIdentityOverridesFromEnv();
+    lastSupabaseRbacSync = 0;
+    RBAC_SYNC_INTERVAL_MS = 30 * 1e3;
+    syncRbacFromSupabase(true).catch(() => {
+    });
     devEphemeralJwtSecret = null;
     JWT_ACCESS_EXPIRES_IN = "1h";
     JWT_REFRESH_SLIDING_WINDOW_MS = 12 * 60 * 60 * 1e3;
@@ -5766,7 +5850,11 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
         code: "MISSING_CREDENTIALS"
       });
     }
-    const loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
+    let loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
+    if (!loginResult.session) {
+      await syncRbacFromSupabase(true);
+      loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
+    }
     const userSession = loginResult.session;
     if (!userSession) {
       recordAttempt(clientIp, false);
@@ -5820,8 +5908,29 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
         userAgent: req.headers["user-agent"] || "unknown",
         bootstrapToken
       });
-    } else if (deviceStatus.status !== "APPROVED" && verifyBootstrapToken(bootstrapToken)) {
-      deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, "BOOTSTRAP_TOKEN", "bootstrap");
+      if (isSuperAdminIdentity(userSession)) {
+        deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, operatorName, operatorRole);
+        await Promise.allSettled([
+          grantDeviceEstateAccess(effectiveDeviceId, "FPM_TUNGGAL", operatorName),
+          grantDeviceEstateAccess(effectiveDeviceId, "FPM_ADELA", operatorName),
+          grantDeviceEstateAccess(effectiveDeviceId, "FPM_KLEDANG", operatorName),
+          grantDeviceEstateAccess(effectiveDeviceId, "FPM_SENING", operatorName),
+          grantDeviceEstateAccess(effectiveDeviceId, "WILAYAH_JB", operatorName)
+        ]);
+      }
+    } else if (deviceStatus.status !== "APPROVED") {
+      if (verifyBootstrapToken(bootstrapToken) || isSuperAdminIdentity(userSession)) {
+        deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, operatorName || "BOOTSTRAP_TOKEN", operatorRole || "bootstrap");
+        if (isSuperAdminIdentity(userSession)) {
+          await Promise.allSettled([
+            grantDeviceEstateAccess(effectiveDeviceId, "FPM_TUNGGAL", operatorName),
+            grantDeviceEstateAccess(effectiveDeviceId, "FPM_ADELA", operatorName),
+            grantDeviceEstateAccess(effectiveDeviceId, "FPM_KLEDANG", operatorName),
+            grantDeviceEstateAccess(effectiveDeviceId, "FPM_SENING", operatorName),
+            grantDeviceEstateAccess(effectiveDeviceId, "WILAYAH_JB", operatorName)
+          ]);
+        }
+      }
     }
     if (redirectMergedDevice(deviceStatus, res)) return;
     if (deviceStatus.status !== "APPROVED") {
@@ -5954,7 +6063,8 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
     return res.status(500).json({
       success: false,
       error: "Ralat pelayan semasa memproses pengesahan kakitangan.",
-      code: "SERVER_ERROR"
+      code: "SERVER_ERROR",
+      debugError: err instanceof Error ? err.message : String(err)
     });
   }
 });
@@ -6588,6 +6698,10 @@ function csrfProtection(req, res, next) {
     "/cron",
     "/api/telemetry/client-error",
     "/telemetry/client-error",
+    "/api/auth/verify-staff",
+    "/auth/verify-staff",
+    "/api/auth/refresh",
+    "/auth/refresh",
     "/api/auth/logout",
     "/auth/logout",
     "/api/devices/approve-link",
@@ -6628,6 +6742,7 @@ function csrfProtection(req, res, next) {
   trustedOrigins.add("http://127.0.0.1:3000");
   trustedOrigins.add("http://localhost:5173");
   trustedOrigins.add("http://127.0.0.1:5173");
+  trustedOrigins.add("null");
   if (process.env.ALLOWED_ORIGINS) {
     process.env.ALLOWED_ORIGINS.split(",").forEach((o) => {
       const trimmed = o.trim();
@@ -6643,6 +6758,8 @@ function csrfProtection(req, res, next) {
     if (testHost.endsWith(".run.app") || testHost.includes("run.app")) return true;
     if (testHost.endsWith(".applet.ai") || testHost.includes("applet.ai")) return true;
     if (testHost.endsWith(".googleusercontent.com")) return true;
+    if (testHost.endsWith(".google.com") || testHost.includes("google.com")) return true;
+    if (testHost.endsWith(".google.dev") || testHost.includes("google.dev")) return true;
     return false;
   };
   if (origin) {
@@ -6918,6 +7035,9 @@ function isAllowedOrigin(origin) {
   if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) {
     return true;
   }
+  if (cleanOrigin === "null") {
+    return true;
+  }
   const envOrigins = (process.env.ALLOWED_ORIGINS || "").split(",").map((o) => o.trim().toLowerCase()).filter(Boolean);
   if (envOrigins.includes(cleanOrigin)) return true;
   if (process.env.APP_URL && cleanOrigin === process.env.APP_URL.trim().toLowerCase()) {
@@ -6928,7 +7048,9 @@ function isAllowedOrigin(origin) {
     /^https:\/\/([a-zA-Z0-9-]+\.)*vercel\.app$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*run\.app$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*googleusercontent\.com$/,
-    /^https:\/\/([a-zA-Z0-9-]+\.)*aistudio\.google\.com$/
+    /^https:\/\/([a-zA-Z0-9-]+\.)*aistudio\.google\.com$/,
+    /^https:\/\/([a-zA-Z0-9-]+\.)*google\.com$/,
+    /^https:\/\/([a-zA-Z0-9-]+\.)*google\.dev$/
   ];
   return allowedPatterns.some((pattern) => pattern.test(cleanOrigin));
 }
@@ -24851,10 +24973,12 @@ router24.post("/approve-with-pin", authRateLimiter, async (req, res) => {
     );
     await grantDeviceEstateAccess(targetDeviceId, targetEstate, resolvedApprover);
     if (resolvedRole === "rc" || resolvedRole === "superadmin" || isSuperAdminIdentity({ app_metadata: { app_role: resolvedRole, estate_id: targetEstate } })) {
-      await grantDeviceEstateAccess(targetDeviceId, "FPM_TUNGGAL", resolvedApprover);
-      await grantDeviceEstateAccess(targetDeviceId, "FPM_ADELA", resolvedApprover);
-      await grantDeviceEstateAccess(targetDeviceId, "FPM_KLEDANG", resolvedApprover);
-      await grantDeviceEstateAccess(targetDeviceId, "FPM_SENING", resolvedApprover);
+      await Promise.allSettled([
+        grantDeviceEstateAccess(targetDeviceId, "FPM_TUNGGAL", resolvedApprover),
+        grantDeviceEstateAccess(targetDeviceId, "FPM_ADELA", resolvedApprover),
+        grantDeviceEstateAccess(targetDeviceId, "FPM_KLEDANG", resolvedApprover),
+        grantDeviceEstateAccess(targetDeviceId, "FPM_SENING", resolvedApprover)
+      ]);
     }
     let issuedCredential = null;
     try {

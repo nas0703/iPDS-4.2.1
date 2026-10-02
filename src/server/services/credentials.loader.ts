@@ -70,7 +70,7 @@ export function loadHashedCredentials(): Record<string, UserCredentialConfig> {
   if (rawJson && rawJson.trim()) {
     try {
       const parsed = JSON.parse(rawJson.trim());
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
         cachedCredentials = normalizeToOperatorIdKeys(parsed);
         return cachedCredentials!;
       }
@@ -87,7 +87,7 @@ export function loadHashedCredentials(): Record<string, UserCredentialConfig> {
       const match = content.match(/IPDS_CREDENTIALS_JSON='(.*)'/s) || content.match(/IPDS_CREDENTIALS_JSON="(.*)"/s);
       if (match && match[1]) {
         const parsed = JSON.parse(match[1]);
-        if (parsed && typeof parsed === 'object') {
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
           cachedCredentials = normalizeToOperatorIdKeys(parsed);
           return cachedCredentials!;
         }
@@ -111,7 +111,7 @@ export function loadHashedCredentials(): Record<string, UserCredentialConfig> {
         const parsed = JSON.parse(content);
         if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
           cachedCredentials = normalizeToOperatorIdKeys(parsed);
-          return cachedCredentials!;
+          break;
         }
       }
     } catch {
@@ -119,7 +119,48 @@ export function loadHashedCredentials(): Record<string, UserCredentialConfig> {
     }
   }
 
-  cachedCredentials = {};
+  if (!cachedCredentials) {
+    cachedCredentials = {};
+  }
+
+  // Merge any local / environment kiosk roster profiles so staff_no_hash is always guaranteed
+  const candidateRosterPaths = [
+    path.join(process.cwd(), '.env.kiosk-roster.local.json'),
+    path.join(process.cwd(), 'data/kiosk-roster.json'),
+    path.join(process.cwd(), 'src/server/config/kiosk-roster.json')
+  ];
+  for (const rosterPath of candidateRosterPaths) {
+    try {
+      if (fs.existsSync(rosterPath)) {
+        const rosterContent = fs.readFileSync(rosterPath, 'utf-8');
+        const rosterList = JSON.parse(rosterContent);
+        if (Array.isArray(rosterList)) {
+          for (const item of rosterList) {
+            if (item && item.operator_id && item.staff_no) {
+              const opId = item.operator_id;
+              const normalizedStaffNo = normalizeStaffNo(item.staff_no);
+              const staffHash = hashStaffNo(normalizedStaffNo);
+              cachedCredentials[opId] = {
+                ...cachedCredentials[opId],
+                app_role: item.app_role || 'staff',
+                operator_id: opId,
+                operator_name: item.operator_name || opId,
+                kiosk_id: item.kiosk_id || `kiosk-${opId.toLowerCase()}`,
+                estate_id: item.estate_id || 'FPM_TUNGGAL',
+                station_name: item.station_name || `Stesen Lapangan ${item.estate_id || 'Tunggal'}`,
+                staff_no_hash: staffHash,
+                email: item.email || `${opId.toLowerCase()}@felda.gov.my`,
+                username: item.username || opId.toLowerCase()
+              };
+            }
+          }
+        }
+      }
+    } catch {
+      // Continue
+    }
+  }
+
   return cachedCredentials;
 }
 
