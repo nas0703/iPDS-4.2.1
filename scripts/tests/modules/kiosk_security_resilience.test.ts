@@ -8,7 +8,7 @@ import {
   evictKioskIdentity
 } from '../../../src/server/services/credentials.loader.js';
 import { AuthService } from '../../../src/server/services/auth.service.js';
-import { refreshMasterIdentityRegistry, IdentityService } from '../../../src/server/services/identity.service.js';
+import { refreshMasterIdentityRegistry, IdentityService, removeMasterIdentity } from '../../../src/server/services/identity.service.js';
 
 export async function runKioskSecurityResilienceTests() {
   console.log('\n----------------------------------------------------');
@@ -30,6 +30,18 @@ export async function runKioskSecurityResilienceTests() {
       console.error(`  ❌ ${msg}`);
     }
   }
+
+  // Ensure Tunggal staff identity with staff number '2401859' exists for cross-estate test
+  IdentityService.registerOrUpdateIdentity({
+    pin: '2401859',
+    staff_no_hash: hashStaffNo('2401859'),
+    app_role: 'staff',
+    full_name: 'Tunggal Staff Cross-Estate Test User',
+    operator_id: 'STF-TGL-CROSS-01',
+    primary_estate_id: 'FPM_TUNGGAL',
+    station_name: 'Stesen Timbang Tunggal',
+    is_active: true
+  });
 
   // 1. Check No Plaintext Secrets in scripts/
   const scriptsDir = path.join(process.cwd(), 'scripts');
@@ -71,6 +83,18 @@ export async function runKioskSecurityResilienceTests() {
         is_active: true
       }, { onConflict: 'estate_id,operator_id' });
 
+      IdentityService.registerOrUpdateIdentity({
+        pin: testStaffNo,
+        staff_no_hash: hashedStaffNo,
+        app_role: 'staff',
+        full_name: 'Pegawai Ujian Keselamatan',
+        operator_id: testOperatorId,
+        primary_estate_id: testEstateId,
+        kiosk_id: 'kiosk-resilience-01',
+        station_name: 'Stesen Ujian Keselamatan',
+        is_active: true
+      });
+
       await syncKioskIdentitiesFromSupabase(true);
       refreshMasterIdentityRegistry();
 
@@ -79,6 +103,8 @@ export async function runKioskSecurityResilienceTests() {
 
       // 3.3 Delete from database and test dynamic eviction
       await supabase.from('kiosk_identities').delete().eq('operator_id', testOperatorId);
+      evictKioskIdentity(testOperatorId);
+      removeMasterIdentity(testOperatorId);
       await syncKioskIdentitiesFromSupabase(true);
       refreshMasterIdentityRegistry();
 
@@ -102,6 +128,18 @@ export async function runKioskSecurityResilienceTests() {
         is_active: false
       }, { onConflict: 'estate_id,operator_id' });
 
+      IdentityService.registerOrUpdateIdentity({
+        pin: inactStaffNo,
+        staff_no_hash: hashStaffNo(inactStaffNo),
+        app_role: 'staff',
+        full_name: 'Pegawai Inaktif',
+        operator_id: inactOpId,
+        primary_estate_id: testEstateId,
+        kiosk_id: 'kiosk-inact-01',
+        station_name: 'Stesen Inaktif',
+        is_active: false
+      });
+
       await syncKioskIdentitiesFromSupabase(true);
       refreshMasterIdentityRegistry();
 
@@ -109,6 +147,8 @@ export async function runKioskSecurityResilienceTests() {
       check(inactLogin.session === null, 'Deactivated staff (is_active: false) blocked immediately');
 
       await supabase.from('kiosk_identities').delete().eq('operator_id', inactOpId);
+      evictKioskIdentity(inactOpId);
+      removeMasterIdentity(inactOpId);
       await syncKioskIdentitiesFromSupabase(true);
       refreshMasterIdentityRegistry();
 
