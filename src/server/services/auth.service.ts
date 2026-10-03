@@ -4,7 +4,8 @@ import bcrypt from 'bcryptjs';
 import { v5 as uuidv5, v4 as uuidv4 } from 'uuid';
 import { IdentityService, UnifiedIdentityProfile } from './identity.service.js';
 import { auditService } from './audit.service.js';
-import { hashStaffNo, loadHashedCredentials, normalizeStaffNo, verifyPinAgainstHash, verifyPasswordAgainstHash, verifyStaffNoAgainstHash, type UserCredentialConfig } from './credentials.loader.js';
+import { hashStaffNo, loadHashedCredentials, normalizeStaffNo, verifyPinAgainstHash, verifyPasswordAgainstHash, verifyStaffNoAgainstHash, type UserCredentialConfig, syncKioskIdentitiesFromSupabase } from './credentials.loader.js';
+export { syncKioskIdentitiesFromSupabase } from './credentials.loader.js';
 import { normalizeEstateId } from '../../config/estateRegistry.js';
 import { getPrivilegedSupabase } from '../db.js';
 
@@ -182,6 +183,7 @@ export async function syncRbacFromSupabase(force = false): Promise<void> {
 
 // Initial background sync on module load
 syncRbacFromSupabase(true).catch(() => {});
+syncKioskIdentitiesFromSupabase(true).catch(() => {});
 
 export function getServerPinConfig(): Record<string, any> {
   return { ...PIN_USERS_CONFIG };

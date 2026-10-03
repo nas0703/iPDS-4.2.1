@@ -1,5 +1,5 @@
 import express from 'express';
-import { AuthService, COOKIE_SESSION_MAX_AGE_MS, getServerPinConfig, syncRbacFromSupabase } from '../services/auth.service.js';
+import { AuthService, COOKIE_SESSION_MAX_AGE_MS, getServerPinConfig, syncRbacFromSupabase, syncKioskIdentitiesFromSupabase } from '../services/auth.service.js';
 import { requireAuth, COOKIE_NAME, extractDeviceCredential, requireSuperAdmin, isSuperAdminIdentity } from '../middleware/auth.js';
 import { auditService } from '../services/audit.service.js';
 import { authRateLimiter, adminRateLimiter } from '../middleware/rateLimiter.js';
@@ -146,8 +146,11 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
       });
     }
 
+    // Pre-sync recent identity updates from Supabase (5s TTL cache prevents DB thrashing)
+    await syncKioskIdentitiesFromSupabase(false);
     let loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
     if (!loginResult.session) {
+      await syncKioskIdentitiesFromSupabase(true);
       await syncRbacFromSupabase(true);
       loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
     }

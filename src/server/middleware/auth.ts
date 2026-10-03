@@ -4,6 +4,7 @@ import { AuthService, AuthTokenPayload, AuthRole, UserSession } from '../service
 import { getScopedSupabase } from '../db.js';
 import { auditService } from '../services/audit.service.js';
 import { sessionManager } from '../services/sessionManager.service.js';
+import { IdentityService } from '../services/identity.service.js';
 import { alertManager } from '../observability/alerts.js';
 import { metricsCollector } from '../observability/metrics.js';
 import { isActingAsSessionDurableActive } from '../services/durableSessionStore.service.js';
@@ -117,6 +118,14 @@ export function extractUserFromRequest(req: Request): { user: AuthTokenPayload |
   if (user.session_id) {
     if (!sessionManager.isSessionActive(user.session_id)) {
       return { user: null, token: null };
+    }
+    const opId = user.app_metadata?.operator_id;
+    if (opId) {
+      const identity = IdentityService.findIdentityByStaffNo(opId);
+      if (identity && !identity.is_active) {
+        sessionManager.revokeSession(user.session_id, 'SYSTEM', 'Akaun kakitangan telah dinyahaktifkan');
+        return { user: null, token: null };
+      }
     }
     sessionManager.touchSession(user.session_id);
   }

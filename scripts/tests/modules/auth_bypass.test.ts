@@ -177,7 +177,7 @@ export async function runAuthBypassTests() {
       ip: '127.0.0.1',
       socket: { remoteAddress: '127.0.0.1' },
       headers: { 'user-agent': 'TestRunner' },
-      body: { estateCode: 'FPM_TUNGGAL', staffNo: '2401199' }
+      body: { estateCode: 'FPM_TUNGGAL', staffNo: 'UNPROVISIONED_999999' }
     };
     const res: any = {
       status(code: number) { statusCode = code; return this; },
@@ -209,7 +209,7 @@ export async function runAuthBypassTests() {
       ip: '127.0.0.1',
       socket: { remoteAddress: '127.0.0.1' },
       headers: { 'user-agent': 'TestRunner' },
-      body: { estateCode: 'FPM_TUNGGAL', staffNo: '2401199', pin: '99999999_wrong_pin' }
+      body: { estateCode: 'FPM_TUNGGAL', staffNo: 'UNPROVISIONED_999999', pin: '99999999_wrong_pin' }
     };
     const res: any = {
       status(code: number) { statusCode = code; return this; },

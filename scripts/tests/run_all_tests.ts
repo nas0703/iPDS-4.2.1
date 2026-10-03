@@ -156,7 +156,7 @@ async function runMasterRegressionSuite() {
         }
       }
     } catch (e: any) {
-      console.error(`\n[CRITICAL FAIL] Module ${mod.name} encountered unexpected error:`, e.message || e);
+      console.error(`\n[CRITICAL FAIL] Module ${mod.name} encountered unexpected error:`, e.stack || e.message || e);
       allFailedTests.push(`Module ${mod.name} crash: ${e.message || e}`);
     }
   }

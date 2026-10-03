@@ -82,6 +82,7 @@ export function refreshMasterIdentityRegistry(): void {
       if (u.estate_id) existing.primary_estate_id = u.estate_id;
       if (u.station_name) existing.station_name = u.station_name;
       if (u.operator_name) existing.full_name = u.operator_name;
+      if (u.is_active !== undefined) existing.is_active = Boolean(u.is_active);
     } else {
       initMasterIdentity({
         operator_id: u.operator_id || opIdKey,
@@ -99,7 +100,7 @@ export function refreshMasterIdentityRegistry(): void {
           : [u.estate_id || 'FPM_TUNGGAL'],
         kiosk_id: u.kiosk_id || `kiosk-${opIdKey.toLowerCase()}`,
         station_name: u.station_name || 'Stesen Lapangan',
-        is_active: true
+        is_active: u.is_active !== undefined ? Boolean(u.is_active) : true
       });
     }
   }

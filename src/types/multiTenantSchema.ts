@@ -203,6 +203,23 @@ export interface ObservabilityAuditLog {
   timestamp: string;
 }
 
+// Table 9: Kiosk Staff Identities
+export interface KioskIdentityRecord {
+  id: string;
+  operator_id: string;
+  staff_no_hash: string;
+  app_role: string;
+  estate_id: string; // MANDATORY TENANT ISOLATION KEY
+  kiosk_id: string;
+  station_name: string;
+  operator_name: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
+}
+
 // Helper utility to enforce estate context validation
 export function assertTenantContext(estateId?: string | null): string {
   if (!estateId || estateId.trim() === '') {

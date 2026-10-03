@@ -234,6 +234,12 @@ export async function runKioskLoginTests() {
     const seedSource = read('scripts/seed_credentials.ts');
     assert(seedSource.includes('staff_no_hash') && seedSource.includes('hashStaffNo') && !seedSource.includes('staff_no: user.staff_no'),
       'seed provisioning stores only the server-generated hash');
+    const { syncKioskIdentitiesFromSupabase } = await import('../../../src/server/services/credentials.loader.js');
+    assert(typeof syncKioskIdentitiesFromSupabase === 'function',
+      'syncKioskIdentitiesFromSupabase is exported as the authoritative kiosk identities sync helper');
+    const syncCount = await syncKioskIdentitiesFromSupabase(true);
+    assert(typeof syncCount === 'number',
+      'syncKioskIdentitiesFromSupabase resolves safely without throwing, returning count');
   } finally {
     (deviceSecurityService as any).getDeviceStatus = getDeviceStatus;
     if (savedStrictFlag === undefined) delete process.env.IPDS_DEVICE_STRICT_ENFORCEMENT;

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import type { AuthRole } from './identity.service.js';
+import { getPrivilegedSupabase } from '../db.js';
 
 // Auto-load .env and .env.credentials
 dotenv.config();
@@ -38,6 +39,7 @@ export interface UserCredentialConfig {
   masked_pin?: string;
   email?: string;
   username?: string;
+  is_active?: boolean;
   [key: string]: unknown;
 }
 
@@ -163,6 +165,85 @@ export function loadHashedCredentials(): Record<string, UserCredentialConfig> {
   }
 
   return cachedCredentials;
+}
+
+let lastSupabaseKioskSync = 0;
+const KIOSK_SYNC_INTERVAL_MS = 5 * 1000; // 5s cache interval for quick deactivation response
+
+/**
+ * Synchronize authoritative kiosk staff identities (with bcrypt staff_no_hash)
+ * dynamically from Supabase database (public.kiosk_identities).
+ *
+ * Resilient fail-safe pattern:
+ * - 2500ms timeout race to prevent blocking authentication if database is slow.
+ * - Non-destructive fallback: If database is unreachable or table empty, local
+ *   credentials from IPDS_CREDENTIALS_JSON / credentials.hashes.json remain active.
+ */
+export async function syncKioskIdentitiesFromSupabase(force = false): Promise<number> {
+  const now = Date.now();
+  if (!force && now - lastSupabaseKioskSync < KIOSK_SYNC_INTERVAL_MS) {
+    return 0;
+  }
+  try {
+    const supabase = getPrivilegedSupabase();
+    if (!supabase) return 0;
+
+    const fetchPromise = supabase
+      .from('kiosk_identities')
+      .select('operator_id, staff_no_hash, app_role, estate_id, kiosk_id, station_name, operator_name, is_active');
+
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 2500)
+    );
+
+    const result = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+    const records = result?.data;
+    const error = result?.error;
+
+    if (!error && Array.isArray(records)) {
+      if (!cachedCredentials) {
+        loadHashedCredentials();
+      }
+      for (const row of records) {
+        if (row && row.operator_id && row.staff_no_hash) {
+          const opId = row.operator_id.trim();
+          cachedCredentials![opId] = {
+            ...cachedCredentials![opId],
+            app_role: (row.app_role || 'staff') as AuthRole,
+            operator_id: opId,
+            operator_name: row.operator_name || opId,
+            kiosk_id: row.kiosk_id || `kiosk-${opId.toLowerCase()}`,
+            estate_id: row.estate_id || 'FPM_TUNGGAL',
+            station_name: row.station_name || `Stesen Lapangan ${row.estate_id || 'Tunggal'}`,
+            staff_no_hash: row.staff_no_hash,
+            is_active: row.is_active !== false,
+            masked_pin: '******',
+            email: `${opId.toLowerCase()}@felda.gov.my`,
+            username: opId.toLowerCase()
+          };
+        }
+      }
+      lastSupabaseKioskSync = now;
+      if (records.length > 0) {
+        console.log(`[KIOSK_SYNC] Synced ${records.length} kiosk identities from Supabase kiosk_identities.`);
+        try {
+          const { refreshMasterIdentityRegistry } = await import('./identity.service.js');
+          refreshMasterIdentityRegistry();
+        } catch (_) {}
+      }
+      return records.length;
+    } else {
+      lastSupabaseKioskSync = now;
+      if (error && error.message !== 'timeout') {
+        console.info(`[KIOSK_SYNC] Local credentials active (Supabase sync skipped: ${error.message || 'not configured'}).`);
+      }
+      return 0;
+    }
+  } catch (err: any) {
+    lastSupabaseKioskSync = now;
+    console.info(`[KIOSK_SYNC] Local credentials active (Supabase sync unavailable: ${err?.message || 'fallback mode'}).`);
+    return 0;
+  }
 }
 
 /**
