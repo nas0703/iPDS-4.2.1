@@ -10,5 +10,10 @@ backups/
 *.json.bak
 data/rbac_registry.json
 src/server/config/kiosk-roster.json
+scripts/populate_*.ts
+scripts/*credential*
+scripts/*roster*
+*.credentials.*
+.env.credentials
 
 

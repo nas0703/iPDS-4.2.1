@@ -148,12 +148,7 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
 
     // Pre-sync recent identity updates from Supabase (5s TTL cache prevents DB thrashing)
     await syncKioskIdentitiesFromSupabase(false);
-    let loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
-    if (!loginResult.session) {
-      await syncKioskIdentitiesFromSupabase(true);
-      await syncRbacFromSupabase(true);
-      loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
-    }
+    const loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
     const userSession = loginResult.session;
 
     if (!userSession) {

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowRight, Building2, Clock, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Building2, Clock, Loader2, ShieldCheck, Smartphone, RefreshCw } from "lucide-react";
 import { getLocalLogo, fetchSupabaseLogo } from "../../../services/logoService";
 import { normalizeEstateId } from "../../../config/estateRegistry";
+import { getClientDeviceInfo } from "../../../utils/deviceHelper";
 import { runKioskLoginAttempt } from "../services/kioskLoginFlow";
 import { DeviceApprovalModal } from "./DeviceApprovalModal";
 
@@ -56,6 +57,26 @@ export function LoginScreen({
     } catch {}
     return null;
   });
+
+  const [currentDeviceId, setCurrentDeviceId] = useState<string>(() => {
+    return getClientDeviceInfo().deviceId;
+  });
+  const [deviceResetNotice, setDeviceResetNotice] = useState<string | null>(null);
+
+  const handleResetDeviceId = () => {
+    try {
+      const chars = '0123456789ABCDEF';
+      let randomHex = '';
+      for (let i = 0; i < 8; i++) {
+        randomHex += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const newId = `DEV-${randomHex.substring(0, 4)}-${randomHex.substring(4, 8)}`;
+      localStorage.setItem('ipds_device_id', newId);
+      setCurrentDeviceId(newId);
+      setDeviceResetNotice(`ID Peranti Baharu dicipta (${newId}). Cuba log masuk sekarang!`);
+      setTimeout(() => setDeviceResetNotice(null), 5000);
+    } catch {}
+  };
 
   useEffect(() => {
     fetchSupabaseLogo().then((url) => {
@@ -189,6 +210,28 @@ export function LoginScreen({
             {!isBusy && <ArrowRight size={16} />}
           </button>
         </form>
+
+        {deviceResetNotice && (
+          <p role="status" className="w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-center text-xs font-bold text-emerald-300 animate-pulse">
+            {deviceResetNotice}
+          </p>
+        )}
+
+        <div className="w-full rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 flex items-center justify-between text-[10px] text-slate-400">
+          <div className="flex items-center gap-1.5 truncate">
+            <Smartphone size={13} className="text-emerald-400 shrink-0" />
+            <span className="font-mono text-slate-300 truncate">ID: {currentDeviceId}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetDeviceId}
+            title="Jana ID Peranti Baharu untuk menguji aliran Device Approval"
+            className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-1 rounded-lg transition-colors shrink-0"
+          >
+            <RefreshCw size={11} />
+            <span>Uji Peranti Baharu</span>
+          </button>
+        </div>
 
         <div className="w-full border-t border-emerald-500/20 pt-3 text-center">
           <p className="text-[8px] font-black tracking-[0.25em] text-slate-500 uppercase">FPMSB INTEGRATED PLANTATION SYSTEM</p>

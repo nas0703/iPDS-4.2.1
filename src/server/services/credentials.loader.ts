@@ -169,6 +169,23 @@ export function loadHashedCredentials(): Record<string, UserCredentialConfig> {
 
 let lastSupabaseKioskSync = 0;
 const KIOSK_SYNC_INTERVAL_MS = 5 * 1000; // 5s cache interval for quick deactivation response
+let syncedSupabaseOperatorIds: Set<string> = new Set();
+
+/**
+ * Explicitly evict a kiosk identity from cache and memory registry upon deletion/revocation
+ */
+export function evictKioskIdentity(operatorId: string): void {
+  const opId = operatorId.trim();
+  if (cachedCredentials && cachedCredentials[opId]) {
+    delete cachedCredentials[opId];
+  }
+  syncedSupabaseOperatorIds.delete(opId);
+  try {
+    import('./identity.service.js').then(({ removeMasterIdentity }) => {
+      removeMasterIdentity(opId);
+    }).catch(() => {});
+  } catch {}
+}
 
 /**
  * Synchronize authoritative kiosk staff identities (with bcrypt staff_no_hash)
@@ -178,6 +195,8 @@ const KIOSK_SYNC_INTERVAL_MS = 5 * 1000; // 5s cache interval for quick deactiva
  * - 2500ms timeout race to prevent blocking authentication if database is slow.
  * - Non-destructive fallback: If database is unreachable or table empty, local
  *   credentials from IPDS_CREDENTIALS_JSON / credentials.hashes.json remain active.
+ * - Dynamic eviction: If an operator was deleted or disabled in Supabase, they
+ *   are removed from active in-memory credentials without requiring server restart.
  */
 export async function syncKioskIdentitiesFromSupabase(force = false): Promise<number> {
   const now = Date.now();
@@ -204,9 +223,11 @@ export async function syncKioskIdentitiesFromSupabase(force = false): Promise<nu
       if (!cachedCredentials) {
         loadHashedCredentials();
       }
+      const activeSupabaseOpIds = new Set<string>();
       for (const row of records) {
         if (row && row.operator_id && row.staff_no_hash) {
           const opId = row.operator_id.trim();
+          activeSupabaseOpIds.add(opId);
           cachedCredentials![opId] = {
             ...cachedCredentials![opId],
             app_role: (row.app_role || 'staff') as AuthRole,
@@ -223,9 +244,23 @@ export async function syncKioskIdentitiesFromSupabase(force = false): Promise<nu
           };
         }
       }
+
+      // Evict any previously synced Supabase operator IDs that are no longer in Supabase (deleted)
+      for (const oldOpId of syncedSupabaseOperatorIds) {
+        if (!activeSupabaseOpIds.has(oldOpId)) {
+          if (cachedCredentials && cachedCredentials[oldOpId]) {
+            delete cachedCredentials[oldOpId];
+          }
+          try {
+            const { removeMasterIdentity } = await import('./identity.service.js');
+            removeMasterIdentity(oldOpId);
+          } catch (_) {}
+        }
+      }
+      syncedSupabaseOperatorIds = activeSupabaseOpIds;
+
       lastSupabaseKioskSync = now;
       if (records.length > 0) {
-        console.log(`[KIOSK_SYNC] Synced ${records.length} kiosk identities from Supabase kiosk_identities.`);
         try {
           const { refreshMasterIdentityRegistry } = await import('./identity.service.js');
           refreshMasterIdentityRegistry();

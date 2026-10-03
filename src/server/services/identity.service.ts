@@ -69,8 +69,13 @@ function initMasterIdentity(profile: Omit<UnifiedIdentityProfile, 'id'> & { id?:
   return record;
 }
 
+export function removeMasterIdentity(operatorId: string): void {
+  MASTER_IDENTITY_REGISTRY.delete(operatorId.trim().toUpperCase());
+}
+
 export function refreshMasterIdentityRegistry(): void {
   const credentials = loadHashedCredentials();
+
   for (const [opIdKey, u] of Object.entries(credentials)) {
     const opId = (u.operator_id || opIdKey).toUpperCase();
     const existing = MASTER_IDENTITY_REGISTRY.get(opId);
@@ -82,7 +87,7 @@ export function refreshMasterIdentityRegistry(): void {
       if (u.estate_id) existing.primary_estate_id = u.estate_id;
       if (u.station_name) existing.station_name = u.station_name;
       if (u.operator_name) existing.full_name = u.operator_name;
-      if (u.is_active !== undefined) existing.is_active = Boolean(u.is_active);
+      existing.is_active = u.is_active !== undefined ? Boolean(u.is_active) : true;
     } else {
       initMasterIdentity({
         operator_id: u.operator_id || opIdKey,
