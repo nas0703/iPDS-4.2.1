@@ -1,0 +1,110 @@
+[
+  {
+    "staff_no": "<TGL_FC_STAFF_NO>",
+    "operator_id": "TGL-ROSTER-FC-01",
+    "operator_name": "Pengurus Rancangan (Tunggal)",
+    "app_role": "fc",
+    "estate_id": "FPM_TUNGGAL",
+    "kiosk_id": "kiosk-staff-tgl-fc",
+    "station_name": "Pejabat Ladang Tunggal"
+  },
+  {
+    "staff_no": "<TGL_AFC_STAFF_NO>",
+    "operator_id": "TGL-ROSTER-AFC-01",
+    "operator_name": "Penolong Pengurus (Tunggal)",
+    "app_role": "afc",
+    "estate_id": "FPM_TUNGGAL",
+    "kiosk_id": "kiosk-staff-tgl-afc",
+    "station_name": "Pejabat Ladang Tunggal"
+  },
+  {
+    "staff_no": "<TGL_FS_STAFF_NO>",
+    "operator_id": "TGL-ROSTER-FS-01",
+    "operator_name": "Penyelia Lapangan 1 (Tunggal)",
+    "app_role": "fs",
+    "estate_id": "FPM_TUNGGAL",
+    "kiosk_id": "kiosk-staff-tgl-fs1",
+    "station_name": "Stesen Timbang Tunggal"
+  },
+  {
+    "staff_no": "<TGL_FS2_STAFF_NO>",
+    "operator_id": "TGL-ROSTER-FS-02",
+    "operator_name": "Penyelia Lapangan 2 (Tunggal)",
+    "app_role": "fs",
+    "estate_id": "FPM_TUNGGAL",
+    "kiosk_id": "kiosk-staff-tgl-fs2",
+    "station_name": "Pos Kawalan Tunggal"
+  },
+  {
+    "staff_no": "<TGL_KK_STAFF_NO>",
+    "operator_id": "TGL-ROSTER-KK-01",
+    "operator_name": "Kerani Kewangan (Tunggal)",
+    "app_role": "kerani_kewangan",
+    "estate_id": "FPM_TUNGGAL",
+    "kiosk_id": "kiosk-staff-tgl-kk",
+    "station_name": "Kaunter Kewangan Tunggal"
+  },
+  {
+    "staff_no": "<TGL_KS_STAFF_NO>",
+    "operator_id": "TGL-ROSTER-KS-01",
+    "operator_name": "Kerani Stok & Baja (Tunggal)",
+    "app_role": "kerani_stok",
+    "estate_id": "FPM_TUNGGAL",
+    "kiosk_id": "kiosk-staff-tgl-ks",
+    "station_name": "Stor Baja Tunggal"
+  },
+  {
+    "staff_no": "<TGL_KR_STAFF_NO>",
+    "operator_id": "TGL-ROSTER-KR-01",
+    "operator_name": "Kerani Resit (Tunggal)",
+    "app_role": "kerani_resit",
+    "estate_id": "FPM_TUNGGAL",
+    "kiosk_id": "kiosk-staff-tgl-kr",
+    "station_name": "Stesen Timbang Tunggal"
+  },
+  {
+    "staff_no": "<ADL_FC_STAFF_NO>",
+    "operator_id": "ADL-ROSTER-FC-01",
+    "operator_name": "Pengurus Rancangan (Adela)",
+    "app_role": "fc",
+    "estate_id": "FPM_ADELA",
+    "kiosk_id": "kiosk-staff-adl-fc",
+    "station_name": "Pejabat Ladang Adela"
+  },
+  {
+    "staff_no": "<ADL_AFC_STAFF_NO>",
+    "operator_id": "ADL-ROSTER-AFC-01",
+    "operator_name": "Penolong Pengurus (Adela)",
+    "app_role": "afc",
+    "estate_id": "FPM_ADELA",
+    "kiosk_id": "kiosk-staff-adl-afc",
+    "station_name": "Pejabat Ladang Adela"
+  },
+  {
+    "staff_no": "<ADL_FS_STAFF_NO>",
+    "operator_id": "ADL-ROSTER-FS-01",
+    "operator_name": "Penyelia Lapangan (Adela)",
+    "app_role": "fs",
+    "estate_id": "FPM_ADELA",
+    "kiosk_id": "kiosk-staff-adl-fs",
+    "station_name": "Stesen Timbang Adela"
+  },
+  {
+    "staff_no": "<ADL_KK_STAFF_NO>",
+    "operator_id": "ADL-ROSTER-KK-01",
+    "operator_name": "Kerani Kewangan (Adela)",
+    "app_role": "kerani_kewangan",
+    "estate_id": "FPM_ADELA",
+    "kiosk_id": "kiosk-staff-adl-kk",
+    "station_name": "Kaunter Kewangan Adela"
+  },
+  {
+    "staff_no": "<ADL_KR_STAFF_NO>",
+    "operator_id": "ADL-ROSTER-KR-01",
+    "operator_name": "Kerani Resit (Adela)",
+    "app_role": "kerani_resit",
+    "estate_id": "FPM_ADELA",
+    "kiosk_id": "kiosk-staff-adl-kr",
+    "station_name": "Stesen Timbang Adela"
+  }
+]

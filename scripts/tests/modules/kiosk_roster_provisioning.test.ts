@@ -19,9 +19,21 @@ function readJsonSafe(filePath: string): any {
 }
 
 function readRosterEntries(): any[] {
-  const parsed = readJsonSafe(ROSTER_PATH);
-  const entries = Array.isArray(parsed) ? parsed : parsed?.identities;
-  return Array.isArray(entries) ? entries : [];
+  const candidatePaths = [
+    ROSTER_PATH,
+    path.join(process.cwd(), '.env.kiosk-roster.local.json'),
+    path.join(process.cwd(), 'src/server/config/kiosk-roster.template.json'),
+    path.join(process.cwd(), 'data/kiosk-roster.json')
+  ].filter(Boolean) as string[];
+
+  for (const candidatePath of candidatePaths) {
+    const parsed = readJsonSafe(candidatePath);
+    const entries = Array.isArray(parsed) ? parsed : parsed?.identities;
+    if (Array.isArray(entries) && entries.length > 0) {
+      return entries;
+    }
+  }
+  return [];
 }
 
 function readArtifactStore(): Record<string, any> | null {
