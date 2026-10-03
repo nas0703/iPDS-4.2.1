@@ -284,7 +284,8 @@ function loadHashedCredentials() {
     try {
       if (fs.existsSync(rosterPath)) {
         const rosterContent = fs.readFileSync(rosterPath, "utf-8");
-        const rosterList = JSON.parse(rosterContent);
+        const parsed = JSON.parse(rosterContent);
+        const rosterList = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.identities) ? parsed.identities : [];
         if (Array.isArray(rosterList)) {
           for (const item of rosterList) {
             if (item && item.operator_id && item.staff_no) {
@@ -311,6 +312,81 @@ function loadHashedCredentials() {
     }
   }
   return cachedCredentials;
+}
+async function syncKioskIdentitiesFromSupabase(force = false) {
+  const now = Date.now();
+  if (!force && now - lastSupabaseKioskSync < KIOSK_SYNC_INTERVAL_MS) {
+    return 0;
+  }
+  try {
+    const supabase = getPrivilegedSupabase();
+    if (!supabase) return 0;
+    const fetchPromise = supabase.from("kiosk_identities").select("operator_id, staff_no_hash, app_role, estate_id, kiosk_id, station_name, operator_name, is_active");
+    const timeoutPromise = new Promise(
+      (resolve) => setTimeout(() => resolve({ data: null, error: { message: "timeout" } }), 2500)
+    );
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+    const records = result?.data;
+    const error = result?.error;
+    if (!error && Array.isArray(records)) {
+      if (!cachedCredentials) {
+        loadHashedCredentials();
+      }
+      const activeSupabaseOpIds = /* @__PURE__ */ new Set();
+      for (const row of records) {
+        if (row && row.operator_id && row.staff_no_hash) {
+          const opId = row.operator_id.trim();
+          activeSupabaseOpIds.add(opId);
+          cachedCredentials[opId] = {
+            ...cachedCredentials[opId],
+            app_role: row.app_role || "staff",
+            operator_id: opId,
+            operator_name: row.operator_name || opId,
+            kiosk_id: row.kiosk_id || `kiosk-${opId.toLowerCase()}`,
+            estate_id: row.estate_id || "FPM_TUNGGAL",
+            station_name: row.station_name || `Stesen Lapangan ${row.estate_id || "Tunggal"}`,
+            staff_no_hash: row.staff_no_hash,
+            is_active: row.is_active !== false,
+            masked_pin: "******",
+            email: `${opId.toLowerCase()}@felda.gov.my`,
+            username: opId.toLowerCase()
+          };
+        }
+      }
+      for (const oldOpId of syncedSupabaseOperatorIds) {
+        if (!activeSupabaseOpIds.has(oldOpId)) {
+          if (cachedCredentials && cachedCredentials[oldOpId]) {
+            delete cachedCredentials[oldOpId];
+          }
+          try {
+            const { removeMasterIdentity: removeMasterIdentity2 } = await Promise.resolve().then(() => (init_identity_service(), identity_service_exports));
+            removeMasterIdentity2(oldOpId);
+          } catch (_) {
+          }
+        }
+      }
+      syncedSupabaseOperatorIds = activeSupabaseOpIds;
+      lastSupabaseKioskSync = now;
+      if (records.length > 0) {
+        try {
+          const { refreshMasterIdentityRegistry: refreshMasterIdentityRegistry2 } = await Promise.resolve().then(() => (init_identity_service(), identity_service_exports));
+          refreshMasterIdentityRegistry2();
+        } catch (_) {
+        }
+      }
+      return records.length;
+    } else {
+      lastSupabaseKioskSync = now;
+      if (error && error.message !== "timeout") {
+        console.info(`[KIOSK_SYNC] Local credentials active (Supabase sync skipped: ${error.message || "not configured"}).`);
+      }
+      return 0;
+    }
+  } catch (err) {
+    lastSupabaseKioskSync = now;
+    console.info(`[KIOSK_SYNC] Local credentials active (Supabase sync unavailable: ${err?.message || "fallback mode"}).`);
+    return 0;
+  }
 }
 function verifyPinAgainstHash(inputPin, pinHash) {
   if (!inputPin || !pinHash || typeof inputPin !== "string" || typeof pinHash !== "string") {
@@ -362,9 +438,10 @@ function verifyStaffNoAgainstHash(staffNo, staffNoHash) {
     return false;
   }
 }
-var envCredPath, __dirnameCurrent, cachedCredentials;
+var envCredPath, __dirnameCurrent, cachedCredentials, lastSupabaseKioskSync, KIOSK_SYNC_INTERVAL_MS, syncedSupabaseOperatorIds;
 var init_credentials_loader = __esm({
   "src/server/services/credentials.loader.ts"() {
+    init_db();
     dotenv.config();
     envCredPath = path.join(process.cwd(), ".env.credentials");
     if (fs.existsSync(envCredPath)) {
@@ -377,10 +454,20 @@ var init_credentials_loader = __esm({
       __dirnameCurrent = process.cwd();
     }
     cachedCredentials = null;
+    lastSupabaseKioskSync = 0;
+    KIOSK_SYNC_INTERVAL_MS = 5 * 1e3;
+    syncedSupabaseOperatorIds = /* @__PURE__ */ new Set();
   }
 });
 
 // src/server/services/identity.service.ts
+var identity_service_exports = {};
+__export(identity_service_exports, {
+  IPDS_NAMESPACE: () => IPDS_NAMESPACE,
+  IdentityService: () => IdentityService,
+  refreshMasterIdentityRegistry: () => refreshMasterIdentityRegistry,
+  removeMasterIdentity: () => removeMasterIdentity
+});
 import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
 import bcrypt2 from "bcryptjs";
 function initMasterIdentity(profile) {
@@ -394,6 +481,43 @@ function initMasterIdentity(profile) {
   };
   MASTER_IDENTITY_REGISTRY.set(record.operator_id.toUpperCase(), record);
   return record;
+}
+function removeMasterIdentity(operatorId) {
+  MASTER_IDENTITY_REGISTRY.delete(operatorId.trim().toUpperCase());
+}
+function refreshMasterIdentityRegistry() {
+  const credentials = loadHashedCredentials();
+  for (const [opIdKey, u] of Object.entries(credentials)) {
+    const opId = (u.operator_id || opIdKey).toUpperCase();
+    const existing = MASTER_IDENTITY_REGISTRY.get(opId);
+    if (existing) {
+      if (u.staff_no_hash) existing.staff_no_hash = u.staff_no_hash;
+      if (u.pin_hash) existing.pin_hash = u.pin_hash;
+      if (u.password_hash) existing.password_hash = u.password_hash;
+      if (u.app_role) existing.app_role = u.app_role;
+      if (u.estate_id) existing.primary_estate_id = u.estate_id;
+      if (u.station_name) existing.station_name = u.station_name;
+      if (u.operator_name) existing.full_name = u.operator_name;
+      existing.is_active = u.is_active !== void 0 ? Boolean(u.is_active) : true;
+    } else {
+      initMasterIdentity({
+        operator_id: u.operator_id || opIdKey,
+        full_name: u.operator_name || opIdKey,
+        username: u.username || opIdKey.toLowerCase(),
+        email: u.email || `${opIdKey.toLowerCase()}@felda.gov.my`,
+        pin: u.masked_pin || "******",
+        pin_hash: u.pin_hash,
+        staff_no_hash: u.staff_no_hash,
+        password_hash: u.password_hash,
+        app_role: u.app_role || "staff",
+        primary_estate_id: u.estate_id || "FPM_TUNGGAL",
+        assigned_estates: ["rc", "oc", "superadmin"].includes((u.app_role || "").toLowerCase()) ? ["FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING", "FPM_SENGGARANG"] : [u.estate_id || "FPM_TUNGGAL"],
+        kiosk_id: u.kiosk_id || `kiosk-${opIdKey.toLowerCase()}`,
+        station_name: u.station_name || "Stesen Lapangan",
+        is_active: u.is_active !== void 0 ? Boolean(u.is_active) : true
+      });
+    }
+  }
 }
 var IPDS_NAMESPACE, MASTER_IDENTITY_REGISTRY, INITIAL_SEEDS, IdentityService;
 var init_identity_service = __esm({
@@ -434,17 +558,39 @@ var init_identity_service = __esm({
         }
         return null;
       }
-      static findIdentityByStaffNoCredential(staffNo) {
+      static findIdentityByStaffNoCredential(staffNo, targetEstateId) {
         if (!staffNo || typeof staffNo !== "string") return null;
-        let match = null;
+        const cleanStaffNo = staffNo.trim();
+        refreshMasterIdentityRegistry();
+        const matchingProfiles = [];
         for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
-          const valid = profile.is_active && Boolean(profile.staff_no_hash && verifyStaffNoAgainstHash(staffNo, profile.staff_no_hash));
-          if (valid) {
-            if (match) return null;
-            match = profile;
+          if (!profile.is_active) continue;
+          if (profile.staff_no_hash && verifyStaffNoAgainstHash(cleanStaffNo, profile.staff_no_hash)) {
+            matchingProfiles.push(profile);
           }
         }
-        return match;
+        if (matchingProfiles.length === 0) {
+          return null;
+        }
+        if (targetEstateId) {
+          let normalizedEstate = targetEstateId.trim().toUpperCase();
+          if (normalizedEstate === "5155" || normalizedEstate.includes("TUNGGAL")) normalizedEstate = "FPM_TUNGGAL";
+          else if (normalizedEstate === "5136" || normalizedEstate.includes("ADELA")) normalizedEstate = "FPM_ADELA";
+          else if (normalizedEstate === "5176" || normalizedEstate.includes("KLEDANG")) normalizedEstate = "FPM_KLEDANG";
+          else if (normalizedEstate === "5156" || normalizedEstate.includes("SENING")) normalizedEstate = "FPM_SENING";
+          else if (normalizedEstate === "0001" || normalizedEstate.includes("WILAYAH") || normalizedEstate === "WILAYAH_JB") normalizedEstate = "WILAYAH_JB";
+          const estateMatches = matchingProfiles.filter((p) => {
+            const isCrossEstate = ["rc", "oc", "superadmin"].includes((p.app_role || "").toLowerCase());
+            const primary = (p.primary_estate_id || "").toUpperCase();
+            const assigned = (p.assigned_estates || []).map((e) => e.toUpperCase());
+            return primary === normalizedEstate || assigned.includes(normalizedEstate) || isCrossEstate;
+          });
+          if (estateMatches.length > 0) {
+            const exactPrimary = estateMatches.find((p) => (p.primary_estate_id || "").toUpperCase() === normalizedEstate);
+            return exactPrimary || estateMatches[0];
+          }
+        }
+        return matchingProfiles[0];
       }
       /**
        * Resolve an identity profile by Staff No, Operator ID, or Username
@@ -3685,6 +3831,14 @@ function extractUserFromRequest(req) {
     if (!sessionManager.isSessionActive(user.session_id)) {
       return { user: null, token: null };
     }
+    const opId = user.app_metadata?.operator_id;
+    if (opId) {
+      const identity = IdentityService.findIdentityByStaffNo(opId);
+      if (identity && !identity.is_active) {
+        sessionManager.revokeSession(user.session_id, "SYSTEM", "Akaun kakitangan telah dinyahaktifkan");
+        return { user: null, token: null };
+      }
+    }
     sessionManager.touchSession(user.session_id);
   }
   return { user, token };
@@ -3994,6 +4148,7 @@ var init_auth = __esm({
     init_db();
     init_audit_service();
     init_sessionManager_service();
+    init_identity_service();
     init_alerts();
     init_metrics();
     init_durableSessionStore_service();
@@ -4078,9 +4233,11 @@ async function syncRbacFromSupabase(force = false) {
     if (!supabase) return;
     const fetchPromise = supabase.from("app_settings").select("value").eq("key", "rbac_registry").maybeSingle();
     const timeoutPromise = new Promise(
-      (_, reject) => setTimeout(() => reject(new Error("Supabase RBAC sync timed out after 2500ms")), 2500)
+      (resolve) => setTimeout(() => resolve({ data: null, error: { message: "timeout" } }), 2500)
     );
-    const { data: rbacData, error } = await Promise.race([fetchPromise, timeoutPromise]);
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+    const rbacData = result?.data;
+    const error = result?.error;
     if (!error && rbacData && rbacData.value && typeof rbacData.value === "object") {
       const pinMap = {};
       for (const [pin, user] of Object.entries(rbacData.value)) {
@@ -4098,9 +4255,15 @@ async function syncRbacFromSupabase(force = false) {
       updateServerPinConfig(pinMap);
       lastSupabaseRbacSync = now;
       console.log(`[AUTH_SYNC] Synced ${Object.keys(pinMap).length} user credentials from Supabase app_settings.`);
+    } else {
+      lastSupabaseRbacSync = now;
+      if (error && error.message !== "timeout") {
+        console.info(`[AUTH_SYNC] Local credentials active (Supabase sync skipped: ${error.message || "not configured"}).`);
+      }
     }
   } catch (err) {
-    console.warn("[AUTH_SYNC] Notice syncing rbac from Supabase:", err);
+    lastSupabaseRbacSync = now;
+    console.info(`[AUTH_SYNC] Local credentials active (Supabase sync unavailable: ${err?.message || "fallback mode"}).`);
   }
 }
 function getServerPinConfig() {
@@ -4148,6 +4311,7 @@ var init_auth_service = __esm({
     init_identity_service();
     init_audit_service();
     init_credentials_loader();
+    init_credentials_loader();
     init_estateRegistry();
     init_db();
     IPDS_NAMESPACE2 = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
@@ -4158,6 +4322,8 @@ var init_auth_service = __esm({
     lastSupabaseRbacSync = 0;
     RBAC_SYNC_INTERVAL_MS = 30 * 1e3;
     syncRbacFromSupabase(true).catch(() => {
+    });
+    syncKioskIdentitiesFromSupabase(true).catch(() => {
     });
     devEphemeralJwtSecret = null;
     JWT_ACCESS_EXPIRES_IN = "1h";
@@ -4280,7 +4446,7 @@ var init_auth_service = __esm({
         const allowedEstates = ["WILAYAH_JB", "FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING"];
         if (!allowedEstates.includes(normalizedEstate)) return { session: null, failureReason: "INVALID_CREDENTIALS" };
         const normalizedStaffNo = normalizeStaffNo(staffNo);
-        const identity = IdentityService.findIdentityByStaffNoCredential(normalizedStaffNo);
+        const identity = IdentityService.findIdentityByStaffNoCredential(normalizedStaffNo, normalizedEstate);
         if (!identity) return { session: null, failureReason: "INVALID_CREDENTIALS" };
         const session = IdentityService.createUnifiedSession(identity, "KIOSK_STAFF_NO", normalizedEstate);
         if (!session) return { session: null, failureReason: "UNAUTHORIZED_ESTATE", identity };
@@ -5855,11 +6021,8 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
         code: "MISSING_CREDENTIALS"
       });
     }
-    let loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
-    if (!loginResult.session) {
-      await syncRbacFromSupabase(true);
-      loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
-    }
+    await syncKioskIdentitiesFromSupabase(false);
+    const loginResult = AuthService.verifyKioskLoginResult(targetEstate, targetStaffNo);
     const userSession = loginResult.session;
     if (!userSession) {
       recordAttempt(clientIp, false);

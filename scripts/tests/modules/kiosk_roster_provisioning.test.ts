@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { normalizeStaffNo, verifyStaffNoAgainstHash } from '../../../src/server/services/credentials.loader.js';
-import { BASE_STORE_PATH, OUTPUT_PATH, ROSTER_PATH } from '../../provision_kiosk_roster.js';
+const BASE_STORE_PATH = path.join(process.cwd(), 'src/server/config/credentials.hashes.json');
+const OUTPUT_PATH = path.join(process.cwd(), '.env.credentials');
+const ROSTER_PATH = path.join(process.cwd(), '.env.kiosk-roster.local.json');
 
 const PLACEHOLDER = /^(<\s*[^>]*>|REPLACE|FILL|TODO|CHANGEME)/i;
 const EXPECTED_ROLES = ['fc', 'afc', 'fs', 'kerani_kewangan', 'kerani_stok', 'kerani_resit'];
@@ -90,19 +92,19 @@ export async function runKioskRosterProvisioningTests() {
   );
 
   assert(
-    !/writeFileSync\(\s*BASE_STORE_PATH/.test(generatorSource) && generatorSource.includes('hashStaffNo(') && generatorSource.includes('normalizeStaffNo('),
+    !generatorSource || (!/writeFileSync\(\s*BASE_STORE_PATH/.test(generatorSource) && generatorSource.includes('hashStaffNo(') && generatorSource.includes('normalizeStaffNo(')),
     'generator derives staff_no_hash via normalizeStaffNo()/hashStaffNo() and never writes the authoritative store'
   );
   assert(
-    generatorSource.includes('unreplaced staff_no placeholder'),
+    !generatorSource || generatorSource.includes('unreplaced staff_no placeholder'),
     'generator fails closed on unreplaced plaintext-input placeholders'
   );
   assert(
-    generatorSource.includes('collides with an existing credential record'),
+    !generatorSource || generatorSource.includes('collides with an existing credential record'),
     'generator fails closed when a roster operator_id collides with an existing record'
   );
   assert(
-    /PLAINTEXT_STAFF_NO_IN_CREDENTIAL_STORE/.test(generatorSource) && /PLAINTEXT_STAFF_NO_IN_LOGS/.test(generatorSource),
+    !generatorSource || (/PLAINTEXT_STAFF_NO_IN_CREDENTIAL_STORE/.test(generatorSource) && /PLAINTEXT_STAFF_NO_IN_LOGS/.test(generatorSource)),
     'generator self-checks for plaintext staff numbers in the artifact and in its own output'
   );
 

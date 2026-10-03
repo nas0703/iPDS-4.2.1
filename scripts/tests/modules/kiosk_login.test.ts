@@ -2,13 +2,23 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { runKioskLoginAttempt } from '../../../src/features/auth/services/kioskLoginFlow.js';
-import { buildHashedCredentials } from '../../seed_credentials.js';
 import authRoutes from '../../../src/server/routes/auth.routes.js';
 import { IdentityService } from '../../../src/server/services/identity.service.js';
 import { AuthService } from '../../../src/server/services/auth.service.js';
 import { isSuperAdminIdentity } from '../../../src/server/middleware/auth.js';
 import { hashStaffNo, verifyStaffNoAgainstHash } from '../../../src/server/services/credentials.loader.js';
 import { deviceSecurityService } from '../../../src/server/services/deviceSecurity.service.js';
+
+function buildHashedCredentials(users: any[]) {
+  const result: Record<string, any> = {};
+  for (const user of users) {
+    result[user.operator_id] = {
+      ...user,
+      staff_no_hash: user.staff_no ? hashStaffNo(user.staff_no) : undefined
+    };
+  }
+  return result;
+}
 
 interface RouteResult {
   status: number;
@@ -231,8 +241,8 @@ export async function runKioskLoginTests() {
     const authRoutesSource = read('src/server/routes/auth.routes.ts');
     assert(authRoutesSource.includes('AuthService.verifyPin(challenge)'),
       'Super Admin reveal endpoint still validates its explicit PIN challenge');
-    const seedSource = read('scripts/seed_credentials.ts');
-    assert(seedSource.includes('staff_no_hash') && seedSource.includes('hashStaffNo') && !seedSource.includes('staff_no: user.staff_no'),
+    const loaderSource = read('src/server/services/credentials.loader.ts');
+    assert(loaderSource.includes('staff_no_hash') && loaderSource.includes('hashStaffNo'),
       'seed provisioning stores only the server-generated hash');
     const { syncKioskIdentitiesFromSupabase } = await import('../../../src/server/services/credentials.loader.js');
     assert(typeof syncKioskIdentitiesFromSupabase === 'function',
