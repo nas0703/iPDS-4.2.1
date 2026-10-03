@@ -1,7 +1,12 @@
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -4468,9 +4473,9 @@ import cookieParser from "cookie-parser";
 import dotenv2 from "dotenv";
 
 // src/config/version.ts
-var APP_VERSION = "4.1.0";
-var APP_VERSION_TAG = "VER 4.1.0";
-var APP_RELEASE_DATE = "September 2026";
+var APP_VERSION = "4.2.1";
+var APP_VERSION_TAG = "VER 4.2.1";
+var APP_RELEASE_DATE = "October 2026";
 function getVersionHeaders() {
   return {
     "X-IPDS-Version": APP_VERSION,
@@ -5910,26 +5915,10 @@ router.post(["/verify-staff", "/auth/verify-staff"], authRateLimiter, async (req
       });
       if (isSuperAdminIdentity(userSession)) {
         deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, operatorName, operatorRole);
-        await Promise.allSettled([
-          grantDeviceEstateAccess(effectiveDeviceId, "FPM_TUNGGAL", operatorName),
-          grantDeviceEstateAccess(effectiveDeviceId, "FPM_ADELA", operatorName),
-          grantDeviceEstateAccess(effectiveDeviceId, "FPM_KLEDANG", operatorName),
-          grantDeviceEstateAccess(effectiveDeviceId, "FPM_SENING", operatorName),
-          grantDeviceEstateAccess(effectiveDeviceId, "WILAYAH_JB", operatorName)
-        ]);
       }
     } else if (deviceStatus.status !== "APPROVED") {
       if (verifyBootstrapToken(bootstrapToken) || isSuperAdminIdentity(userSession)) {
         deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, operatorName || "BOOTSTRAP_TOKEN", operatorRole || "bootstrap");
-        if (isSuperAdminIdentity(userSession)) {
-          await Promise.allSettled([
-            grantDeviceEstateAccess(effectiveDeviceId, "FPM_TUNGGAL", operatorName),
-            grantDeviceEstateAccess(effectiveDeviceId, "FPM_ADELA", operatorName),
-            grantDeviceEstateAccess(effectiveDeviceId, "FPM_KLEDANG", operatorName),
-            grantDeviceEstateAccess(effectiveDeviceId, "FPM_SENING", operatorName),
-            grantDeviceEstateAccess(effectiveDeviceId, "WILAYAH_JB", operatorName)
-          ]);
-        }
       }
     }
     if (redirectMergedDevice(deviceStatus, res)) return;
@@ -7033,9 +7022,6 @@ function isAllowedOrigin(origin) {
   if (!origin) return false;
   const cleanOrigin = origin.trim().toLowerCase();
   if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) {
-    return true;
-  }
-  if (cleanOrigin === "null") {
     return true;
   }
   const envOrigins = (process.env.ALLOWED_ORIGINS || "").split(",").map((o) => o.trim().toLowerCase()).filter(Boolean);

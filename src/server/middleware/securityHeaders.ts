@@ -23,11 +23,6 @@ export function isAllowedOrigin(origin: string): boolean {
     return true;
   }
 
-  // Sandboxed iframes (e.g. Google AI Studio preview sandbox)
-  if (cleanOrigin === 'null') {
-    return true;
-  }
-
   // Custom configured origins via environment variables
   const envOrigins = (process.env.ALLOWED_ORIGINS || '')
     .split(',')

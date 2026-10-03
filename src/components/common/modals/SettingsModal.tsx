@@ -293,7 +293,7 @@ export function SettingsModal({
 
               <div className="pt-2 text-center pb-4">
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em]">
-                  FPMSB TUNGGAL v4.1.0 • 2026
+                  FPMSB TUNGGAL v4.2.1 • 2026
                 </p>
               </div>
             </div>

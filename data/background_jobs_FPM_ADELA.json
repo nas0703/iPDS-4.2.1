@@ -1,6 +1,419 @@
 {
   "jobs": [
     {
+      "id": "1325ed16-a786-462f-a8ee-c1363045e2c9",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_ADELA:2026-10-03",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-03"
+      },
+      "result": {
+        "taskDate": "2026-10-03",
+        "sourceWindowStart": "2026-09-26",
+        "sourceWindowEnd": "2026-10-02",
+        "taskCount": 1,
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-03T01:30:34.704Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-03T01:30:34.704Z",
+      "updated_at": "2026-10-03T01:30:35.917Z",
+      "started_at": "2026-10-03T01:30:34.706Z",
+      "completed_at": "2026-10-03T01:30:35.917Z"
+    },
+    {
+      "id": "18ab751e-42c3-4297-b41d-b525ea6b1e6f",
+      "type": "SLIDE_DECK_EXPORT",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "secret": "ADELA_EXECUTIVE_SUMMARY"
+      },
+      "result": {
+        "deckId": "deck_18ab751e",
+        "title": "Slaid Persembahan Eksekutif",
+        "status": "READY",
+        "slideCount": 12,
+        "exportedAt": "2026-10-03T01:30:30.321Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-03T01:30:30.158Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-03T01:30:30.158Z",
+      "updated_at": "2026-10-03T01:30:30.321Z",
+      "started_at": "2026-10-03T01:30:30.248Z",
+      "completed_at": "2026-10-03T01:30:30.321Z"
+    },
+    {
+      "id": "b850a5d7-350f-4222-897e-b242ee96279c",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "shared-idemp-1790991030150",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "scope": "ADELA_REPORT"
+      },
+      "result": {
+        "reportType": "DAILY_FFB_SUMMARY",
+        "downloadUrl": "/api/reports/download/b850a5d7-350f-4222-897e-b242ee96279c",
+        "summary": "Laporan DAILY_FFB_SUMMARY bagi ladang FPM_ADELA berjaya dijana.",
+        "generatedAt": "2026-10-03T01:30:30.292Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-03T01:30:30.156Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-03T01:30:30.156Z",
+      "updated_at": "2026-10-03T01:30:30.292Z",
+      "started_at": "2026-10-03T01:30:30.241Z",
+      "completed_at": "2026-10-03T01:30:30.292Z"
+    },
+    {
+      "id": "1f36c282-c7b5-4e4a-948f-088877e1cae8",
+      "type": "SLIDE_DECK_EXPORT",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "title": "Adela Confidential Board Deck"
+      },
+      "result": {
+        "deckId": "deck_1f36c282",
+        "title": "Adela Confidential Board Deck",
+        "status": "READY",
+        "slideCount": 12,
+        "exportedAt": "2026-10-03T01:30:29.811Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-03T01:30:29.323Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-03T01:30:29.323Z",
+      "updated_at": "2026-10-03T01:30:29.811Z",
+      "started_at": "2026-10-03T01:30:29.723Z",
+      "completed_at": "2026-10-03T01:30:29.811Z"
+    },
+    {
+      "id": "78a98b70-2f0a-4c4e-9696-1731e759a942",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "reportType": "PRIVATE_ADELA_YIELD"
+      },
+      "result": {
+        "reportType": "PRIVATE_ADELA_YIELD",
+        "downloadUrl": "/api/reports/download/78a98b70-2f0a-4c4e-9696-1731e759a942",
+        "summary": "Laporan PRIVATE_ADELA_YIELD bagi ladang FPM_ADELA berjaya dijana.",
+        "generatedAt": "2026-10-03T01:30:29.770Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-03T01:30:29.322Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-03T01:30:29.322Z",
+      "updated_at": "2026-10-03T01:30:29.770Z",
+      "started_at": "2026-10-03T01:30:29.712Z",
+      "completed_at": "2026-10-03T01:30:29.770Z"
+    },
+    {
+      "id": "88a654a1-db0c-4459-a793-c8692600a759",
+      "type": "SLIDE_DECK_EXPORT",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "secret": "ADELA_EXECUTIVE_SUMMARY"
+      },
+      "result": {
+        "deckId": "deck_88a654a1",
+        "title": "Slaid Persembahan Eksekutif",
+        "status": "READY",
+        "slideCount": 12,
+        "exportedAt": "2026-10-02T14:25:12.213Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-02T14:25:12.033Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-02T14:25:12.033Z",
+      "updated_at": "2026-10-02T14:25:12.213Z",
+      "started_at": "2026-10-02T14:25:12.141Z",
+      "completed_at": "2026-10-02T14:25:12.213Z"
+    },
+    {
+      "id": "db1fc24a-c180-44bd-9ac8-e117b84c81e8",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "shared-idemp-1790951112023",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "scope": "ADELA_REPORT"
+      },
+      "result": {
+        "reportType": "DAILY_FFB_SUMMARY",
+        "downloadUrl": "/api/reports/download/db1fc24a-c180-44bd-9ac8-e117b84c81e8",
+        "summary": "Laporan DAILY_FFB_SUMMARY bagi ladang FPM_ADELA berjaya dijana.",
+        "generatedAt": "2026-10-02T14:25:12.183Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-02T14:25:12.031Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-02T14:25:12.031Z",
+      "updated_at": "2026-10-02T14:25:12.183Z",
+      "started_at": "2026-10-02T14:25:12.130Z",
+      "completed_at": "2026-10-02T14:25:12.183Z"
+    },
+    {
+      "id": "d18d4281-16ea-436b-8b3c-0ec0100e85e2",
+      "type": "SLIDE_DECK_EXPORT",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "title": "Adela Confidential Board Deck"
+      },
+      "result": {
+        "deckId": "deck_d18d4281",
+        "title": "Adela Confidential Board Deck",
+        "status": "READY",
+        "slideCount": 12,
+        "exportedAt": "2026-10-02T14:25:11.763Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-02T14:25:11.236Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-02T14:25:11.236Z",
+      "updated_at": "2026-10-02T14:25:11.763Z",
+      "started_at": "2026-10-02T14:25:11.651Z",
+      "completed_at": "2026-10-02T14:25:11.763Z"
+    },
+    {
+      "id": "574d1955-744f-4d7d-924b-348b73adbc37",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "reportType": "PRIVATE_ADELA_YIELD"
+      },
+      "result": {
+        "reportType": "PRIVATE_ADELA_YIELD",
+        "downloadUrl": "/api/reports/download/574d1955-744f-4d7d-924b-348b73adbc37",
+        "summary": "Laporan PRIVATE_ADELA_YIELD bagi ladang FPM_ADELA berjaya dijana.",
+        "generatedAt": "2026-10-02T14:25:11.686Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-02T14:25:11.235Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-02T14:25:11.235Z",
+      "updated_at": "2026-10-02T14:25:11.686Z",
+      "started_at": "2026-10-02T14:25:11.630Z",
+      "completed_at": "2026-10-02T14:25:11.686Z"
+    },
+    {
+      "id": "07f71be9-3005-43c5-a9c1-ce4aae06017e",
+      "type": "SLIDE_DECK_EXPORT",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "secret": "ADELA_EXECUTIVE_SUMMARY"
+      },
+      "result": {
+        "deckId": "deck_07f71be9",
+        "title": "Slaid Persembahan Eksekutif",
+        "status": "READY",
+        "slideCount": 12,
+        "exportedAt": "2026-10-02T14:03:18.538Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-02T14:03:18.352Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-02T14:03:18.352Z",
+      "updated_at": "2026-10-02T14:03:18.538Z",
+      "started_at": "2026-10-02T14:03:18.465Z",
+      "completed_at": "2026-10-02T14:03:18.538Z"
+    },
+    {
+      "id": "30482dfc-eabe-49bc-b4a1-9eb4e42e6737",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "shared-idemp-1790949798340",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "scope": "ADELA_REPORT"
+      },
+      "result": {
+        "reportType": "DAILY_FFB_SUMMARY",
+        "downloadUrl": "/api/reports/download/30482dfc-eabe-49bc-b4a1-9eb4e42e6737",
+        "summary": "Laporan DAILY_FFB_SUMMARY bagi ladang FPM_ADELA berjaya dijana.",
+        "generatedAt": "2026-10-02T14:03:18.508Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-02T14:03:18.350Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-02T14:03:18.350Z",
+      "updated_at": "2026-10-02T14:03:18.508Z",
+      "started_at": "2026-10-02T14:03:18.456Z",
+      "completed_at": "2026-10-02T14:03:18.508Z"
+    },
+    {
+      "id": "513de8c4-59d9-4ad1-819c-317cbd3a1b3f",
+      "type": "SLIDE_DECK_EXPORT",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "title": "Adela Confidential Board Deck"
+      },
+      "result": {
+        "deckId": "deck_513de8c4",
+        "title": "Adela Confidential Board Deck",
+        "status": "READY",
+        "slideCount": 12,
+        "exportedAt": "2026-10-02T14:03:17.970Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-02T14:03:17.414Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-02T14:03:17.414Z",
+      "updated_at": "2026-10-02T14:03:17.970Z",
+      "started_at": "2026-10-02T14:03:17.847Z",
+      "completed_at": "2026-10-02T14:03:17.970Z"
+    },
+    {
+      "id": "01e1a08a-d358-43eb-a3d8-d85e020c2ef9",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_ADELA",
+      "created_by_user_id": "11b1fc8d-f6c1-57eb-8085-235c01983ea0",
+      "created_by_operator_id": "STF-ADL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "reportType": "PRIVATE_ADELA_YIELD"
+      },
+      "result": {
+        "reportType": "PRIVATE_ADELA_YIELD",
+        "downloadUrl": "/api/reports/download/01e1a08a-d358-43eb-a3d8-d85e020c2ef9",
+        "summary": "Laporan PRIVATE_ADELA_YIELD bagi ladang FPM_ADELA berjaya dijana.",
+        "generatedAt": "2026-10-02T14:03:17.912Z",
+        "estate_id": "FPM_ADELA"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-02T14:03:17.411Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-02T14:03:17.411Z",
+      "updated_at": "2026-10-02T14:03:17.912Z",
+      "started_at": "2026-10-02T14:03:17.837Z",
+      "completed_at": "2026-10-02T14:03:17.912Z"
+    },
+    {
       "id": "ef6cbc38-b9d9-421d-ae6b-309db00dca99",
       "type": "SLIDE_DECK_EXPORT",
       "estate_id": "FPM_ADELA",
@@ -2663,5 +3076,5 @@
       "completed_at": "2026-09-26T22:28:12.389Z"
     }
   ],
-  "last_updated": "2026-10-02T08:14:51.986Z"
+  "last_updated": "2026-10-03T01:30:35.918Z"
 }

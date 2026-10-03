@@ -5,7 +5,7 @@ import { auditService } from '../services/audit.service.js';
 import { authRateLimiter, adminRateLimiter } from '../middleware/rateLimiter.js';
 import { sessionManager } from '../services/sessionManager.service.js';
 import { ActingAsService } from '../services/actingAs.service.js';
-import { deviceSecurityService, verifyBootstrapToken, createApprovalCapability, sendApprovalLink, authorizeDeviceForEstate, isStrictDeviceEnforcementEnabled, grantDeviceEstateAccess } from '../services/deviceSecurity.service.js';
+import { deviceSecurityService, verifyBootstrapToken, createApprovalCapability, sendApprovalLink, authorizeDeviceForEstate, isStrictDeviceEnforcementEnabled } from '../services/deviceSecurity.service.js';
 import crypto from 'crypto';
 
 import fs from 'fs';
@@ -219,27 +219,11 @@ router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req
       });
       if (isSuperAdminIdentity(userSession)) {
         deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, operatorName, operatorRole);
-        await Promise.allSettled([
-          grantDeviceEstateAccess(effectiveDeviceId, 'FPM_TUNGGAL', operatorName),
-          grantDeviceEstateAccess(effectiveDeviceId, 'FPM_ADELA', operatorName),
-          grantDeviceEstateAccess(effectiveDeviceId, 'FPM_KLEDANG', operatorName),
-          grantDeviceEstateAccess(effectiveDeviceId, 'FPM_SENING', operatorName),
-          grantDeviceEstateAccess(effectiveDeviceId, 'WILAYAH_JB', operatorName)
-        ]);
       }
     } else if (deviceStatus.status !== 'APPROVED') {
       if (verifyBootstrapToken(bootstrapToken) || isSuperAdminIdentity(userSession)) {
         // P0-16: secure bootstrap upgrade or Super Admin device approval
         deviceStatus = await deviceSecurityService.approveDevice(effectiveDeviceId, operatorName || 'BOOTSTRAP_TOKEN', operatorRole || 'bootstrap');
-        if (isSuperAdminIdentity(userSession)) {
-          await Promise.allSettled([
-            grantDeviceEstateAccess(effectiveDeviceId, 'FPM_TUNGGAL', operatorName),
-            grantDeviceEstateAccess(effectiveDeviceId, 'FPM_ADELA', operatorName),
-            grantDeviceEstateAccess(effectiveDeviceId, 'FPM_KLEDANG', operatorName),
-            grantDeviceEstateAccess(effectiveDeviceId, 'FPM_SENING', operatorName),
-            grantDeviceEstateAccess(effectiveDeviceId, 'WILAYAH_JB', operatorName)
-          ]);
-        }
       }
     }
 

@@ -3,14 +3,14 @@
  * Standardized across Web Frontend, Express Server, API Headers, Diagnostics & Supabase DB Contracts
  */
 
-export const APP_VERSION = '4.1.0';
+export const APP_VERSION = '4.2.1';
 export const APP_VERSION_MAJOR = 4;
-export const APP_VERSION_MINOR = 1;
-export const APP_VERSION_PATCH = 0;
-export const APP_VERSION_TAG = 'VER 4.1.0';
+export const APP_VERSION_MINOR = 2;
+export const APP_VERSION_PATCH = 1;
+export const APP_VERSION_TAG = 'VER 4.2.1';
 export const APP_NAME = 'iPDS - Integrated Plantation Data System';
 export const APP_BUILD_NAME = 'iPDS Enterprise Multi-Tenant Engine';
-export const APP_RELEASE_DATE = 'September 2026';
+export const APP_RELEASE_DATE = 'October 2026';
 export const API_VERSION = 'v1';
 
 export interface AppVersionInfo {

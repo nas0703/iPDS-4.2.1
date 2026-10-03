@@ -23,13 +23,13 @@ export async function runVersionAndRlsMatrixTests() {
 
   // 1. Version SSOT verification
   assert(
-    APP_VERSION === '4.1.0' && APP_VERSION_TAG === 'VER 4.1.0',
-    'Version Single Source of Truth (SSOT) defined as 4.1.0 / VER 4.1.0'
+    APP_VERSION === '4.2.1' && APP_VERSION_TAG === 'VER 4.2.1',
+    'Version Single Source of Truth (SSOT) defined as 4.2.1 / VER 4.2.1'
   );
 
   const versionInfo = getVersionInfo();
   assert(
-    versionInfo.version === '4.1.0' &&
+    versionInfo.version === '4.2.1' &&
     versionInfo.apiVersion === 'v1' &&
     typeof versionInfo.rlsCoverage === 'string',
     'getVersionInfo() helper returns structured enterprise metadata'
@@ -37,33 +37,33 @@ export async function runVersionAndRlsMatrixTests() {
 
   const versionHeaders = getVersionHeaders();
   assert(
-    versionHeaders['X-IPDS-Version'] === '4.1.0' &&
+    versionHeaders['X-IPDS-Version'] === '4.2.1' &&
     typeof versionHeaders['X-IPDS-Release'] === 'string',
-    'getVersionHeaders() returns standard X-IPDS-Version: 4.1.0 header payload'
+    'getVersionHeaders() returns standard X-IPDS-Version: 4.2.1 header payload'
   );
 
   // 2. package.json synchronization
   const packageJsonPath = path.join(process.cwd(), 'package.json');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   assert(
-    packageJson.version === '4.1.0',
-    'package.json version aligned to 4.1.0'
+    packageJson.version === '4.2.1',
+    'package.json version aligned to 4.2.1'
   );
 
   // 3. metadata.json synchronization
   const metadataJsonPath = path.join(process.cwd(), 'metadata.json');
   const metadataJson = JSON.parse(fs.readFileSync(metadataJsonPath, 'utf8'));
   assert(
-    metadataJson.description.includes('4.1.0') || metadataJson.description.includes('4.2'),
-    'metadata.json description synchronized with Ver 4.1.0 / Ver 4.2'
+    metadataJson.description.includes('4.2.1') || metadataJson.description.includes('4.2'),
+    'metadata.json description synchronized with Ver 4.2.1'
   );
 
   // 4. index.html meta tags synchronization
   const indexHtmlPath = path.join(process.cwd(), 'index.html');
   const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
   assert(
-    indexHtml.includes('iPDS Ver 4.1.0') || indexHtml.includes('4.1.0') || indexHtml.includes('ver 4.2') || indexHtml.includes('VER 4.2'),
-    'index.html description and OpenGraph meta tags aligned to Ver 4.1.0 / Ver 4.2'
+    indexHtml.includes('4.2.1') || indexHtml.includes('VER 4.2') || indexHtml.includes('ver 4.2'),
+    'index.html description and OpenGraph meta tags aligned to Ver 4.2.1'
   );
 
   // 5. Phase 7 Complete RLS Coverage Matrix Migration Blueprint exists

@@ -1961,7 +1961,7 @@ const HasilBulananTableComponent = ({
           </span>
         </div>
         <p className="opacity-80">
-          DIJANA SECARA AUTOMATIK OLEH SISTEM FPMSB TUNGGAL v4.1.0
+          DIJANA SECARA AUTOMATIK OLEH SISTEM FPMSB TUNGGAL v4.2.1
         </p>
       </div>
     </div>
