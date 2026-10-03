@@ -69,6 +69,42 @@ function initMasterIdentity(profile: Omit<UnifiedIdentityProfile, 'id'> & { id?:
   return record;
 }
 
+export function refreshMasterIdentityRegistry(): void {
+  const credentials = loadHashedCredentials();
+  for (const [opIdKey, u] of Object.entries(credentials)) {
+    const opId = (u.operator_id || opIdKey).toUpperCase();
+    const existing = MASTER_IDENTITY_REGISTRY.get(opId);
+    if (existing) {
+      if (u.staff_no_hash) existing.staff_no_hash = u.staff_no_hash;
+      if (u.pin_hash) existing.pin_hash = u.pin_hash;
+      if (u.password_hash) existing.password_hash = u.password_hash;
+      if (u.app_role) existing.app_role = u.app_role;
+      if (u.estate_id) existing.primary_estate_id = u.estate_id;
+      if (u.station_name) existing.station_name = u.station_name;
+      if (u.operator_name) existing.full_name = u.operator_name;
+    } else {
+      initMasterIdentity({
+        operator_id: u.operator_id || opIdKey,
+        full_name: u.operator_name || opIdKey,
+        username: u.username || opIdKey.toLowerCase(),
+        email: u.email || `${opIdKey.toLowerCase()}@felda.gov.my`,
+        pin: u.masked_pin || '******',
+        pin_hash: u.pin_hash,
+        staff_no_hash: u.staff_no_hash,
+        password_hash: u.password_hash,
+        app_role: u.app_role || 'staff',
+        primary_estate_id: u.estate_id || 'FPM_TUNGGAL',
+        assigned_estates: ['rc', 'oc', 'superadmin'].includes((u.app_role || '').toLowerCase())
+          ? ["FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING", "FPM_SENGGARANG"]
+          : [u.estate_id || 'FPM_TUNGGAL'],
+        kiosk_id: u.kiosk_id || `kiosk-${opIdKey.toLowerCase()}`,
+        station_name: u.station_name || 'Stesen Lapangan',
+        is_active: true
+      });
+    }
+  }
+}
+
 // Seed the Master Unified Identity Store from setup-time bcrypt-hashed environment configuration
 const INITIAL_SEEDS: Array<Omit<UnifiedIdentityProfile, 'id'>> = Object.entries(loadHashedCredentials()).map(([opIdKey, u]) => ({
   operator_id: u.operator_id || opIdKey,
@@ -109,17 +145,49 @@ export class IdentityService {
     return null;
   }
 
-  static findIdentityByStaffNoCredential(staffNo: string): UnifiedIdentityProfile | null {
+  static findIdentityByStaffNoCredential(staffNo: string, targetEstateId?: string): UnifiedIdentityProfile | null {
     if (!staffNo || typeof staffNo !== 'string') return null;
-    let match: UnifiedIdentityProfile | null = null;
+    const cleanStaffNo = staffNo.trim();
+    
+    // Refresh registry to include any freshly loaded kiosk roster identities
+    refreshMasterIdentityRegistry();
+
+    const matchingProfiles: UnifiedIdentityProfile[] = [];
     for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
-      const valid = profile.is_active && Boolean(profile.staff_no_hash && verifyStaffNoAgainstHash(staffNo, profile.staff_no_hash));
-      if (valid) {
-        if (match) return null;
-        match = profile;
+      if (!profile.is_active) continue;
+      if (profile.staff_no_hash && verifyStaffNoAgainstHash(cleanStaffNo, profile.staff_no_hash)) {
+        matchingProfiles.push(profile);
       }
     }
-    return match;
+
+    if (matchingProfiles.length === 0) {
+      return null;
+    }
+
+    if (targetEstateId) {
+      let normalizedEstate = targetEstateId.trim().toUpperCase();
+      if (normalizedEstate === '5155' || normalizedEstate.includes('TUNGGAL')) normalizedEstate = 'FPM_TUNGGAL';
+      else if (normalizedEstate === '5136' || normalizedEstate.includes('ADELA')) normalizedEstate = 'FPM_ADELA';
+      else if (normalizedEstate === '5176' || normalizedEstate.includes('KLEDANG')) normalizedEstate = 'FPM_KLEDANG';
+      else if (normalizedEstate === '5156' || normalizedEstate.includes('SENING')) normalizedEstate = 'FPM_SENING';
+      else if (normalizedEstate === '0001' || normalizedEstate.includes('WILAYAH') || normalizedEstate === 'WILAYAH_JB') normalizedEstate = 'WILAYAH_JB';
+
+      const estateMatches = matchingProfiles.filter(p => {
+        const isCrossEstate = ['rc', 'oc', 'superadmin'].includes((p.app_role || '').toLowerCase());
+        const primary = (p.primary_estate_id || '').toUpperCase();
+        const assigned = (p.assigned_estates || []).map(e => e.toUpperCase());
+        return primary === normalizedEstate || assigned.includes(normalizedEstate) || isCrossEstate;
+      });
+
+      if (estateMatches.length > 0) {
+        // Return exact primary estate match if available
+        const exactPrimary = estateMatches.find(p => (p.primary_estate_id || '').toUpperCase() === normalizedEstate);
+        return exactPrimary || estateMatches[0];
+      }
+    }
+
+    // Fallback: If no estate filter or matches across estates, return first matching profile
+    return matchingProfiles[0];
   }
 
   /**

@@ -143,10 +143,12 @@ export async function syncRbacFromSupabase(force = false): Promise<void> {
       .select('value')
       .eq('key', 'rbac_registry')
       .maybeSingle();
-    const timeoutPromise = new Promise<{ data: null; error: Error }>((_, reject) =>
-      setTimeout(() => reject(new Error('Supabase RBAC sync timed out after 2500ms')), 2500)
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 2500)
     );
-    const { data: rbacData, error } = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+    const result = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+    const rbacData = result?.data;
+    const error = result?.error;
 
     if (!error && rbacData && rbacData.value && typeof rbacData.value === 'object') {
       const pinMap: Record<string, Record<string, unknown>> = {};
@@ -165,9 +167,16 @@ export async function syncRbacFromSupabase(force = false): Promise<void> {
       updateServerPinConfig(pinMap);
       lastSupabaseRbacSync = now;
       console.log(`[AUTH_SYNC] Synced ${Object.keys(pinMap).length} user credentials from Supabase app_settings.`);
+    } else {
+      // Offline / timeout / table missing: Mark last sync attempt timestamp to avoid spamming
+      lastSupabaseRbacSync = now;
+      if (error && error.message !== 'timeout') {
+        console.info(`[AUTH_SYNC] Local credentials active (Supabase sync skipped: ${error.message || 'not configured'}).`);
+      }
     }
-  } catch (err) {
-    console.warn('[AUTH_SYNC] Notice syncing rbac from Supabase:', err);
+  } catch (err: any) {
+    lastSupabaseRbacSync = now;
+    console.info(`[AUTH_SYNC] Local credentials active (Supabase sync unavailable: ${err?.message || 'fallback mode'}).`);
   }
 }
 
@@ -379,7 +388,7 @@ export class AuthService {
     if (!allowedEstates.includes(normalizedEstate)) return { session: null, failureReason: 'INVALID_CREDENTIALS' };
 
     const normalizedStaffNo = normalizeStaffNo(staffNo);
-    const identity = IdentityService.findIdentityByStaffNoCredential(normalizedStaffNo);
+    const identity = IdentityService.findIdentityByStaffNoCredential(normalizedStaffNo, normalizedEstate);
     if (!identity) return { session: null, failureReason: 'INVALID_CREDENTIALS' };
     const session = IdentityService.createUnifiedSession(identity, 'KIOSK_STAFF_NO', normalizedEstate);
     if (!session) return { session: null, failureReason: 'UNAUTHORIZED_ESTATE', identity };

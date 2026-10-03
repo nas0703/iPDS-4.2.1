@@ -9,5 +9,6 @@ coverage/
 backups/
 *.json.bak
 data/rbac_registry.json
+src/server/config/kiosk-roster.json
 
 

@@ -133,7 +133,8 @@ export function loadHashedCredentials(): Record<string, UserCredentialConfig> {
     try {
       if (fs.existsSync(rosterPath)) {
         const rosterContent = fs.readFileSync(rosterPath, 'utf-8');
-        const rosterList = JSON.parse(rosterContent);
+        const parsed = JSON.parse(rosterContent);
+        const rosterList = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.identities) ? parsed.identities : []);
         if (Array.isArray(rosterList)) {
           for (const item of rosterList) {
             if (item && item.operator_id && item.staff_no) {
