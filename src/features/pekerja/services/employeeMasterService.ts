@@ -1016,23 +1016,6 @@ async function syncLocalEmployeesToRemote(
 
       if (resp.ok) {
         uploadedCount++;
-      } else {
-        // Direct write to Supabase as resilient fallback
-        try {
-          await supabase.from('employees').upsert([{
-            id: emp.id,
-            tenant_id: emp.tenant_id || '00000000-0000-0000-0000-000000000001',
-            staff_no: emp.staff_no.trim().toUpperCase(),
-            full_name: emp.full_name.trim(),
-            position_id: emp.position_id || '20000000-0000-0000-0000-000000000006',
-            employment_status: emp.employment_status || 'ACTIVE',
-            id_card_passport: emp.id_card_passport || '',
-            contact_number: emp.contact_number || '',
-            email: emp.email || '',
-            hire_date: emp.hire_date || '2026-01-01'
-          }]);
-          uploadedCount++;
-        } catch (_) {}
       }
 
       merged.push(emp);
@@ -1214,15 +1197,11 @@ export const employeeMasterService = {
     const newId = generateUUID();
     const newAsgId = generateUUID();
 
-    const blocks = (payload.block_ids || []).map(code => ({
-      id: generateUUID(),
-      tenant_id: '00000000-0000-0000-0000-000000000001',
-      estate_id: payload.estate_id,
-      division_id: payload.division_id,
-      block_code: code,
-      hectarage: 50.0,
-      is_active: true
-    }));
+    // Phase 6C — block identity, block_code and hectarage belong to
+    // public.org_blocks. create_employee_with_assignment() (20261008) persists
+    // the resolved rows and the API response returns them; the client must not
+    // manufacture block UUIDs, hectarage or database identity.
+    const blocks: OrgBlock[] = [];
 
     const newEmployee: EmployeeMaster = {
       id: newId,
@@ -1257,8 +1236,9 @@ export const employeeMasterService = {
     };
 
     // 1. Post to Central Server API (Ensures cross-device visibility immediately)
+    let persisted: EmployeeMaster = newEmployee;
     try {
-      await safeFetch('/api/employees', {
+      const resp = await safeFetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1279,53 +1259,56 @@ export const employeeMasterService = {
           block_ids: payload.block_ids
         })
       });
+
+      // Adopt the authoritative database ids issued by the server RPC.
+      if (resp.ok) {
+        const result: any = await resp.json().catch(() => null);
+        const serverRecord = result && result.success ? result.data : null;
+        const serverEmployeeId = typeof serverRecord?.id === 'string' ? serverRecord.id.trim() : '';
+        const serverAssignmentId = typeof serverRecord?.current_assignment?.id === 'string'
+          ? serverRecord.current_assignment.id.trim()
+          : '';
+
+        // Phase 6C: the persisted org_blocks rows are the single source of
+        // truth. Adopt exactly what the server returned; when the response
+        // carries no block list (or the call failed) the locally empty list is
+        // kept, so no phantom block state is ever created.
+        const serverBlocks = Array.isArray(serverRecord?.current_assignment?.blocks)
+          ? (serverRecord.current_assignment.blocks as OrgBlock[])
+          : null;
+
+        if (serverEmployeeId) {
+          persisted = {
+            ...newEmployee,
+            id: serverEmployeeId,
+            current_assignment: newEmployee.current_assignment
+              ? {
+                  ...newEmployee.current_assignment,
+                  id: serverAssignmentId || newEmployee.current_assignment.id,
+                  employee_id: serverEmployeeId,
+                  blocks: serverBlocks ?? newEmployee.current_assignment.blocks
+                }
+              : newEmployee.current_assignment
+          };
+        }
+      }
     } catch (apiErr) {
       console.warn('API sync notice for new employee:', apiErr);
     }
 
-    // 2. Direct write to Supabase tables with valid UUID
-    try {
-      await supabase.from('employees').insert({
-        id: newId,
-        tenant_id: '00000000-0000-0000-0000-000000000001',
-        staff_no: newEmployee.staff_no,
-        full_name: newEmployee.full_name,
-        position_id: pos?.id || '20000000-0000-0000-0000-000000000006',
-        employment_status: newEmployee.employment_status,
-        id_card_passport: newEmployee.id_card_passport,
-        contact_number: newEmployee.contact_number,
-        email: newEmployee.email,
-        hire_date: newEmployee.hire_date
-      });
-
-      if (newEmployee.current_assignment) {
-        await supabase.from('employee_assignments').insert({
-          id: newAsgId,
-          tenant_id: '00000000-0000-0000-0000-000000000001',
-          employee_id: newId,
-          company_id: '10000000-0000-0000-0000-000000000001',
-          estate_id: payload.estate_id,
-          division_id: payload.division_id,
-          assignment_role: 'PRIMARY',
-          status: 'ACTIVE',
-          effective_from: payload.hire_date
-        });
-      }
-    } catch (_) {}
-
-    // 3. Save to local storage cache
+    // 2. Save to local storage cache
     const current = getStoredEmployees();
-    current.unshift(newEmployee);
+    current.unshift(persisted);
     saveStoredEmployees(current);
 
     // Also record in assignment history
-    if (newEmployee.current_assignment) {
+    if (persisted.current_assignment) {
       const asgs = getStoredAssignments();
-      asgs.unshift(newEmployee.current_assignment);
+      asgs.unshift(persisted.current_assignment);
       saveStoredAssignments(asgs);
     }
 
-    return newEmployee;
+    return persisted;
   },
 
   async transferAssignment(payload: TransferEmployeePayload): Promise<EmployeeMaster> {
@@ -1416,17 +1399,6 @@ export const employeeMasterService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employment_status: status })
       });
-    } catch (_) {}
-
-    try {
-      await supabase
-        .from('employees')
-        .update({ 
-          employment_status: status, 
-          end_date: emp.end_date,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', employeeId);
     } catch (_) {}
   }
 };
