@@ -50,13 +50,14 @@ export function clearCredentialsCache(): void {
   cachedCredentials = null;
 }
 
-function normalizeToOperatorIdKeys(records: Record<string, UserCredentialConfig>): Record<string, UserCredentialConfig> {
+function normalizeToOperatorIdKeys(records: Record<string, unknown>): Record<string, UserCredentialConfig> {
   const result: Record<string, UserCredentialConfig> = {};
   for (const [key, val] of Object.entries(records)) {
     if (!val || typeof val !== 'object') continue;
-    const opId = val.operator_id || key;
+    const v = val as Record<string, unknown>;
+    const opId = (v.operator_id as string) || key;
     result[opId] = {
-      ...val,
+      ...(val as UserCredentialConfig),
       operator_id: opId
     };
   }
