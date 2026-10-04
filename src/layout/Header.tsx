@@ -1303,7 +1303,7 @@ export const Header: React.FC<HeaderProps> = ({
               Fpm<span className="text-emerald-400">OS</span>
             </span>
             <span className="px-1 py-[0.5px] border border-emerald-500/35 rounded text-emerald-400 font-extrabold text-[5px] sm:text-[5.5px] bg-emerald-500/10 uppercase leading-none">
-              V4.1
+              V4.2.1
             </span>
           </div>
           <div className="h-[1px] bg-emerald-500/20 flex-1 max-w-[80px] sm:max-w-[220px]" />
