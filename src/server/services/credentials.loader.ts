@@ -11,6 +11,7 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import type { AuthRole } from './identity.service.js';
 import { getPrivilegedSupabase } from '../db.js';
+import defaultCredentialHashes from '../config/credentials.hashes.json';
 
 // Auto-load .env and .env.credentials
 dotenv.config();
@@ -99,25 +100,31 @@ export function loadHashedCredentials(): Record<string, UserCredentialConfig> {
     console.warn('[CREDENTIAL_LOADER] Error reading .env.credentials:', err);
   }
 
-  // 3. Fallback to bundled safe hashed credentials store (zero plaintext secrets, safe for CI)
-  const candidateJsonPaths = [
-    path.join(process.cwd(), 'src/server/config/credentials.hashes.json'),
-    path.join(__dirnameCurrent, '../config/credentials.hashes.json'),
-    path.join(process.cwd(), 'dist/server/config/credentials.hashes.json')
-  ];
+  // 3. Fallback to bundled safe hashed credentials store (zero plaintext secrets, safe for CI & serverless)
+  if (!cachedCredentials && defaultCredentialHashes && typeof defaultCredentialHashes === 'object') {
+    cachedCredentials = normalizeToOperatorIdKeys(defaultCredentialHashes as Record<string, unknown>);
+  }
 
-  for (const candidatePath of candidateJsonPaths) {
-    try {
-      if (fs.existsSync(candidatePath)) {
-        const content = fs.readFileSync(candidatePath, 'utf-8');
-        const parsed = JSON.parse(content);
-        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-          cachedCredentials = normalizeToOperatorIdKeys(parsed);
-          break;
+  if (!cachedCredentials || Object.keys(cachedCredentials).length === 0) {
+    const candidateJsonPaths = [
+      path.join(process.cwd(), 'src/server/config/credentials.hashes.json'),
+      path.join(__dirnameCurrent, '../config/credentials.hashes.json'),
+      path.join(process.cwd(), 'dist/server/config/credentials.hashes.json')
+    ];
+
+    for (const candidatePath of candidateJsonPaths) {
+      try {
+        if (fs.existsSync(candidatePath)) {
+          const content = fs.readFileSync(candidatePath, 'utf-8');
+          const parsed = JSON.parse(content);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            cachedCredentials = normalizeToOperatorIdKeys(parsed);
+            break;
+          }
         }
+      } catch {
+        // Continue to next candidate
       }
-    } catch {
-      // Continue to next candidate
     }
   }
 
