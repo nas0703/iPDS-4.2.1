@@ -5,7 +5,7 @@ import { HISTORICAL_BLOCK_YIELDS } from "../utils/historicalYieldData";
 import { parseReceiptWithGemini, detectEstateFromSeller } from "../features/input/services/ocrService";
 import { offlineStore } from "../utils/offlineStore";
 import { getActiveEstateId, ESTATE_CHANGED_EVENT, inferEstateFromReceipt } from "../utils/estateContext";
-import { ESTATES_REGISTRY, getEstateConfig } from "../config/estateRegistry";
+import { ESTATES_REGISTRY, getEstateConfig, normalizeEstateId } from "../config/estateRegistry";
 import { generateAdelaBaselineTransactions } from "../data/adelaBaselineDeliveries";
 import { getTodayDateString, normalizeDateToISO, getDaysDifferenceFromToday, cleanAndExtractBlockCode, extractBtsSerialDetails } from "../utils/formatters";
 
@@ -249,9 +249,10 @@ export function useTransactionState({
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
             const isRegion = estateId === 'ALL' || estateId === 'WILAYAH_JB' || estateId === 'WJB' || estateId === '0001';
+            const normTargetEstate = normalizeEstateId(estateId);
             const valid = parsed
               .map((r: any) => normalizeSingleTransaction(r))
-              .filter((r: any) => isRegion || r.estate_id === estateId);
+              .filter((r: any) => isRegion || normalizeEstateId(r.estate_id) === normTargetEstate);
             if (estateId === 'FPM_ADELA' || isRegion) {
               const baseline = generateAdelaBaselineTransactions();
               const baselineMap = new Map(baseline.map(b => [String(b.no_resit).toUpperCase(), b]));
@@ -514,9 +515,10 @@ export function useTransactionState({
 
       if (Array.isArray(data)) {
         const isAll = activeEstate === 'ALL' || activeEstate === 'WILAYAH_JB' || activeEstate === 'WJB' || activeEstate === '0001';
+        const normActiveEstate = normalizeEstateId(activeEstate);
         let parsedData = data
           .map((item: any) => normalizeSingleTransaction(item))
-          .filter((item: any) => isAll || item.estate_id === activeEstate);
+          .filter((item: any) => isAll || normalizeEstateId(item.estate_id) === normActiveEstate);
 
         if (activeEstate === 'FPM_ADELA' || isAll) {
           const baseline = generateAdelaBaselineTransactions();
@@ -702,9 +704,10 @@ export function useTransactionState({
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
             const isRegion = newEstateId === 'ALL' || newEstateId === 'WILAYAH_JB' || newEstateId === 'WJB' || newEstateId === '0001';
+            const normNewEstate = normalizeEstateId(newEstateId);
             const valid = parsed
               .map((r: any) => normalizeSingleTransaction(r))
-              .filter((r: any) => isRegion || r.estate_id === newEstateId);
+              .filter((r: any) => isRegion || normalizeEstateId(r.estate_id) === normNewEstate);
             if (newEstateId === 'FPM_ADELA' || isRegion) {
               const baseline = generateAdelaBaselineTransactions();
               const baselineMap = new Map(baseline.map(b => [String(b.no_resit).toUpperCase(), b]));

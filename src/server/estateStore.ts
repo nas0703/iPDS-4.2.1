@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { normalizeEstateId } from '../config/estateRegistry.js';
 
 let DATA_DIR = path.join(process.cwd(), 'data');
 if (process.env.VERCEL || process.env.NOW_REGION) {
@@ -131,10 +132,12 @@ export function getReceiptEstate(record: any): string {
   // 3. Explicit estate_id in record object
   const rawEstate = String(record.estate_id || '').trim().toUpperCase();
   if (rawEstate) {
-    if (rawEstate === 'FPM_ADELA' || rawEstate === 'ADELA' || rawEstate === 'ADL') return 'FPM_ADELA';
-    if (rawEstate === 'FPM_KLEDANG' || rawEstate === 'KLEDANG' || rawEstate === 'KLD') return 'FPM_KLEDANG';
-    if (rawEstate === 'FPM_SENING' || rawEstate === 'SENING' || rawEstate === 'SNG') return 'FPM_SENING';
-    if (rawEstate === 'FPM_TUNGGAL' || rawEstate === 'TUNGGAL' || rawEstate === 'TGL') return 'FPM_TUNGGAL';
+    const normalized = normalizeEstateId(rawEstate);
+    if (normalized) return normalized;
+    if (rawEstate === 'FPM_ADELA' || rawEstate === 'ADELA' || rawEstate === 'ADL' || rawEstate === '5136') return 'FPM_ADELA';
+    if (rawEstate === 'FPM_KLEDANG' || rawEstate === 'KLEDANG' || rawEstate === 'KLD' || rawEstate === '5176') return 'FPM_KLEDANG';
+    if (rawEstate === 'FPM_SENING' || rawEstate === 'SENING' || rawEstate === 'SNG' || rawEstate === '5156') return 'FPM_SENING';
+    if (rawEstate === 'FPM_TUNGGAL' || rawEstate === 'TUNGGAL' || rawEstate === 'TGL' || rawEstate === '5155') return 'FPM_TUNGGAL';
     return rawEstate;
   }
 
