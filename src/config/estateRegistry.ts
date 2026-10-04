@@ -1321,18 +1321,21 @@ export function getEstateCodeFromId(estateId?: string | null): string {
 
 /**
  * Check if a user role has authority to view or switch multiple estates.
- * Strictly limited to Super Admin / Admin only.
+ *
+ * `isSuperAdminOverride` is set by the canonical client predicate
+ * (rbacService.isSuperAdmin) so that the FC Tunggal retains cross-estate
+ * authority independently of the currently selected UI estate.
  */
 export function canSwitchEstates(role?: string | null, isSuperAdminOverride = false): boolean {
   if (isSuperAdminOverride) return true;
   if (!role) return false;
   const r = role.toLowerCase().trim();
-  return ["superadmin", "super_admin", "admin"].includes(r);
+  if (["superadmin", "super_admin", "admin"].includes(r)) return true;
+  return ["rc", "oc", "pf"].includes(r);
 }
 
 /**
  * Get list of accessible estates based on user role and assigned estate
- * Only Super Admin / Admin can access all estates; all other staff are locked to their own estate.
  */
 export function getAccessibleEstatesForUser(
   role?: string | null,
@@ -1342,8 +1345,25 @@ export function getAccessibleEstatesForUser(
   if (isSuperAdminOverride || (role && ["superadmin", "super_admin", "admin"].includes(role.toLowerCase().trim()))) {
     return getAllEstatesList();
   }
+  if (!role) return [getEstateConfig(userEstateId)];
+  const r = role.toLowerCase().trim();
 
-  // All other staff are strictly locked to their assigned estate
+  // Regional Controller (RC) has access to all estates in Wilayah Johor Bahru
+  if (r === "rc") {
+    return getAllEstatesList();
+  }
+
+  // Operation Controller (OC) has access to all estates in Zon Adela
+  if (r === "oc") {
+    return getEstatesInZone("ZON_ADELA");
+  }
+
+  // Pengurus Felda (PF) has multi-estate audit view
+  if (r === "pf") {
+    return getEstatesInZone("ZON_ADELA");
+  }
+
+  // Estate-level staff (FC, AFC, FS, Staff, Mandur, EQI) are locked to their own estate
   const currentEstate = getEstateConfig(userEstateId);
   return [currentEstate];
 }
