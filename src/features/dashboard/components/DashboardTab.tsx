@@ -107,16 +107,7 @@ export const DashboardTab = (props: any) => {
   return (
     <>
 {/* TAB 2: DASHBOARD (Merged Summary + Analytics) */}
-            {activeTab === "dashboard" &&
-              (authRole === "rc" ||
-                authRole === "oc" ||
-                authRole === "pf" ||
-                authRole === "fc" ||
-                authRole === "afc" ||
-                authRole === "fs" ||
-                authRole === "eqi" ||
-                authRole === "mandur" ||
-                authRole === "staff") && (
+            {activeTab === "dashboard" && !!authRole && (
                 <div
                   id="dashboard-tab-container"
                   className="w-full min-h-[70vh]"

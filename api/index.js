@@ -9571,6 +9571,7 @@ import express7 from "express";
 init_auth();
 
 // src/server/estateStore.ts
+init_estateRegistry();
 import fs5 from "fs";
 import path5 from "path";
 var DATA_DIR2 = path5.join(process.cwd(), "data");
@@ -9637,10 +9638,12 @@ function getReceiptEstate(record) {
   }
   const rawEstate = String(record.estate_id || "").trim().toUpperCase();
   if (rawEstate) {
-    if (rawEstate === "FPM_ADELA" || rawEstate === "ADELA" || rawEstate === "ADL") return "FPM_ADELA";
-    if (rawEstate === "FPM_KLEDANG" || rawEstate === "KLEDANG" || rawEstate === "KLD") return "FPM_KLEDANG";
-    if (rawEstate === "FPM_SENING" || rawEstate === "SENING" || rawEstate === "SNG") return "FPM_SENING";
-    if (rawEstate === "FPM_TUNGGAL" || rawEstate === "TUNGGAL" || rawEstate === "TGL") return "FPM_TUNGGAL";
+    const normalized = normalizeEstateId(rawEstate);
+    if (normalized) return normalized;
+    if (rawEstate === "FPM_ADELA" || rawEstate === "ADELA" || rawEstate === "ADL" || rawEstate === "5136") return "FPM_ADELA";
+    if (rawEstate === "FPM_KLEDANG" || rawEstate === "KLEDANG" || rawEstate === "KLD" || rawEstate === "5176") return "FPM_KLEDANG";
+    if (rawEstate === "FPM_SENING" || rawEstate === "SENING" || rawEstate === "SNG" || rawEstate === "5156") return "FPM_SENING";
+    if (rawEstate === "FPM_TUNGGAL" || rawEstate === "TUNGGAL" || rawEstate === "TGL" || rawEstate === "5155") return "FPM_TUNGGAL";
     return rawEstate;
   }
   return "FPM_TUNGGAL";
@@ -11346,25 +11349,39 @@ router7.get("/hantaran", requireAuth, async (req, res) => {
     const rawTarget = queryEstate || String(req.estateId || "FPM_TUNGGAL").trim().toUpperCase();
     const targetEstate = rawTarget.trim().toUpperCase();
     const isAll = targetEstate === "ALL" || targetEstate === "WILAYAH_JB" || targetEstate === "WJB" || targetEstate === "0001";
+    const normTarget = normalizeEstateId(targetEstate);
     let allRecords = [];
-    const supabase = req.supabase || getScopedSupabase(req.rawToken);
-    if (supabase) {
+    const isPrivilegedUser = isSuperAdminIdentity(req.user) || req.authRole === "rc" || req.authRole === "oc" || req.authRole === "executive_hq";
+    const privilegedClient = getPrivilegedSupabase();
+    const scopedClient = req.supabase || getScopedSupabase(req.rawToken);
+    const primaryClient = isPrivilegedUser && (targetEstate !== req.user?.app_metadata?.estate_id || isAll) ? privilegedClient || scopedClient : scopedClient || privilegedClient;
+    const applyEstateFilter = (q) => {
+      if (isAll) return q;
+      if (normTarget === "FPM_ADELA") {
+        return q.or("estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%");
+      } else if (normTarget === "FPM_TUNGGAL") {
+        return q.or("estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%");
+      } else if (normTarget === "FPM_KLEDANG") {
+        return q.or("estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%");
+      } else if (normTarget === "FPM_SENING") {
+        return q.or("estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%");
+      }
+      return q.eq("estate_id", targetEstate);
+    };
+    if (primaryClient) {
       let start = 0;
       const limit = 1e3;
       let hasMore = true;
       try {
         while (hasMore) {
-          let query = supabase.from("hantaran_hasil").select("*").order("tarikh", { ascending: false });
-          if (!isAll) {
-            query = query.eq("estate_id", targetEstate);
-          }
+          let query = primaryClient.from("hantaran_hasil").select("*").order("tarikh", { ascending: false });
+          query = applyEstateFilter(query);
           let { data: records, error } = await query.range(start, start + limit - 1);
           if (error) {
             console.warn("Hantaran_hasil query notice:", error.message || error);
-            const priv = getPrivilegedSupabase();
-            if (priv) {
-              let pQuery = priv.from("hantaran_hasil").select("*").order("tarikh", { ascending: false });
-              if (!isAll) pQuery = pQuery.eq("estate_id", targetEstate);
+            if (privilegedClient && primaryClient !== privilegedClient) {
+              let pQuery = privilegedClient.from("hantaran_hasil").select("*").order("tarikh", { ascending: false });
+              pQuery = applyEstateFilter(pQuery);
               const pRes = await pQuery.range(start, start + limit - 1);
               records = pRes.data;
               error = pRes.error;
@@ -11387,43 +11404,74 @@ router7.get("/hantaran", requireAuth, async (req, res) => {
       } catch (ex) {
         console.warn("Hantaran_hasil query exception:", ex);
       }
-      if (allRecords.length === 0) {
+      if (allRecords.length === 0 && privilegedClient && primaryClient !== privilegedClient) {
         try {
-          const { data: altRecords } = await supabase.from("hantaran").select("*").order("created_at", { ascending: false }).limit(1e3);
-          if (altRecords && altRecords.length > 0) {
-            allRecords = altRecords;
+          let privQ = privilegedClient.from("hantaran_hasil").select("*").order("tarikh", { ascending: false }).limit(1e3);
+          privQ = applyEstateFilter(privQ);
+          const { data: privRecords } = await privQ;
+          if (Array.isArray(privRecords) && privRecords.length > 0) {
+            allRecords = privRecords;
           }
         } catch (_) {
         }
       }
-      const local = getLocalHantaran();
-      if (Array.isArray(local) && local.length > 0) {
-        const existingResits = new Set(allRecords.map((r) => String(r.no_resit || "").toUpperCase()));
-        for (const locRec of local) {
-          const resitKey = String(locRec.no_resit || "").toUpperCase();
-          if (resitKey && !existingResits.has(resitKey)) {
-            allRecords.push(locRec);
+      const clientForAlt = privilegedClient || primaryClient;
+      if (clientForAlt) {
+        for (const altTable of ["hantaran", "hantaran_resit"]) {
+          try {
+            let altQ = clientForAlt.from(altTable).select("*").order("created_at", { ascending: false }).limit(1e3);
+            altQ = applyEstateFilter(altQ);
+            const { data: altRecords } = await altQ;
+            if (Array.isArray(altRecords) && altRecords.length > 0) {
+              const existingResits = new Set(allRecords.map((r) => String(r.no_resit || "").toUpperCase()));
+              for (const r of altRecords) {
+                const k = String(r.no_resit || "").toUpperCase();
+                if (k && !existingResits.has(k)) {
+                  allRecords.push(r);
+                  existingResits.add(k);
+                }
+              }
+            }
+          } catch (_) {
+          }
+        }
+      }
+      if (normTarget === "FPM_TUNGGAL" || isAll) {
+        const local = getLocalHantaran();
+        if (Array.isArray(local) && local.length > 0) {
+          const existingResits = new Set(allRecords.map((r) => String(r.no_resit || "").toUpperCase()));
+          for (const locRec of local) {
+            const resitKey = String(locRec.no_resit || "").toUpperCase();
+            if (resitKey && !existingResits.has(resitKey)) {
+              allRecords.push(locRec);
+            }
           }
         }
       }
     } else {
-      allRecords = getLocalHantaran() || [];
-    }
-    const adelaBaseline = generateAdelaBaselineTransactions();
-    const baselineMap = new Map(adelaBaseline.map((b) => [String(b.no_resit).toUpperCase(), b]));
-    const seenBaselines = /* @__PURE__ */ new Set();
-    allRecords = allRecords.map((r) => {
-      const resitKey = String(r.no_resit || "").toUpperCase();
-      if (baselineMap.has(resitKey)) {
-        seenBaselines.add(resitKey);
-        return { ...r, ...baselineMap.get(resitKey) };
+      if (normTarget === "FPM_TUNGGAL" || isAll) {
+        allRecords = getLocalHantaran() || [];
+      } else {
+        allRecords = [];
       }
-      return r;
-    });
-    for (const bRec of adelaBaseline) {
-      const resitKey = String(bRec.no_resit || "").toUpperCase();
-      if (!seenBaselines.has(resitKey)) {
-        allRecords.push(bRec);
+    }
+    if (normTarget === "FPM_ADELA" || isAll) {
+      const adelaBaseline = generateAdelaBaselineTransactions();
+      const baselineMap = new Map(adelaBaseline.map((b) => [String(b.no_resit).toUpperCase(), b]));
+      const seenBaselines = /* @__PURE__ */ new Set();
+      allRecords = allRecords.map((r) => {
+        const resitKey = String(r.no_resit || "").toUpperCase();
+        if (baselineMap.has(resitKey)) {
+          seenBaselines.add(resitKey);
+          return { ...r, ...baselineMap.get(resitKey) };
+        }
+        return r;
+      });
+      for (const bRec of adelaBaseline) {
+        const resitKey = String(bRec.no_resit || "").toUpperCase();
+        if (!seenBaselines.has(resitKey)) {
+          allRecords.push(bRec);
+        }
       }
     }
     const classifiedRecords = allRecords.map((r) => {
@@ -11433,7 +11481,7 @@ router7.get("/hantaran", requireAuth, async (req, res) => {
         estate_id: estateId
       };
     });
-    const filtered = isAll ? classifiedRecords : classifiedRecords.filter((r) => r.estate_id === targetEstate);
+    const filtered = isAll ? classifiedRecords : classifiedRecords.filter((r) => normalizeEstateId(r.estate_id) === normTarget);
     res.json(filtered);
   } catch (err) {
     console.error("Fetch error:", err);

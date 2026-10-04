@@ -158,10 +158,10 @@ export function inferEstateFromReceipt(record: any): string {
 
   // 2. Fall back to explicit estate_id in record
   if (rawEstate) {
-    if (rawEstate === 'FPM_ADELA' || rawEstate === 'ADELA' || rawEstate === 'ADL') return 'FPM_ADELA';
-    if (rawEstate === 'FPM_KLEDANG' || rawEstate === 'KLEDANG' || rawEstate === 'KLD') return 'FPM_KLEDANG';
-    if (rawEstate === 'FPM_SENING' || rawEstate === 'SENING' || rawEstate === 'SNG') return 'FPM_SENING';
-    if (rawEstate === 'FPM_TUNGGAL' || rawEstate === 'TUNGGAL' || rawEstate === 'TGL') return 'FPM_TUNGGAL';
+    if (rawEstate === 'FPM_ADELA' || rawEstate === 'ADELA' || rawEstate === 'ADL' || rawEstate === '5136') return 'FPM_ADELA';
+    if (rawEstate === 'FPM_KLEDANG' || rawEstate === 'KLEDANG' || rawEstate === 'KLD' || rawEstate === '5176') return 'FPM_KLEDANG';
+    if (rawEstate === 'FPM_SENING' || rawEstate === 'SENING' || rawEstate === 'SNG' || rawEstate === '5156') return 'FPM_SENING';
+    if (rawEstate === 'FPM_TUNGGAL' || rawEstate === 'TUNGGAL' || rawEstate === 'TGL' || rawEstate === '5155') return 'FPM_TUNGGAL';
     return normalizeEstateId(rawEstate);
   }
 
@@ -172,5 +172,5 @@ export function inferEstateFromReceipt(record: any): string {
     return normalizedCandidate;
   }
 
-  return 'FPM_TUNGGAL';
+  return getActiveEstateId() || 'FPM_TUNGGAL';
 }

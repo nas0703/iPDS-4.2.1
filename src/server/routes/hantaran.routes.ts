@@ -1,9 +1,9 @@
 import express from 'express';
 import { getScopedSupabase, getWriteSupabase, getPrivilegedSupabase, isMissingTableError } from '../db.js';
 import { getLocalHantaran, saveLocalHantaran } from '../local.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, isSuperAdminIdentity } from '../middleware/auth.js';
 import { getReceiptEstate, setReceiptEstate } from '../estateStore.js';
-import { getEstateConfig, getBlockArea, getPktDisplayName } from '../../config/estateRegistry.js';
+import { getEstateConfig, getBlockArea, getPktDisplayName, normalizeEstateId } from '../../config/estateRegistry.js';
 import { generateAdelaBaselineTransactions } from '../../data/adelaBaselineDeliveries.js';
 import { cleanAndExtractBlockCode } from '../../utils/formatters.js';
 import { jobQueueService } from '../services/jobQueue.service.js';
@@ -407,11 +407,33 @@ router.get("/hantaran", requireAuth, async (req, res) => {
     const rawTarget = queryEstate || String(req.estateId || 'FPM_TUNGGAL').trim().toUpperCase();
     const targetEstate = rawTarget.trim().toUpperCase();
     const isAll = targetEstate === 'ALL' || targetEstate === 'WILAYAH_JB' || targetEstate === 'WJB' || targetEstate === '0001';
+    const normTarget = normalizeEstateId(targetEstate);
 
     let allRecords: HantaranRecord[] = [];
-    const supabase = req.supabase || getScopedSupabase(req.rawToken);
+    const isPrivilegedUser = isSuperAdminIdentity(req.user) || (req.authRole as string) === 'rc' || (req.authRole as string) === 'oc' || (req.authRole as string) === 'executive_hq';
+    
+    // Choose client: if cross-estate query by Super Admin/RC/OC, use privileged client to ensure PostgreSQL RLS doesn't mask other estates
+    const privilegedClient = getPrivilegedSupabase();
+    const scopedClient = req.supabase || getScopedSupabase(req.rawToken);
+    const primaryClient = (isPrivilegedUser && (targetEstate !== req.user?.app_metadata?.estate_id || isAll))
+      ? (privilegedClient || scopedClient)
+      : (scopedClient || privilegedClient);
 
-    if (supabase) {
+    const applyEstateFilter = (q: any) => {
+      if (isAll) return q;
+      if (normTarget === 'FPM_ADELA') {
+        return q.or('estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%');
+      } else if (normTarget === 'FPM_TUNGGAL') {
+        return q.or('estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%');
+      } else if (normTarget === 'FPM_KLEDANG') {
+        return q.or('estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%');
+      } else if (normTarget === 'FPM_SENING') {
+        return q.or('estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%');
+      }
+      return q.eq('estate_id', targetEstate);
+    };
+
+    if (primaryClient) {
       let start = 0;
       const limit = 1000;
       let hasMore = true;
@@ -419,24 +441,21 @@ router.get("/hantaran", requireAuth, async (req, res) => {
       // Tier 1: Query all records from hantaran_hasil
       try {
         while (hasMore) {
-          let query = supabase
+          let query = primaryClient
             .from('hantaran_hasil')
             .select('*')
             .order('tarikh', { ascending: false });
 
-          if (!isAll) {
-            query = query.eq('estate_id', targetEstate);
-          }
+          query = applyEstateFilter(query);
 
           let { data: records, error } = await query.range(start, start + limit - 1);
 
           if (error) {
             console.warn("Hantaran_hasil query notice:", error.message || error);
             // Resilient fallback with privileged client if scoped had decode issues
-            const priv = getPrivilegedSupabase();
-            if (priv) {
-              let pQuery = priv.from('hantaran_hasil').select('*').order('tarikh', { ascending: false });
-              if (!isAll) pQuery = pQuery.eq('estate_id', targetEstate);
+            if (privilegedClient && primaryClient !== privilegedClient) {
+              let pQuery = privilegedClient.from('hantaran_hasil').select('*').order('tarikh', { ascending: false });
+              pQuery = applyEstateFilter(pQuery);
               const pRes = await pQuery.range(start, start + limit - 1);
               records = pRes.data;
               error = pRes.error;
@@ -462,53 +481,81 @@ router.get("/hantaran", requireAuth, async (req, res) => {
         console.warn("Hantaran_hasil query exception:", ex);
       }
 
-      // Tier 2: Fallback to 'hantaran' table if 0 records
-      if (allRecords.length === 0) {
+      // If scoped client returned 0 records for a cross-estate query, try privileged client as fallback
+      if (allRecords.length === 0 && privilegedClient && primaryClient !== privilegedClient) {
         try {
-          const { data: altRecords } = await supabase
-            .from('hantaran')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(1000);
-          if (altRecords && altRecords.length > 0) {
-            allRecords = altRecords as HantaranRecord[];
+          let privQ = privilegedClient.from('hantaran_hasil').select('*').order('tarikh', { ascending: false }).limit(1000);
+          privQ = applyEstateFilter(privQ);
+          const { data: privRecords } = await privQ;
+          if (Array.isArray(privRecords) && privRecords.length > 0) {
+            allRecords = privRecords as HantaranRecord[];
           }
         } catch (_) {}
       }
 
-      // Tier 3: Merge local JSON backup records
-      const local = getLocalHantaran();
-      if (Array.isArray(local) && local.length > 0) {
-        const existingResits = new Set(allRecords.map(r => String(r.no_resit || '').toUpperCase()));
-        for (const locRec of (local as HantaranRecord[])) {
-          const resitKey = String(locRec.no_resit || '').toUpperCase();
-          if (resitKey && !existingResits.has(resitKey)) {
-            allRecords.push(locRec);
+      // Tier 2: Check fallback tables 'hantaran' and 'hantaran_resit'
+      const clientForAlt = privilegedClient || primaryClient;
+      if (clientForAlt) {
+        for (const altTable of ['hantaran', 'hantaran_resit']) {
+          try {
+            let altQ = clientForAlt.from(altTable).select('*').order('created_at', { ascending: false }).limit(1000);
+            altQ = applyEstateFilter(altQ);
+            const { data: altRecords } = await altQ;
+            if (Array.isArray(altRecords) && altRecords.length > 0) {
+              const existingResits = new Set(allRecords.map(r => String(r.no_resit || '').toUpperCase()));
+              for (const r of altRecords) {
+                const k = String(r.no_resit || '').toUpperCase();
+                if (k && !existingResits.has(k)) {
+                  allRecords.push(r as HantaranRecord);
+                  existingResits.add(k);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      // Tier 3: Merge local JSON backup records (ONLY for FPM_TUNGGAL or Region/ALL)
+      if (normTarget === 'FPM_TUNGGAL' || isAll) {
+        const local = getLocalHantaran();
+        if (Array.isArray(local) && local.length > 0) {
+          const existingResits = new Set(allRecords.map(r => String(r.no_resit || '').toUpperCase()));
+          for (const locRec of (local as HantaranRecord[])) {
+            const resitKey = String(locRec.no_resit || '').toUpperCase();
+            if (resitKey && !existingResits.has(resitKey)) {
+              allRecords.push(locRec);
+            }
           }
         }
       }
     } else {
-      allRecords = (getLocalHantaran() as HantaranRecord[]) || [];
+      if (normTarget === 'FPM_TUNGGAL' || isAll) {
+        allRecords = (getLocalHantaran() as HantaranRecord[]) || [];
+      } else {
+        allRecords = [];
+      }
     }
 
     // Tier 4: For FPM_ADELA (or region query), merge and override with official calibrated baseline records
-    const adelaBaseline = generateAdelaBaselineTransactions() as HantaranRecord[];
-    const baselineMap = new Map(adelaBaseline.map(b => [String(b.no_resit).toUpperCase(), b]));
-    const seenBaselines = new Set<string>();
+    if (normTarget === 'FPM_ADELA' || isAll) {
+      const adelaBaseline = generateAdelaBaselineTransactions() as HantaranRecord[];
+      const baselineMap = new Map(adelaBaseline.map(b => [String(b.no_resit).toUpperCase(), b]));
+      const seenBaselines = new Set<string>();
 
-    allRecords = allRecords.map(r => {
-      const resitKey = String(r.no_resit || '').toUpperCase();
-      if (baselineMap.has(resitKey)) {
-        seenBaselines.add(resitKey);
-        return { ...r, ...baselineMap.get(resitKey) };
-      }
-      return r;
-    });
+      allRecords = allRecords.map(r => {
+        const resitKey = String(r.no_resit || '').toUpperCase();
+        if (baselineMap.has(resitKey)) {
+          seenBaselines.add(resitKey);
+          return { ...r, ...baselineMap.get(resitKey) };
+        }
+        return r;
+      });
 
-    for (const bRec of adelaBaseline) {
-      const resitKey = String(bRec.no_resit || '').toUpperCase();
-      if (!seenBaselines.has(resitKey)) {
-        allRecords.push(bRec);
+      for (const bRec of adelaBaseline) {
+        const resitKey = String(bRec.no_resit || '').toUpperCase();
+        if (!seenBaselines.has(resitKey)) {
+          allRecords.push(bRec);
+        }
       }
     }
 
@@ -524,7 +571,7 @@ router.get("/hantaran", requireAuth, async (req, res) => {
     // Strictly filter records for the requested estate
     const filtered = isAll
       ? classifiedRecords
-      : classifiedRecords.filter(r => r.estate_id === targetEstate);
+      : classifiedRecords.filter(r => normalizeEstateId(r.estate_id) === normTarget);
 
     res.json(filtered);
   } catch (err: unknown) {

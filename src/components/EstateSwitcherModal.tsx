@@ -35,9 +35,9 @@ export const EstateSwitcherModal: React.FC<EstateSwitcherModalProps> = ({
   const accessibleEstates = getAccessibleEstatesForUser(authRole, activeEstateId, superAdmin);
 
   const handleSelect = (estate: EstateConfig) => {
-    if (!isAuthorizedToSwitch && estate.id !== activeEstateId) {
+    if (!superAdmin && !isAuthorizedToSwitch && estate.id !== activeEstateId) {
       if (showToast) {
-        showToast(`Akses dihadkan: Anda hanya dibenarkan melihat ladang ${getEstateConfig(activeEstateId).name}`, 'info');
+        showToast(`Akses dihadkan: Hanya Super Admin / Admin yang dibenarkan merentas ladang.`, 'error');
       }
       return;
     }

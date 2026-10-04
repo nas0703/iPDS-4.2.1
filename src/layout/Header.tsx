@@ -517,9 +517,13 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Estate Name & Hierarchy Tagline */}
               <div 
-                onClick={() => setShowEstateModal(true)}
-                className="flex flex-col gap-0.5 mt-0.5 group cursor-pointer"
-                title="Tekan untuk buka Pusat Kawalan Ladang / Zon FPM"
+                onClick={() => {
+                  if (isUserSuperAdmin) {
+                    setShowEstateModal(true);
+                  }
+                }}
+                className={`flex flex-col gap-0.5 mt-0.5 group ${isUserSuperAdmin ? 'cursor-pointer' : 'cursor-default'}`}
+                title={isUserSuperAdmin ? "Tekan untuk buka Pusat Kawalan Ladang / Zon FPM" : `${currentEstate.name} (${currentEstate.zoneName})`}
               >
                 <div className="flex items-center gap-1.5">
                   <h2 className={`text-[10px] xs:text-xs sm:text-sm font-black tracking-wider uppercase leading-tight whitespace-nowrap transition-colors ${
@@ -1031,43 +1035,6 @@ export const Header: React.FC<HeaderProps> = ({
                       </p>
 
                       <div className="space-y-1">
-                        {/* Fallback Pusat Kawalan Ladang for non-superadmin */}
-                        {!isUserSuperAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowUserMenu(false);
-                              setShowEstateModal(true);
-                            }}
-                            className={`w-full flex items-center justify-between p-2 rounded-xl transition-all group border cursor-pointer touch-manipulation active:scale-[0.98] ${
-                              isDarkMode
-                                ? "text-white bg-slate-950/70 border-emerald-500/30 hover:border-emerald-400 hover:bg-emerald-950/40"
-                                : "text-emerald-950 bg-white/90 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-100/60"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all ${
-                                isDarkMode ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-100 text-emerald-800"
-                              }`}>
-                                <Building2 size={13} className="text-emerald-400" />
-                              </div>
-                              <div className="text-left">
-                                <span className={`text-[9.5px] font-black uppercase tracking-wider block ${
-                                  isDarkMode ? "text-emerald-300" : "text-emerald-900"
-                                }`}>
-                                  Pusat Kawalan Ladang
-                                </span>
-                                <span className="text-[7.5px] text-slate-400 font-medium block">
-                                  {currentEstate.name} • {currentEstate.zoneName}
-                                </span>
-                              </div>
-                            </div>
-                            <span className="text-[7px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                              {currentEstate.shortName || "LADANG"}
-                            </span>
-                          </button>
-                        )}
-
                         {/* WeedVision™ AI Botani & Rumpai */}
                         <button
                           type="button"

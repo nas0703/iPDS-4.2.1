@@ -9,7 +9,7 @@ import {
   getHistoricalYieldData2025,
 } from "../../../utils/constants";
 import { getActiveEstateId } from "../../../utils/estateContext";
-import { getEstateConfig } from "../../../config/estateRegistry";
+import { getEstateConfig, normalizeEstateId } from "../../../config/estateRegistry";
 
 interface UseHasilAnalyticsProps {
   rawData: Transaction[];
@@ -128,22 +128,31 @@ export function useHasilAnalytics({
   activeEstateId: propEstateId,
 }: UseHasilAnalyticsProps) {
   const activeEstateId = propEstateId || getActiveEstateId();
-  const estateConfig = getEstateConfig(activeEstateId);
-  const isTunggal = activeEstateId === "FPM_TUNGGAL";
+  const normActiveEstate = normalizeEstateId(activeEstateId);
+  const isRegion = normActiveEstate === "WILAYAH_JB" || activeEstateId === "ALL" || activeEstateId === "WJB" || activeEstateId === "0001";
+  const estateConfig = getEstateConfig(normActiveEstate);
+  const isTunggal = normActiveEstate === "FPM_TUNGGAL";
   const currentMasterData = estateConfig?.blocks && Object.keys(estateConfig.blocks).length > 0
     ? estateConfig.blocks
     : (isTunggal ? MASTER_DATA : {});
   const currentMonthlyTargets = estateConfig?.monthlyTargets2026 && Object.keys(estateConfig.monthlyTargets2026).length > 0
     ? estateConfig.monthlyTargets2026
     : (isTunggal ? MONTHLY_TARGETS_2026 : {});
-  const currentYieldData2025 = getHistoricalYieldData2025(activeEstateId);
+  const currentYieldData2025 = getHistoricalYieldData2025(normActiveEstate);
+
+  // Strictly scope rawData so no records from other estates can mix into calculations
+  const scopedRawData = useMemo(() => {
+    if (!rawData || !Array.isArray(rawData)) return [];
+    if (isRegion) return rawData;
+    return rawData.filter((r) => normalizeEstateId(r.estate_id) === normActiveEstate);
+  }, [rawData, isRegion, normActiveEstate]);
 
   // Historical EFB transactions memo
   const historicalEfbTransactions = useMemo(() => {
     if (!isTunggal) return [];
     const transactions: Transaction[] = [];
     EFB_DATA_2026.forEach((monthRecord) => {
-      const hasRealEfb = (rawData || []).some(
+      const hasRealEfb = scopedRawData.some(
         (r) =>
           (r.peringkat === "EFB" ||
             (r as any).is_efb ||
@@ -167,12 +176,12 @@ export function useHasilAnalytics({
       }
     });
     return transactions;
-  }, [rawData, isTunggal]);
+  }, [scopedRawData, isTunggal]);
 
   // Combined raw data + EFB history
   const combinedData = useMemo(() => {
-    return [...(rawData || []), ...historicalEfbTransactions];
-  }, [rawData, historicalEfbTransactions]);
+    return [...scopedRawData, ...historicalEfbTransactions];
+  }, [scopedRawData, historicalEfbTransactions]);
 
   // Comprehensive analytics calculation
   const analytics = useMemo(() => {
@@ -704,11 +713,6 @@ export function useHasilAnalytics({
           .split("T")[0];
       }
       if (!itemDate) return false;
-      const todayKiosk = getTodayDateString();
-      const currentCalMonth = todayKiosk.slice(0, 7);
-      if (currentMonth === currentCalMonth) {
-        return itemDate.startsWith(currentMonth) && itemDate <= todayKiosk;
-      }
       return itemDate.startsWith(currentMonth);
     };
 
@@ -722,7 +726,7 @@ export function useHasilAnalytics({
           .split("T")[0];
       }
       if (!itemDate) return false;
-      return itemDate.startsWith(currentYear) && itemDate <= todayStr;
+      return itemDate.startsWith(currentYear);
     };
 
     const dataToday = combinedData.filter(isToday);

@@ -483,7 +483,18 @@ export function useTransactionState({
               .order('created_at', { ascending: false });
 
             if (!isAll) {
-              query = query.eq('estate_id', activeEstate);
+              const normActive = normalizeEstateId(activeEstate);
+              if (normActive === 'FPM_ADELA') {
+                query = query.or('estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%');
+              } else if (normActive === 'FPM_TUNGGAL') {
+                query = query.or('estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%');
+              } else if (normActive === 'FPM_KLEDANG') {
+                query = query.or('estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%');
+              } else if (normActive === 'FPM_SENING') {
+                query = query.or('estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%');
+              } else {
+                query = query.eq('estate_id', activeEstate);
+              }
             }
 
             const { data: sbRecords, error: sbErr } = await query.range(start, start + limit - 1);
@@ -783,10 +794,17 @@ export function useTransactionState({
         (payload) => {
           if (payload.eventType === "INSERT") {
             setRawData((prev) => {
-              const exists = prev.find((p) => p.id === payload.new.id);
+              const activeEstate = getActiveEstateId();
+              const isAll = activeEstate === 'ALL' || activeEstate === 'WILAYAH_JB' || activeEstate === 'WJB' || activeEstate === '0001';
+              const normActive = normalizeEstateId(activeEstate);
+              const normalized = normalizeSingleTransaction(payload.new);
+              if (!isAll && normalizeEstateId(normalized.estate_id) !== normActive) {
+                return prev;
+              }
+              const exists = prev.find((p) => p.id === payload.new.id || p.no_resit === normalized.no_resit);
               if (exists) return prev;
               showToast("success", `Data baru: Resit ${payload.new.no_resit}`);
-              return [normalizeSingleTransaction(payload.new), ...prev];
+              return [normalized, ...prev];
             });
           }
           if (payload.eventType === "DELETE") {
@@ -794,11 +812,18 @@ export function useTransactionState({
             showToast("error", "Rekod telah dipadam.");
           }
           if (payload.eventType === "UPDATE") {
-            setRawData((prev) =>
-              prev.map((p) =>
-                p.id === payload.new.id ? normalizeSingleTransaction(payload.new) : p
-              )
-            );
+            setRawData((prev) => {
+              const activeEstate = getActiveEstateId();
+              const isAll = activeEstate === 'ALL' || activeEstate === 'WILAYAH_JB' || activeEstate === 'WJB' || activeEstate === '0001';
+              const normActive = normalizeEstateId(activeEstate);
+              const normalized = normalizeSingleTransaction(payload.new);
+              if (!isAll && normalizeEstateId(normalized.estate_id) !== normActive) {
+                return prev.filter((p) => p.id !== payload.new.id);
+              }
+              return prev.map((p) =>
+                p.id === payload.new.id ? normalized : p
+              );
+            });
             showToast("success", `Rekod dikemaskini: Resit ${payload.new.no_resit}`);
           }
         }
