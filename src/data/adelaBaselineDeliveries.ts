@@ -137,16 +137,10 @@ export function generateAdelaBaselineTransactions(): Transaction[] {
   const lorries = ["JTG4421", "JQR8823", "JPM1902", "JTK9031", "JNA5540", "JSD2291"];
 
   ADELA_BLOCK_PERINCIAN.forEach((blockItem) => {
-    blockItem.monthlyTons.forEach((ton, mIdx) => {
-      let dateStr = monthDates[mIdx] || `2026-0${mIdx + 1}-15`;
-      
-      // For October (mIdx === 9), distribute dates up to current date 2026-10-04 so both Hari Ini & Bulan Ini are populated
-      if (mIdx === 9) {
-        const octDays = ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"];
-        const numPart = parseInt(blockItem.blok.replace(/\D/g, '') || '1', 10);
-        dateStr = octDays[numPart % octDays.length];
-      }
-
+    // Only generate baseline transactions for historical completed months (Jan - Aug 2026, 8 months)
+    // September and October are live months populated solely by real scanned receipts in the database
+    blockItem.monthlyTons.slice(0, 8).forEach((ton, mIdx) => {
+      const dateStr = monthDates[mIdx] || `2026-0${mIdx + 1}-15`;
       const lorry = lorries[(mIdx + parseInt(blockItem.blok.replace(/\D/g, '') || '1', 10)) % lorries.length];
       const monthNumStr = String(mIdx + 1).padStart(2, '0');
       const receiptNo = `ADL-2026-M${monthNumStr}-${blockItem.blok.toUpperCase()}`;

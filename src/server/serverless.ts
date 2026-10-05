@@ -212,6 +212,7 @@ apiRouter.use(hantaranRoutes);
 apiRouter.use(hasilRoutes);
 apiRouter.use(penggredanRoutes);
 apiRouter.use(fertilizerRoutes);
+apiRouter.use(hujanRoutes);
 apiRouter.use(settingsRoutes);
 
 // Health check endpoints on apiRouter

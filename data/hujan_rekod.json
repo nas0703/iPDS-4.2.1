@@ -1,11 +1,19 @@
 {
   "records": [
     {
+      "id": "debefcb9-ff17-479b-8316-f27375523b7f",
       "bulan": "JAN",
-      "tahun": 2026,
+      "tahun": "2026",
       "jumlah": 120,
+      "created_at": "2026-10-05T03:47:02.697+00:00",
+      "estate_id": "FPM_TUNGGAL"
+    },
+    {
+      "bulan": "FEB",
+      "tahun": 2026,
+      "jumlah": 67,
       "estate_id": "FPM_TUNGGAL",
-      "updated_at": "2026-10-04T12:57:20.547Z"
+      "updated_at": "2026-10-05T00:57:27.776Z"
     }
   ]
 }

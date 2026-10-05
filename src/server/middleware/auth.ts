@@ -283,15 +283,15 @@ export function requireRole(allowedRoles: AuthRole[]) {
             method: req.method
           },
           allowedRoles,
-          user.app_metadata.app_role
+          effectiveRole
         );
 
         return res.status(403).json({
           success: false,
-          error: `Akses dinafikan: Peranan '${user.app_metadata.app_role}' tidak dibenarkan untuk tindakan ini. Diperlukan salah satu: ${allowedRoles.join(', ')}`,
+          error: `Akses dinafikan: Peranan '${effectiveRole}' tidak dibenarkan untuk tindakan ini. Diperlukan salah satu: ${allowedRoles.join(', ')}`,
           code: 'FORBIDDEN',
           requiredRoles: allowedRoles,
-          currentRole: user.app_metadata.app_role
+          currentRole: effectiveRole
         });
       }
 
@@ -369,8 +369,8 @@ export function validateTenantAccess(req: Request, res: Response): boolean {
   const user = req.user;
   if (!user) return true;
 
-  const userRole = (user.app_metadata.app_role || '').toLowerCase();
-  const userEstate = (user.app_metadata.estate_id || 'FPM_TUNGGAL').trim().toUpperCase();
+  const userRole = (user.app_metadata?.app_role || (user as any).app_role || (user as any).role || req.authRole || '').toLowerCase();
+  const userEstate = (user.app_metadata?.estate_id || (user as any).estate_id || (user as any).estate || req.estateId || 'FPM_TUNGGAL').trim().toUpperCase();
 
   // Extract requested estate from headers, body, or query
   let bodyEstate: string | undefined = undefined;
@@ -411,9 +411,9 @@ export function validateTenantAccess(req: Request, res: Response): boolean {
             user: user ? {
               sub: user.sub,
               app_metadata: {
-                operator_id: user.app_metadata.operator_id,
-                app_role: user.app_metadata.app_role,
-                estate_id: user.app_metadata.estate_id
+                operator_id: user.app_metadata?.operator_id,
+                app_role: user.app_metadata?.app_role || userRole,
+                estate_id: user.app_metadata?.estate_id || userEstate
               },
               user_metadata: {
                 operator_name: user.user_metadata?.operator_name
@@ -444,9 +444,9 @@ export function validateTenantAccess(req: Request, res: Response): boolean {
           user: user ? {
             sub: user.sub,
             app_metadata: {
-              operator_id: user.app_metadata.operator_id,
-              app_role: user.app_metadata.app_role,
-              estate_id: user.app_metadata.estate_id
+              operator_id: user.app_metadata?.operator_id,
+              app_role: user.app_metadata?.app_role || userRole,
+              estate_id: user.app_metadata?.estate_id || userEstate
             },
             user_metadata: {
               operator_name: user.user_metadata?.operator_name

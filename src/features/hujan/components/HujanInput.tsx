@@ -55,9 +55,9 @@ export const HujanInput: React.FC<{ onSuccess: () => void; onAddHujan: (bulan: s
         setErrorMsg("");
         onSuccess();
       }, 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setErrorMsg("Ralat sistem berlaku.");
+      setErrorMsg(err?.message || "Ralat sistem berlaku.");
     } finally {
       setIsSubmitting(false);
     }

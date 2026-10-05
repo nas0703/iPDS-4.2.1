@@ -9654,33 +9654,32 @@ init_estateRegistry();
 
 // src/data/adelaBaselineDeliveries.ts
 var ADELA_BLOCK_PERINCIAN = [
-  // --- PKT 1 (Blok 1 - 11) ---
-  // September yield target/achievement for Pkt 1 = 0.43 T/Ha across 613.64 Ha (Total 263.86 MT)
-  { blok: "1", peringkat: "PKT 001", luas: 30.46, augustTon: 38.38, cumulativeTon: 361.26, monthlyTons: [43.1, 41.5, 48, 45.2, 47.8, 48.28, 49, 38.38, 13.1] },
-  { blok: "2", peringkat: "PKT 001", luas: 58.07, augustTon: 136.86, cumulativeTon: 903.97, monthlyTons: [102.5, 98.4, 114.2, 108.6, 118, 115.4, 110.01, 136.86, 24.97] },
-  { blok: "3", peringkat: "PKT 001", luas: 45.91, augustTon: 76.21, cumulativeTon: 625.75, monthlyTons: [74.2, 71.8, 81.3, 78.4, 83.2, 80.64, 80, 76.21, 19.74] },
-  { blok: "4", peringkat: "PKT 001", luas: 57.89, augustTon: 95.52, cumulativeTon: 861.43, monthlyTons: [103, 99.2, 113.8, 107.5, 117.2, 114.61, 110.6, 95.52, 24.89] },
-  { blok: "5", peringkat: "PKT 001", luas: 60.05, augustTon: 91.88, cumulativeTon: 837.1, monthlyTons: [101.2, 97.5, 111, 104.8, 113.5, 111.22, 106, 91.88, 25.82] },
-  { blok: "6", peringkat: "PKT 001", luas: 64.64, augustTon: 94.37, cumulativeTon: 791.79, monthlyTons: [95, 91.2, 104.5, 98.6, 107.4, 105.72, 95, 94.37, 27.8] },
-  { blok: "7", peringkat: "PKT 001", luas: 68.17, augustTon: 101.57, cumulativeTon: 822.82, monthlyTons: [98.2, 94.5, 108, 101.8, 111, 107.06, 100.69, 101.57, 29.31] },
-  { blok: "8", peringkat: "PKT 001", luas: 77.53, augustTon: 188.12, cumulativeTon: 1304.55, monthlyTons: [151, 145.2, 166.4, 158, 172, 163.83, 160, 188.12, 33.34] },
-  { blok: "9", peringkat: "PKT 001", luas: 64.04, augustTon: 108.87, cumulativeTon: 832.52, monthlyTons: [99, 95.1, 109, 102.5, 112, 106.05, 100, 108.87, 27.54] },
-  { blok: "10", peringkat: "PKT 001", luas: 63.01, augustTon: 139.05, cumulativeTon: 912.81, monthlyTons: [105, 101.2, 116.5, 109.8, 120, 111.26, 110, 139.05, 27.09] },
-  { blok: "11", peringkat: "PKT 001", luas: 23.87, augustTon: 39.86, cumulativeTon: 287.87, monthlyTons: [34, 32.5, 37.2, 35, 38.5, 35.81, 35, 39.86, 10.26] },
-  // --- PKT 2 (Blok 1 - 6 -> disistemkan sebagai 12 - 17) ---
-  { blok: "12", peringkat: "PKT 002", luas: 59.93, augustTon: 91.34, cumulativeTon: 693.64, monthlyTons: [84, 81.2, 92.5, 87, 93.4, 84.2, 80, 91.34, 14.4] },
-  { blok: "13", peringkat: "PKT 002", luas: 60.47, augustTon: 84.66, cumulativeTon: 912.81, monthlyTons: [116, 112, 128, 120.5, 130, 118.15, 103.5, 84.66, 14.5] },
-  { blok: "14", peringkat: "PKT 002", luas: 40.4, augustTon: 54.14, cumulativeTon: 500.16, monthlyTons: [62, 59.8, 68.4, 64.2, 69.5, 62.12, 60, 54.14, 9.7] },
-  { blok: "15", peringkat: "PKT 002", luas: 48.41, augustTon: 55.67, cumulativeTon: 557.65, monthlyTons: [70, 67.5, 77.2, 72.8, 77.5, 76.98, 60, 55.67, 11.6] },
-  { blok: "16", peringkat: "PKT 002", luas: 67.76, augustTon: 91.73, cumulativeTon: 788.98, monthlyTons: [98, 94.5, 108, 101.5, 109.8, 95.45, 90, 91.73, 16.2] },
-  { blok: "17", peringkat: "PKT 002", luas: 56.45, augustTon: 92.58, cumulativeTon: 781.19, monthlyTons: [96, 92.8, 106, 99.8, 108.2, 95.81, 90, 92.58, 13.5] },
-  // --- LOT FELDA (1F & 2F) ---
-  { blok: "1F", peringkat: "LOT FELDA", luas: 39.81, augustTon: 25.66, cumulativeTon: 259.52, monthlyTons: [32, 30.5, 35.2, 33, 36, 32.38, 34.78, 25.66, 3.2] },
-  { blok: "2F", peringkat: "LOT FELDA", luas: 38.23, augustTon: 21.94, cumulativeTon: 244.62, monthlyTons: [31, 29.5, 34, 31.8, 34.5, 32.08, 29.8, 21.94, 2.9] },
-  // --- LOT TAMBAHAN (125Y, 128Y, 121V) ---
-  { blok: "125Y", peringkat: "PKT 004", luas: 8.06, augustTon: 14.39, cumulativeTon: 120.83, monthlyTons: [15, 14.2, 16.5, 15.2, 16.8, 14.69, 14.05, 14.39, 1.1] },
-  { blok: "128Y", peringkat: "PKT 004", luas: 4.04, augustTon: 8.68, cumulativeTon: 61.32, monthlyTons: [7.5, 7.1, 8.2, 7.6, 8.4, 7.84, 6, 8.68, 1.4] },
-  { blok: "121V", peringkat: "PKT 004", luas: 4.02, augustTon: 4.98, cumulativeTon: 30.31, monthlyTons: [3.6, 3.4, 4, 3.7, 4.1, 3.53, 3, 4.98, 1.2] }
+  // --- PKT 1 (Blok 1 - 11) --- Total 1,104.56 MT (1.80 T/Ha) in October
+  { blok: "1", peringkat: "PKT 001", luas: 30.46, augustTon: 38.38, cumulativeTon: 361.26, monthlyTons: [43.1, 41.5, 48, 45.2, 47.8, 48.28, 49, 38.38, 13.1, 54.83] },
+  { blok: "2", peringkat: "PKT 001", luas: 58.07, augustTon: 136.86, cumulativeTon: 903.97, monthlyTons: [102.5, 98.4, 114.2, 108.6, 118, 115.4, 110.01, 136.86, 24.97, 104.53] },
+  { blok: "3", peringkat: "PKT 001", luas: 45.91, augustTon: 76.21, cumulativeTon: 625.75, monthlyTons: [74.2, 71.8, 81.3, 78.4, 83.2, 80.64, 80, 76.21, 19.74, 82.64] },
+  { blok: "4", peringkat: "PKT 001", luas: 57.89, augustTon: 95.52, cumulativeTon: 861.43, monthlyTons: [103, 99.2, 113.8, 107.5, 117.2, 114.61, 110.6, 95.52, 24.89, 104.2] },
+  { blok: "5", peringkat: "PKT 001", luas: 60.05, augustTon: 91.88, cumulativeTon: 837.1, monthlyTons: [101.2, 97.5, 111, 104.8, 113.5, 111.22, 106, 91.88, 25.82, 108.09] },
+  { blok: "6", peringkat: "PKT 001", luas: 64.64, augustTon: 94.37, cumulativeTon: 791.79, monthlyTons: [95, 91.2, 104.5, 98.6, 107.4, 105.72, 95, 94.37, 27.8, 116.35] },
+  { blok: "7", peringkat: "PKT 001", luas: 68.17, augustTon: 101.57, cumulativeTon: 822.82, monthlyTons: [98.2, 94.5, 108, 101.8, 111, 107.06, 100.69, 101.57, 29.31, 122.71] },
+  { blok: "8", peringkat: "PKT 001", luas: 77.53, augustTon: 188.12, cumulativeTon: 1304.55, monthlyTons: [151, 145.2, 166.4, 158, 172, 163.83, 160, 188.12, 33.34, 139.55] },
+  { blok: "9", peringkat: "PKT 001", luas: 64.04, augustTon: 108.87, cumulativeTon: 832.52, monthlyTons: [99, 95.1, 109, 102.5, 112, 106.05, 100, 108.87, 27.54, 115.27] },
+  { blok: "10", peringkat: "PKT 001", luas: 63.01, augustTon: 139.05, cumulativeTon: 912.81, monthlyTons: [105, 101.2, 116.5, 109.8, 120, 111.26, 110, 139.05, 27.09, 113.42] },
+  { blok: "11", peringkat: "PKT 001", luas: 23.87, augustTon: 39.86, cumulativeTon: 287.87, monthlyTons: [34, 32.5, 37.2, 35, 38.5, 35.81, 35, 39.86, 10.26, 42.97] },
+  // --- PKT 2 (Blok 1 - 6 -> disistemkan sebagai 12 - 17) --- Total 476.79 MT (1.43 T/Ha) in October
+  { blok: "12", peringkat: "PKT 002", luas: 59.93, augustTon: 91.34, cumulativeTon: 693.64, monthlyTons: [84, 81.2, 92.5, 87, 93.4, 84.2, 80, 91.34, 14.4, 85.7] },
+  { blok: "13", peringkat: "PKT 002", luas: 60.47, augustTon: 84.66, cumulativeTon: 912.81, monthlyTons: [116, 112, 128, 120.5, 130, 118.15, 103.5, 84.66, 14.5, 86.47] },
+  { blok: "14", peringkat: "PKT 002", luas: 40.4, augustTon: 54.14, cumulativeTon: 500.16, monthlyTons: [62, 59.8, 68.4, 64.2, 69.5, 62.12, 60, 54.14, 9.7, 57.77] },
+  { blok: "15", peringkat: "PKT 002", luas: 48.41, augustTon: 55.67, cumulativeTon: 557.65, monthlyTons: [70, 67.5, 77.2, 72.8, 77.5, 76.98, 60, 55.67, 11.6, 69.23] },
+  { blok: "16", peringkat: "PKT 002", luas: 67.76, augustTon: 91.73, cumulativeTon: 788.98, monthlyTons: [98, 94.5, 108, 101.5, 109.8, 95.45, 90, 91.73, 16.2, 96.9] },
+  { blok: "17", peringkat: "PKT 002", luas: 56.45, augustTon: 92.58, cumulativeTon: 781.19, monthlyTons: [96, 92.8, 106, 99.8, 108.2, 95.81, 90, 92.58, 13.5, 80.72] },
+  // --- LOT FELDA (1F & 2F) --- Total 47.60 MT (0.61 T/Ha) in October
+  { blok: "1F", peringkat: "LOT FELDA", luas: 39.81, augustTon: 25.66, cumulativeTon: 259.52, monthlyTons: [32, 30.5, 35.2, 33, 36, 32.38, 34.78, 25.66, 3.2, 24.28] },
+  { blok: "2F", peringkat: "LOT FELDA", luas: 38.23, augustTon: 21.94, cumulativeTon: 244.62, monthlyTons: [31, 29.5, 34, 31.8, 34.5, 32.08, 29.8, 21.94, 2.9, 23.32] },
+  // --- LOT TAMBAHAN (125Y, 128Y, 121V) --- Total 28.05 MT (1.74 T/Ha) in October
+  { blok: "125Y", peringkat: "PKT 004", luas: 8.06, augustTon: 14.39, cumulativeTon: 120.83, monthlyTons: [15, 14.2, 16.5, 15.2, 16.8, 14.69, 14.05, 14.39, 1.1, 14.02] },
+  { blok: "128Y", peringkat: "PKT 004", luas: 4.04, augustTon: 8.68, cumulativeTon: 61.32, monthlyTons: [7.5, 7.1, 8.2, 7.6, 8.4, 7.84, 6, 8.68, 1.4, 7.03] },
+  { blok: "121V", peringkat: "PKT 004", luas: 4.02, augustTon: 4.98, cumulativeTon: 30.31, monthlyTons: [3.6, 3.4, 4, 3.7, 4.1, 3.53, 3, 4.98, 1.2, 7] }
 ];
 function generateAdelaBaselineTransactions() {
   const transactions = [];
@@ -9692,14 +9691,17 @@ function generateAdelaBaselineTransactions() {
     "2026-05-21",
     "2026-06-20",
     "2026-07-24",
-    "2026-08-25"
+    "2026-08-25",
+    "2026-09-22",
+    "2026-10-04"
   ];
   const lorries = ["JTG4421", "JQR8823", "JPM1902", "JTK9031", "JNA5540", "JSD2291"];
   ADELA_BLOCK_PERINCIAN.forEach((blockItem) => {
     blockItem.monthlyTons.slice(0, 8).forEach((ton, mIdx) => {
       const dateStr = monthDates[mIdx] || `2026-0${mIdx + 1}-15`;
-      const lorry = lorries[(mIdx + parseInt(blockItem.blok.replace(/\D/g, "") || "1")) % lorries.length];
-      const receiptNo = `ADL-2026-M0${mIdx + 1}-${blockItem.blok.toUpperCase()}`;
+      const lorry = lorries[(mIdx + parseInt(blockItem.blok.replace(/\D/g, "") || "1", 10)) % lorries.length];
+      const monthNumStr = String(mIdx + 1).padStart(2, "0");
+      const receiptNo = `ADL-2026-M${monthNumStr}-${blockItem.blok.toUpperCase()}`;
       const kpg = mIdx >= 3 ? "21.50" : "21.20";
       const rmMt = 780 + mIdx * 15;
       const hasilRm = parseFloat((ton * rmMt).toFixed(2));
@@ -9707,7 +9709,7 @@ function generateAdelaBaselineTransactions() {
         no_resit: receiptNo,
         no_akaun_terima: `ADL-${blockItem.blok}`,
         no_lori: lorry,
-        no_nota_hantaran: `NH-ADL-0${mIdx + 1}-${blockItem.blok}`,
+        no_nota_hantaran: `NH-ADL-${monthNumStr}-${blockItem.blok}`,
         kpg,
         blok: blockItem.blok,
         peringkat: blockItem.peringkat,

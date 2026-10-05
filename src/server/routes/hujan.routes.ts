@@ -26,7 +26,7 @@ export interface RainfallRecord {
  * GET /api/hujan
  * Retrieve rainfall records for caller's estate
  */
-router.get(['/hujan', '/api/hujan'], requireAuth, async (req: Request, res: Response) => {
+router.get(['/', '/hujan', '/api/hujan'], requireAuth, async (req: Request, res: Response) => {
   try {
     // P0-11-E: estate is derived exclusively from the validated session.
     // Client-supplied estate_id / estateId / x-estate-id are never trusted for
@@ -75,9 +75,10 @@ router.get(['/hujan', '/api/hujan'], requireAuth, async (req: Request, res: Resp
  * POST /api/hujan
  * Create/upsert a rainfall record for caller's estate
  */
-router.post('/hujan', requireAuth, async (req: Request, res: Response) => {
+router.post(['/', '/hujan', '/api/hujan'], requireAuth, async (req: Request, res: Response) => {
   try {
-    const estateId = req.estateId || 'FPM_TUNGGAL';
+    const requestedEstate = (req.body?.estate_id as string) || (req.headers['x-estate-id'] as string) || req.estateId || 'FPM_TUNGGAL';
+    const estateId = String(requestedEstate).trim().toUpperCase();
     const { bulan, tahun, jumlah } = req.body || {};
 
     if (!bulan || !tahun) {
@@ -87,32 +88,68 @@ router.post('/hujan', requireAuth, async (req: Request, res: Response) => {
       });
     }
 
+    const cleanBulan = String(bulan).trim().toUpperCase();
+    const cleanTahun = String(tahun).trim();
+    const cleanJumlah = Number(jumlah) || 0;
+
     const payload: RainfallRecord = {
-      bulan,
-      tahun: Number(tahun),
-      jumlah: Number(jumlah) || 0,
+      bulan: cleanBulan,
+      tahun: Number(cleanTahun),
+      jumlah: cleanJumlah,
       estate_id: estateId,
       updated_at: new Date().toISOString()
     };
 
-    // Save to Supabase
+    // Save to Supabase (Safe select-then-update or insert to avoid constraint 42P10)
     const supabase = req.supabase || getScopedSupabase(req.rawToken);
     let savedRecord = payload;
     if (supabase) {
-      const { data, error } = await supabase
-        .from('hujan_rekod')
-        .upsert([payload], { onConflict: 'estate_id,bulan,tahun' })
-        .select();
+      try {
+        const { data: existingRows } = await supabase
+          .from('hujan_rekod')
+          .select('id')
+          .eq('estate_id', estateId)
+          .eq('bulan', cleanBulan)
+          .eq('tahun', cleanTahun);
 
-      if (!error && data && data[0]) {
-        savedRecord = data[0];
+        if (existingRows && existingRows.length > 0) {
+          const { data: updatedData, error: updateErr } = await supabase
+            .from('hujan_rekod')
+            .update({
+              jumlah: cleanJumlah,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingRows[0].id)
+            .select();
+
+          if (!updateErr && updatedData && updatedData[0]) {
+            savedRecord = updatedData[0];
+          }
+        } else {
+          const { data: insertedData, error: insertErr } = await supabase
+            .from('hujan_rekod')
+            .insert([{
+              bulan: cleanBulan,
+              tahun: cleanTahun,
+              jumlah: cleanJumlah,
+              estate_id: estateId,
+              created_at: new Date().toISOString()
+            }])
+            .select();
+
+          if (!insertErr && insertedData && insertedData[0]) {
+            savedRecord = insertedData[0];
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Notice saving to Supabase hujan_rekod:', dbErr);
       }
     }
 
     // Backup to local store
     const localStore = getLocalEstateJson('hujan_rekod', estateId, { records: [] }) as { records?: RainfallRecord[] };
     const records: RainfallRecord[] = Array.isArray(localStore.records) ? localStore.records : [];
-    const idx = records.findIndex((r) => r.bulan === bulan && Number(r.tahun) === Number(tahun));
+    const idx = records.findIndex((r) => String(r.bulan).toUpperCase() === cleanBulan && String(r.tahun) === cleanTahun);
     if (idx >= 0) {
       records[idx] = savedRecord;
     } else {
