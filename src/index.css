@@ -70,3 +70,15 @@
     background: #ffffff !important;
   }
 }
+
+/* Date input clear button and icon accessibility */
+input[type="date"]::-webkit-clear-button {
+  display: inline-block;
+  cursor: pointer;
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+

@@ -2394,42 +2394,197 @@ const LaporanBacklogViewComponent: React.FC = () => {
                 )}
 
                 {/* DATES GRID */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[8px] font-black uppercase text-slate-400 mb-1">Pus 1 Mula</label>
-                    <input 
-                      type="date"
-                      value={editForm.pus1_mula}
-                      onChange={(e) => setEditForm({ ...editForm, pus1_mula: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
+                      Tarikh Pusingan (Pus)
+                    </span>
+                    {(editForm.pus1_mula || editForm.pus1_tamat || editForm.pus2_mula || editForm.pus2_tamat) && (
+                      <button
+                        type="button"
+                        onClick={() => setEditForm(prev => ({
+                          ...prev,
+                          pus1_mula: "",
+                          pus1_tamat: "",
+                          pus2_mula: "",
+                          pus2_tamat: ""
+                        }))}
+                        className="text-[8px] font-bold text-rose-500 hover:text-rose-400 flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 cursor-pointer"
+                        title="Kosongkan semua tarikh mula dan tamat pusingan"
+                      >
+                        <X size={10} /> Padam Semua Tarikh
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-[8px] font-black uppercase text-slate-400 mb-1">Pus 1 Tamat</label>
-                    <input 
-                      type="date"
-                      value={editForm.pus1_tamat}
-                      onChange={(e) => setEditForm({ ...editForm, pus1_tamat: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black uppercase text-slate-400 mb-1">Pus 2 Mula</label>
-                    <input 
-                      type="date"
-                      value={editForm.pus2_mula}
-                      onChange={(e) => setEditForm({ ...editForm, pus2_mula: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black uppercase text-slate-400 mb-1">Pus 2 Tamat</label>
-                    <input 
-                      type="date"
-                      value={editForm.pus2_tamat}
-                      onChange={(e) => setEditForm({ ...editForm, pus2_tamat: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* PUS 1 MULA */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[8px] font-black uppercase text-slate-400">Pus 1 Mula</label>
+                        {editForm.pus1_mula && (
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(prev => ({ ...prev, pus1_mula: "" }))}
+                            className="text-[8px] font-bold text-rose-500 hover:text-rose-400 flex items-center gap-0.5 px-1 py-0.2 rounded hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Padam tarikh Pus 1 Mula"
+                          >
+                            <X size={9} /> Padam
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative flex items-center">
+                        <input 
+                          type="date"
+                          value={editForm.pus1_mula}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, pus1_mula: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' || e.key === 'Delete') {
+                              e.preventDefault();
+                              setEditForm(prev => ({ ...prev, pus1_mula: "" }));
+                            }
+                          }}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-3 pr-8 py-2 text-xs text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                        {editForm.pus1_mula && (
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(prev => ({ ...prev, pus1_mula: "" }))}
+                            title="Padam tarikh Pus 1 Mula"
+                            aria-label="Padam tarikh Pus 1 Mula"
+                            className="absolute right-7 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors z-10 cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* PUS 1 TAMAT */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[8px] font-black uppercase text-slate-400">Pus 1 Tamat</label>
+                        {editForm.pus1_tamat && (
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(prev => ({ ...prev, pus1_tamat: "" }))}
+                            className="text-[8px] font-bold text-rose-500 hover:text-rose-400 flex items-center gap-0.5 px-1 py-0.2 rounded hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Padam tarikh Pus 1 Tamat"
+                          >
+                            <X size={9} /> Padam
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative flex items-center">
+                        <input 
+                          type="date"
+                          value={editForm.pus1_tamat}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, pus1_tamat: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' || e.key === 'Delete') {
+                              e.preventDefault();
+                              setEditForm(prev => ({ ...prev, pus1_tamat: "" }));
+                            }
+                          }}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-3 pr-8 py-2 text-xs text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                        {editForm.pus1_tamat && (
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(prev => ({ ...prev, pus1_tamat: "" }))}
+                            title="Padam tarikh Pus 1 Tamat"
+                            aria-label="Padam tarikh Pus 1 Tamat"
+                            className="absolute right-7 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors z-10 cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* PUS 2 MULA */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[8px] font-black uppercase text-slate-400">Pus 2 Mula</label>
+                        {editForm.pus2_mula && (
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(prev => ({ ...prev, pus2_mula: "" }))}
+                            className="text-[8px] font-bold text-rose-500 hover:text-rose-400 flex items-center gap-0.5 px-1 py-0.2 rounded hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Padam tarikh Pus 2 Mula"
+                          >
+                            <X size={9} /> Padam
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative flex items-center">
+                        <input 
+                          type="date"
+                          value={editForm.pus2_mula}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, pus2_mula: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' || e.key === 'Delete') {
+                              e.preventDefault();
+                              setEditForm(prev => ({ ...prev, pus2_mula: "" }));
+                            }
+                          }}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-3 pr-8 py-2 text-xs text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                        {editForm.pus2_mula && (
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(prev => ({ ...prev, pus2_mula: "" }))}
+                            title="Padam tarikh Pus 2 Mula"
+                            aria-label="Padam tarikh Pus 2 Mula"
+                            className="absolute right-7 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors z-10 cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* PUS 2 TAMAT */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[8px] font-black uppercase text-slate-400">Pus 2 Tamat</label>
+                        {editForm.pus2_tamat && (
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(prev => ({ ...prev, pus2_tamat: "" }))}
+                            className="text-[8px] font-bold text-rose-500 hover:text-rose-400 flex items-center gap-0.5 px-1 py-0.2 rounded hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Padam tarikh Pus 2 Tamat"
+                          >
+                            <X size={9} /> Padam
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative flex items-center">
+                        <input 
+                          type="date"
+                          value={editForm.pus2_tamat}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, pus2_tamat: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' || e.key === 'Delete') {
+                              e.preventDefault();
+                              setEditForm(prev => ({ ...prev, pus2_tamat: "" }));
+                            }
+                          }}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-3 pr-8 py-2 text-xs text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                        {editForm.pus2_tamat && (
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(prev => ({ ...prev, pus2_tamat: "" }))}
+                            title="Padam tarikh Pus 2 Tamat"
+                            aria-label="Padam tarikh Pus 2 Tamat"
+                            className="absolute right-7 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors z-10 cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 

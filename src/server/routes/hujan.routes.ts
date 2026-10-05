@@ -26,7 +26,7 @@ export interface RainfallRecord {
  * GET /api/hujan
  * Retrieve rainfall records for caller's estate
  */
-router.get(['/', '/hujan', '/api/hujan'], requireAuth, async (req: Request, res: Response) => {
+router.get(['/hujan', '/api/hujan'], requireAuth, async (req: Request, res: Response) => {
   try {
     // P0-11-E: estate is derived exclusively from the validated session.
     // Client-supplied estate_id / estateId / x-estate-id are never trusted for
@@ -75,7 +75,7 @@ router.get(['/', '/hujan', '/api/hujan'], requireAuth, async (req: Request, res:
  * POST /api/hujan
  * Create/upsert a rainfall record for caller's estate
  */
-router.post(['/', '/hujan', '/api/hujan'], requireAuth, async (req: Request, res: Response) => {
+router.post(['/hujan', '/api/hujan'], requireAuth, async (req: Request, res: Response) => {
   try {
     const requestedEstate = (req.body?.estate_id as string) || (req.headers['x-estate-id'] as string) || req.estateId || 'FPM_TUNGGAL';
     const estateId = String(requestedEstate).trim().toUpperCase();
