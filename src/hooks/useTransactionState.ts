@@ -485,13 +485,13 @@ export function useTransactionState({
             if (!isAll) {
               const normActive = normalizeEstateId(activeEstate);
               if (normActive === 'FPM_ADELA') {
-                query = query.or('estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%');
+                query = query.or('estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%,no_nota_hantaran.ilike.136%,no_nota_hantaran.ilike.5136%,no_resit.ilike.ADL%');
               } else if (normActive === 'FPM_TUNGGAL') {
-                query = query.or('estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%');
+                query = query.or('estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%,no_nota_hantaran.ilike.155%,no_nota_hantaran.ilike.5155%,no_resit.ilike.TGL%');
               } else if (normActive === 'FPM_KLEDANG') {
-                query = query.or('estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%');
+                query = query.or('estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%,no_nota_hantaran.ilike.176%,no_nota_hantaran.ilike.5176%,no_resit.ilike.KLD%');
               } else if (normActive === 'FPM_SENING') {
-                query = query.or('estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%');
+                query = query.or('estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%,no_nota_hantaran.ilike.156%,no_nota_hantaran.ilike.5156%,no_resit.ilike.SNG%');
               } else {
                 query = query.eq('estate_id', activeEstate);
               }

@@ -1,6 +1,38 @@
 {
   "jobs": [
     {
+      "id": "cd8a4e88-be6d-46f1-b5f3-b93d0c838bc3",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_KLEDANG",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_KLEDANG:2026-10-06",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-06"
+      },
+      "result": {
+        "taskDate": "2026-10-06",
+        "sourceWindowStart": "2026-09-29",
+        "sourceWindowEnd": "2026-10-05",
+        "taskCount": 0,
+        "estate_id": "FPM_KLEDANG"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-06T13:12:55.935Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-06T13:12:55.935Z",
+      "updated_at": "2026-10-06T13:13:01.653Z",
+      "started_at": "2026-10-06T13:12:55.939Z",
+      "completed_at": "2026-10-06T13:13:01.653Z"
+    },
+    {
       "id": "9609c619-3661-4e4c-bcac-89fb60fbcf3a",
       "type": "GRADING_TASK_GENERATION",
       "estate_id": "FPM_KLEDANG",
@@ -245,5 +277,5 @@
       "failed_at": "2026-09-25T14:02:21.585Z"
     }
   ],
-  "last_updated": "2026-10-05T03:45:38.122Z"
+  "last_updated": "2026-10-06T13:13:01.654Z"
 }

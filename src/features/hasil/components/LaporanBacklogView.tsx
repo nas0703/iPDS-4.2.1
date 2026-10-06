@@ -12,6 +12,7 @@ import { offlineStore } from '../../../utils/offlineStore';
 import { employeeMasterService } from '../../pekerja/services/employeeMasterService';
 import { EmployeeMaster } from '../../pekerja/types/employeeMaster';
 import { safeFetch } from '../../../utils/safeFetch';
+import { saveBacklogHistoryLocally, getInitialBacklogForEstate } from '../utils/backlogStorage';
 
 const getAuthHeaders = (estateId: string) => {
   const token = typeof window !== 'undefined'
@@ -214,17 +215,6 @@ export function getBlocksConfigForEstate(estateId: string): BlockConfig[] {
   return list;
 }
 
-const getInitialBacklogForEstate = (estateId: string): Record<string, Record<string, BacklogRecord>> => {
-  if (typeof window !== "undefined") {
-    const saved = localStorage.getItem(`fpm_backlog_history_${estateId}`) || 
-      (estateId === 'FPM_TUNGGAL' ? localStorage.getItem("fpm_backlog_history_v1") : null);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-  }
-  return {};
-};
-
 const LaporanBacklogViewComponent: React.FC = () => {
   const [activeEstate, setActiveEstate] = useState<string>(() => getActiveEstateId());
 
@@ -349,13 +339,7 @@ const LaporanBacklogViewComponent: React.FC = () => {
           if (backlogJson.backlogHistory && Object.keys(backlogJson.backlogHistory).length > 0) {
             setBacklogHistory(prev => {
               const merged = { ...prev, ...backlogJson.backlogHistory };
-              try {
-                localStorage.setItem(`fpm_backlog_history_${activeEstate}`, JSON.stringify(merged));
-                if (activeEstate === 'FPM_TUNGGAL') {
-                  localStorage.setItem("fpm_backlog_history_v1", JSON.stringify(merged));
-                }
-                offlineStore.setItem(`fpm_backlog_history_${activeEstate}`, merged);
-              } catch (_) {}
+              void saveBacklogHistoryLocally(activeEstate, merged);
               return merged;
             });
           }
@@ -388,13 +372,9 @@ const LaporanBacklogViewComponent: React.FC = () => {
   // Save backlog to local and sync to Supabase Cloud
   const saveAndSync = async (updatedHistory: Record<string, Record<string, BacklogRecord>>) => {
     try {
-      localStorage.setItem(`fpm_backlog_history_${activeEstate}`, JSON.stringify(updatedHistory));
-      if (activeEstate === 'FPM_TUNGGAL') {
-        localStorage.setItem("fpm_backlog_history_v1", JSON.stringify(updatedHistory));
-      }
-      offlineStore.setItem(`fpm_backlog_history_${activeEstate}`, updatedHistory);
+      await saveBacklogHistoryLocally(activeEstate, updatedHistory);
     } catch (e) {
-      console.error("Local save error:", e);
+      console.warn("[LaporanBacklogView] Storage sync notice:", e);
     }
 
     setIsSyncing(true);

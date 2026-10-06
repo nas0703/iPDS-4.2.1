@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { MASTER_DATA } from '../../../utils/constants';
 import { EmptyState, NoDataRow } from '../../../components/common/EmptyState';
+import { saveBacklogHistoryLocally } from '../utils/backlogStorage';
 import ExcelJS from 'exceljs';
 
 interface Transaction {
@@ -511,7 +512,7 @@ export const LaporanProduktivitiViewComponent: React.FC<LaporanProduktivitiViewP
         const json = await res.json();
         if (json.backlogHistory) {
           setBacklogHistory(json.backlogHistory);
-          localStorage.setItem(`fpm_backlog_history_${currentEstateId}`, JSON.stringify(json.backlogHistory));
+          void saveBacklogHistoryLocally(currentEstateId, json.backlogHistory);
         } else {
           // If no history returned, attempt reading local cache
           const localCache = getInitialBacklogForEstate(currentEstateId);
@@ -1148,10 +1149,7 @@ export const LaporanProduktivitiViewComponent: React.FC<LaporanProduktivitiViewP
     };
 
     setBacklogHistory(updatedHistory);
-    localStorage.setItem(`fpm_backlog_history_${activeEstate}`, JSON.stringify(updatedHistory));
-    if (activeEstate === 'FPM_TUNGGAL') {
-      localStorage.setItem(BACKLOG_STORAGE_KEY, JSON.stringify(updatedHistory));
-    }
+    void saveBacklogHistoryLocally(activeEstate, updatedHistory);
 
     // Save to API
     safeFetch(`/api/hasil/backlog?estate_id=${activeEstate}`, {

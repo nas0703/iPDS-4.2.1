@@ -253,7 +253,10 @@ export const MusterChitView: React.FC<MusterChitViewProps> = ({ isDarkMode, onSh
       // 3. Populate Absent Workers Names from Attendance Status !== 'Hadir'
       const absents = rawAttendance
         .filter(att => att.status !== 'Hadir')
-        .map(att => att.worker?.name || 'Pekerja Asing');
+        .map(att => {
+          const wObj = att.worker || allWorkers.find(w => String(w.id) === String(att.worker_id));
+          return wObj?.name || 'Pekerja';
+        });
       setAbsentWorkers(absents);
 
       // Count absent status

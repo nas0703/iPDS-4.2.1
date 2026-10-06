@@ -13,12 +13,34 @@ import { PlatformGradingData, BlockGradingSession, normalizeLorryNo } from '../t
 import { StepperControl } from './StepperControl';
 import { penggredanService } from '../services/penggredanService';
 import { playSound, isSoundEnabled, setSoundEnabled } from '../../../utils/sound';
-import { ESTATE_CHANGED_EVENT } from '../../../utils/estateContext';
-import { getEstateConfig } from '../../../config/estateRegistry';
+import { ESTATE_CHANGED_EVENT, getActiveEstateId } from '../../../utils/estateContext';
+import { getEstateConfig, normalizeEstateId } from '../../../config/estateRegistry';
 import { evaluateFieldGrade } from '../../../utils/gradingRules';
 import { GradingTaskView } from './GradingTaskView';
 import { gradingTaskService } from '../services/gradingTaskService';
 import type { GradingTask } from '../types/gradingTask';
+
+export const ESTATE_LORRIES: Record<string, string[]> = {
+  FPM_ADELA: [
+    'BLS 4830', 'CCA 7297', 'CCR 1449', 'JBV 7370', 'JCM 3007', 'JES 4893', 
+    'JFL 1886', 'JGG 6366', 'JGG 8910', 'JJV 681', 'JLF 7922', 'JLO 5089', 
+    'JLQ 625', 'JNA 5540', 'JPM 1902', 'JQP 7697', 'JQR 8823', 'JRM 970', 
+    'JSD 2291', 'JTG 4421', 'JTK 9031'
+  ],
+  FPM_TUNGGAL: [
+    'CCR 1449', 'DLH 7442', 'JEH 243', 'JES 4893', 'JFL 1886', 'JGK 1917', 
+    'JGS 85', 'JGX 7725', 'JGX 9838', 'JJT 4167', 'JKK 7725', 'JKK 9822', 
+    'JKP 6959', 'JKX 7725', 'JLA 2612', 'JLF 9002', 'JLH 7442', 'JLP 6966', 
+    'JNV 256', 'JSS 2776', 'JTH 1263', 'SD 1351E', 'VWR 4152', 'WHK 7221', 
+    'WHK 7271', 'WWR 4152', 'WYT 9162'
+  ],
+  FPM_KLEDANG: [
+    'JLF 7922', 'JGK 1917', 'JNA 5540', 'JTG 4421', 'JTK 9031', 'WWR 4152', 'WYT 9162'
+  ],
+  FPM_SENING: [
+    'JES 4893', 'JGG 6366', 'JPM 1902', 'JQR 8823', 'JSD 2291', 'WHK 7221'
+  ]
+};
 
 const AVAILABLE_BLOCKS = [
   // PERINGKAT 1A
@@ -55,6 +77,41 @@ const AVAILABLE_BLOCKS = [
   { value: 'LF PKT 1', label: 'LF PKT 1', group: 'LOT FELDA' },
   { value: 'LF PKT 2', label: 'LF PKT 2', group: 'LOT FELDA' },
 ];
+
+export const getAvailableBlocksForEstate = (estateId: string) => {
+  const norm = normalizeEstateId(estateId);
+  if (norm === 'FPM_ADELA') {
+    return [
+      // PERINGKAT 1
+      { value: '01/01', label: '01/01 (Blok 1)', group: 'PERINGKAT 1' },
+      { value: '01/02', label: '01/02 (Blok 2)', group: 'PERINGKAT 1' },
+      { value: '01/03', label: '01/03 (Blok 3)', group: 'PERINGKAT 1' },
+      { value: '01/04', label: '01/04 (Blok 4)', group: 'PERINGKAT 1' },
+      { value: '01/05', label: '01/05 (Blok 5)', group: 'PERINGKAT 1' },
+      { value: '01/06', label: '01/06 (Blok 6)', group: 'PERINGKAT 1' },
+      { value: '01/07', label: '01/07 (Blok 7)', group: 'PERINGKAT 1' },
+      { value: '01/08', label: '01/08 (Blok 8)', group: 'PERINGKAT 1' },
+      { value: '01/09', label: '01/09 (Blok 9)', group: 'PERINGKAT 1' },
+      { value: '01/10', label: '01/10 (Blok 10)', group: 'PERINGKAT 1' },
+      { value: '01/11', label: '01/11 (Blok 11)', group: 'PERINGKAT 1' },
+      // PERINGKAT 2
+      { value: '02/12', label: '02/12 (Blok 12 / Pkt 2 Blok 1)', group: 'PERINGKAT 2' },
+      { value: '02/13', label: '02/13 (Blok 13 / Pkt 2 Blok 2)', group: 'PERINGKAT 2' },
+      { value: '02/14', label: '02/14 (Blok 14 / Pkt 2 Blok 3)', group: 'PERINGKAT 2' },
+      { value: '02/15', label: '02/15 (Blok 15 / Pkt 2 Blok 4)', group: 'PERINGKAT 2' },
+      { value: '02/16', label: '02/16 (Blok 16 / Pkt 2 Blok 5)', group: 'PERINGKAT 2' },
+      { value: '02/17', label: '02/17 (Blok 17 / Pkt 2 Blok 6)', group: 'PERINGKAT 2' },
+      // LOT FELDA
+      { value: '1F', label: '1F (Lot Felda 1)', group: 'LOT FELDA' },
+      { value: '2F', label: '2F (Lot Felda 2)', group: 'LOT FELDA' },
+      // LOT TAMBAHAN
+      { value: '125Y', label: '125Y (Lot Tambahan)', group: 'LOT TAMBAHAN' },
+      { value: '128Y', label: '128Y (Lot Tambahan)', group: 'LOT TAMBAHAN' },
+      { value: '121V', label: '121V (Lot Tambahan)', group: 'LOT TAMBAHAN' },
+    ];
+  }
+  return AVAILABLE_BLOCKS;
+};
 
 const DEFAULT_LORRIES = [
   'CCR 1449', 'JEH 243', 'JGK 1917', 'JGS 85', 'JGX 7725', 'JGX 9838', 
@@ -96,16 +153,25 @@ export const PenggredanView: React.FC<PenggredanViewProps> = ({ onShowToast }) =
     return `Blok ${val}`;
   };
 
+  const [activeEstateId, setActiveEstateId] = useState<string>(() => getActiveEstateId());
+  const activeBlocks = useMemo(() => getAvailableBlocksForEstate(activeEstateId), [activeEstateId]);
+
   // Header Info for Current Session
-  const [sessionHeader, setSessionHeader] = useState({
-    tajuk: '*JPPK KS 𝘼𝘿𝙀𝙇𝘼*',
-    program: '𝙏𝙖𝙨𝙠 𝙁𝙤𝙧𝙘𝙚 𝙂𝙧𝙖𝙙𝙞𝙣𝙜',
-    jenisGrading: '𝙂𝙧𝙖𝙙𝙞𝙣𝙜 𝘿𝙞 𝙡𝙖𝙙𝙖𝙣𝙜',
-    tarikh: getFormattedTodayDate(),
-    ladang: 'FPMTunggal',
-    peringkatBlok: '01/02',
-    noLori: 'JGK 1917',
-    namaPenggred: 'GIANTARA'
+  const [sessionHeader, setSessionHeader] = useState(() => {
+    const estateId = getActiveEstateId();
+    const config = getEstateConfig(estateId);
+    const norm = normalizeEstateId(estateId);
+    const lorryList = ESTATE_LORRIES[norm] || DEFAULT_LORRIES;
+    return {
+      tajuk: '*JPPK KS ADELA*',
+      program: 'Task Force Grading',
+      jenisGrading: 'Grading Di ladang',
+      tarikh: getFormattedTodayDate(),
+      ladang: config.name,
+      peringkatBlok: norm === 'FPM_ADELA' ? '01/01' : '01/02',
+      noLori: lorryList[0] || 'JGK 1917',
+      namaPenggred: 'GIANTARA'
+    };
   });
 
   // Active session ID to ensure consistent upsert across platform additions and final save
@@ -182,25 +248,27 @@ export const PenggredanView: React.FC<PenggredanViewProps> = ({ onShowToast }) =
   // Dynamic list of unique lorries combining defaults and actual history (strictly normalized & deduplicated)
   const uniqueLorryList = useMemo(() => {
     const set = new Set<string>();
+    const norm = normalizeEstateId(activeEstateId);
+    const defaultList = ESTATE_LORRIES[norm] || DEFAULT_LORRIES;
 
-    DEFAULT_LORRIES.forEach(lorry => {
-      const norm = normalizeLorryNo(lorry);
-      if (norm && !norm.includes('TEST')) {
-        set.add(norm);
+    defaultList.forEach(lorry => {
+      const normL = normalizeLorryNo(lorry);
+      if (normL && !normL.includes('TEST')) {
+        set.add(normL);
       }
     });
 
     historySessions.forEach(session => {
       if (session.noLori) {
-        const norm = normalizeLorryNo(session.noLori);
-        if (norm && !norm.includes('TEST')) {
-          set.add(norm);
+        const normL = normalizeLorryNo(session.noLori);
+        if (normL && !normL.includes('TEST')) {
+          set.add(normL);
         }
       }
     });
 
     return Array.from(set).sort();
-  }, [historySessions]);
+  }, [activeEstateId, historySessions]);
 
   // Load history from Supabase / localStorage on mount and on estate change
   const loadData = useCallback(async (silent = false) => {
@@ -218,7 +286,19 @@ export const PenggredanView: React.FC<PenggredanViewProps> = ({ onShowToast }) =
   useEffect(() => {
     loadData();
 
-    const handleEstateChange = () => {
+    const handleEstateChange = (e?: any) => {
+      const newEstateId = e?.detail?.estateId || getActiveEstateId();
+      setActiveEstateId(newEstateId);
+      const newConfig = getEstateConfig(newEstateId);
+      const norm = normalizeEstateId(newEstateId);
+      const lorryList = ESTATE_LORRIES[norm] || DEFAULT_LORRIES;
+      setSessionHeader(prev => ({
+        ...prev,
+        tajuk: '*JPPK KS ADELA*',
+        ladang: newConfig.name,
+        peringkatBlok: norm === 'FPM_ADELA' ? '01/01' : (prev.peringkatBlok || '01/02'),
+        noLori: lorryList.includes(prev.noLori) ? prev.noLori : (lorryList[0] || prev.noLori)
+      }));
       loadData();
     };
 
@@ -1304,10 +1384,16 @@ Nama Penggereding : ${sessionHeader.namaPenggred}`;
       seranganTikus: 0
     });
 
+    const config = getEstateConfig(activeEstateId);
+    const norm = normalizeEstateId(activeEstateId);
+    const lorryList = ESTATE_LORRIES[norm] || DEFAULT_LORRIES;
+
     setSessionHeader(prev => ({
       ...prev,
+      tajuk: '*JPPK KS ADELA*',
+      ladang: config.name,
       peringkatBlok: '',
-      noLori: ''
+      noLori: lorryList[0] || ''
     }));
 
     setActiveSubTab('borang');
@@ -1557,7 +1643,7 @@ Nama Penggereding : ${sessionHeader.namaPenggred}`;
 
                       {/* Grouped Options */}
                       {(() => {
-                        const filtered = AVAILABLE_BLOCKS.filter(b => 
+                        const filtered = activeBlocks.filter(b => 
                           b.label.toLowerCase().includes(blockSearchQuery.toLowerCase()) || 
                           b.value.toLowerCase().includes(blockSearchQuery.toLowerCase()) ||
                           b.group.toLowerCase().includes(blockSearchQuery.toLowerCase())
@@ -1575,7 +1661,7 @@ Nama Penggereding : ${sessionHeader.namaPenggred}`;
                           if (!acc[curr.group]) acc[curr.group] = [];
                           acc[curr.group].push(curr);
                           return acc;
-                        }, {} as Record<string, typeof AVAILABLE_BLOCKS>);
+                        }, {} as Record<string, typeof activeBlocks>);
 
                         return Object.entries(grouped).map(([groupName, blocks]) => (
                           <div key={groupName} className="p-1.5">

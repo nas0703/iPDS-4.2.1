@@ -422,13 +422,13 @@ router.get("/hantaran", requireAuth, async (req, res) => {
     const applyEstateFilter = (q: any) => {
       if (isAll) return q;
       if (normTarget === 'FPM_ADELA') {
-        return q.or('estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%');
+        return q.or('estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%,no_nota_hantaran.ilike.136%,no_nota_hantaran.ilike.5136%,no_resit.ilike.ADL%');
       } else if (normTarget === 'FPM_TUNGGAL') {
-        return q.or('estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%');
+        return q.or('estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%,no_nota_hantaran.ilike.155%,no_nota_hantaran.ilike.5155%,no_resit.ilike.TGL%');
       } else if (normTarget === 'FPM_KLEDANG') {
-        return q.or('estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%');
+        return q.or('estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%,no_nota_hantaran.ilike.176%,no_nota_hantaran.ilike.5176%,no_resit.ilike.KLD%');
       } else if (normTarget === 'FPM_SENING') {
-        return q.or('estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%');
+        return q.or('estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%,no_nota_hantaran.ilike.156%,no_nota_hantaran.ilike.5156%,no_resit.ilike.SNG%');
       }
       return q.eq('estate_id', targetEstate);
     };

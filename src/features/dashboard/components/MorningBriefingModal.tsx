@@ -592,9 +592,10 @@ export function MorningBriefingModal({
       
       let backlogHistory: any = {};
       try {
-        const saved = localStorage.getItem("fpm_backlog_history_v1");
+        const curEstate = getActiveEstateId();
+        const saved = localStorage.getItem(`fpm_backlog_history_${curEstate}`) || localStorage.getItem("fpm_backlog_history_v1");
         if (saved) backlogHistory = JSON.parse(saved);
-      } catch (e) { console.error(e); }
+      } catch (e) { console.warn(e); }
 
       let fertEntries: any[] = [];
       let fertMaster: any[] = [];

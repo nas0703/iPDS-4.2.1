@@ -273,7 +273,18 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({ isDarkMode, onSh
 
       const existing = await getWorkAssignmentsForDate(selectedDate);
       if (existing && existing.length > 0) {
-        setAssignments(existing);
+        const enriched = existing.map(asg => {
+          const wId = String(asg.worker_id || asg.worker?.id || '');
+          const wObj = (asg.worker && asg.worker.name) 
+            ? asg.worker 
+            : activeWorkers.find(w => String(w.id) === wId) || workersList.find(w => String(w.id) === wId);
+          return {
+            ...asg,
+            worker_id: asg.worker_id || wObj?.id || wId,
+            worker: wObj || asg.worker
+          };
+        });
+        setAssignments(enriched);
       } else {
         setAssignments([]);
       }
@@ -511,12 +522,14 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({ isDarkMode, onSh
     const groupedMap: { [groupName: string]: (Partial<WorkAssignment> & { originalIndex: number })[] } = {};
     
     filteredAssignments.forEach((a) => {
-      const origIdx = assignments.findIndex(orig => orig.worker_id === a.worker_id);
-      const groupName = a.worker?.kumpulan || 'TIADA KUMPULAN / LAIN-LAIN';
+      const origIdx = assignments.findIndex(orig => String(orig.worker_id || orig.worker?.id) === String(a.worker_id || a.worker?.id));
+      const wId = String(a.worker_id || a.worker?.id || '');
+      const workerObj = (a.worker && a.worker.name) ? a.worker : workers.find(w => String(w.id) === wId);
+      const groupName = workerObj?.kumpulan || a.worker?.kumpulan || 'TIADA KUMPULAN / LAIN-LAIN';
       if (!groupedMap[groupName]) {
         groupedMap[groupName] = [];
       }
-      groupedMap[groupName].push({ ...a, originalIndex: origIdx });
+      groupedMap[groupName].push({ ...a, worker: workerObj, originalIndex: origIdx });
     });
 
     const result: {
@@ -561,12 +574,16 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({ isDarkMode, onSh
           blok,
           peringkat,
           notes,
-          workers: list.map(item => ({
-            id: item.worker_id || '',
-            name: item.worker?.name || 'Pekerja',
-            worker_no: item.worker?.worker_no || '',
-            originalIndex: item.originalIndex
-          }))
+          workers: list.map(item => {
+            const wId = String(item.worker_id || item.worker?.id || '');
+            const wObj = (item.worker && item.worker.name) ? item.worker : workers.find(w => String(w.id) === wId);
+            return {
+              id: wId,
+              name: wObj?.name || item.worker?.name || (wId ? `Pekerja #${wId}` : 'Pekerja'),
+              worker_no: wObj?.worker_no || item.worker?.worker_no || '',
+              originalIndex: item.originalIndex
+            };
+          })
         };
       });
 
@@ -586,8 +603,10 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({ isDarkMode, onSh
 
   // Filtered draf assignments
   const filteredAssignments = assignments.filter(a => {
-    const name = a.worker?.name || '';
-    const no = a.worker?.worker_no || '';
+    const wId = String(a.worker_id || a.worker?.id || '');
+    const wObj = (a.worker && a.worker.name) ? a.worker : workers.find(w => String(w.id) === wId);
+    const name = wObj?.name || a.worker?.name || '';
+    const no = wObj?.worker_no || a.worker?.worker_no || '';
     const task = a.work_type || '';
     const query = searchTerm.toLowerCase();
     return name.toLowerCase().includes(query) || 
@@ -1329,9 +1348,11 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({ isDarkMode, onSh
               /* INDIVIDUAL FLAT VIEW */
               <div className="space-y-2.5 max-h-[480px] overflow-y-auto custom-scrollbar pr-1">
                 {filteredAssignments.map((item, index) => {
-                  const workerName = item.worker?.name || 'Pekerja Tidak Diketahui';
-                  const workerNo = item.worker?.worker_no || '-';
-                  const role = item.worker?.role || '-';
+                  const wId = String(item.worker_id || item.worker?.id || '');
+                  const wObj = (item.worker && item.worker.name) ? item.worker : workers.find(w => String(w.id) === wId);
+                  const workerName = wObj?.name || item.worker?.name || (wId ? `Pekerja #${wId}` : 'Pekerja Tidak Diketahui');
+                  const workerNo = wObj?.worker_no || item.worker?.worker_no || '-';
+                  const role = wObj?.role || item.worker?.role || '-';
                   
                   return (
                     <div 
