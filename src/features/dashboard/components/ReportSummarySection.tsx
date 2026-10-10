@@ -11,6 +11,8 @@ export const ReportSummarySection = ({
   period,
   isDarkMode,
   mode = "all",
+  scope = "estet",
+  onToggleScope,
 }: {
   type: string;
   data: any /* fix unknown */;
@@ -24,6 +26,8 @@ export const ReportSummarySection = ({
     | "details-pkt2"
     | "details-felda"
     | "details-tambahan";
+  scope?: "estet" | "all";
+  onToggleScope?: (s: "estet" | "all") => void;
 }) => {
   if (!data) return null;
 
@@ -84,20 +88,49 @@ export const ReportSummarySection = ({
   const luasTambahan = Object.values(currentMasterData)
     .filter((b) => b.pkt === "004")
     .reduce((acc, curr) => acc + (Number(curr.luas) || 0), 0);
-  const totalLuas = luasPkt1 + luasPkt2 + luasFelda + luasTambahan;
 
-  const totalTan =
-    data.totalTan ||
-    (data.pkt1_tan || 0) + (data.pkt2_tan || 0) + (data.felda_tan || 0) + (data.tambahan_tan || 0);
-  const avgYield = totalLuas > 0 ? totalTan / totalLuas : 0;
-  const avgTarget =
-    totalLuas > 0
-      ? (targetPkt1 * luasPkt1 +
-          targetPkt2 * luasPkt2 +
-          targetFelda * luasFelda +
-          targetTambahan * luasTambahan) /
-        totalLuas
-      : 0;
+  // 1. Skop Pilihan A: Estet Utama (Pkt 1 & 2 sahaja)
+  const luasEstet = luasPkt1 + luasPkt2; // ~1,568.11 Ha
+  const tanEstet = (data.pkt1_tan || 0) + (data.pkt2_tan || 0);
+  const avgYieldEstet = luasEstet > 0 ? tanEstet / luasEstet : 0;
+  const totalTargetTanEstet = (targetPkt1 * luasPkt1) + (targetPkt2 * luasPkt2);
+  const avgTargetEstet = luasEstet > 0 ? totalTargetTanEstet / luasEstet : 0;
+  const pctEstet = totalTargetTanEstet > 0 ? (tanEstet / totalTargetTanEstet) * 100 : 0;
+  const targetDiffEstet = avgYieldEstet - avgTargetEstet;
+  const ytd2025TanEstet = (data.pkt1_ytd2025 || 0) + (data.pkt2_ytd2025 || 0);
+  const ytd2025YieldEstet = luasEstet > 0 ? ytd2025TanEstet / luasEstet : 0;
+  const yoyYieldDiffEstet = avgYieldEstet - ytd2025YieldEstet;
+  const yoyDiffEstet = ytd2025TanEstet > 0 ? ((tanEstet - ytd2025TanEstet) / ytd2025TanEstet) * 100 : 0;
+
+  // 2. Skop Keseluruhan Termasuk Lot Felda (Grand Total)
+  const totalLuasSemua = luasPkt1 + luasPkt2 + luasFelda + luasTambahan; // ~1,666.62 Ha
+  const totalTanSemua =
+    (tanEstet + (data.felda_tan || 0) + (data.tambahan_tan || 0)) || data.totalTan || 0;
+  const totalTan = totalTanSemua;
+  const avgYieldSemua = totalLuasSemua > 0 ? totalTanSemua / totalLuasSemua : 0;
+  const totalTargetTanSemua =
+    targetPkt1 * luasPkt1 +
+    targetPkt2 * luasPkt2 +
+    targetFelda * luasFelda +
+    targetTambahan * luasTambahan;
+  const avgTargetSemua = totalLuasSemua > 0 ? totalTargetTanSemua / totalLuasSemua : 0;
+  const pctSemua = totalTargetTanSemua > 0 ? (totalTanSemua / totalTargetTanSemua) * 100 : 0;
+  const targetDiffSemua = avgYieldSemua - avgTargetSemua;
+  const ytd2025YieldSemua =
+    totalLuasSemua > 0 ? (data.total_ytd2025 || 0) / totalLuasSemua : 0;
+  const yoyYieldDiffSemua = avgYieldSemua - ytd2025YieldSemua;
+  const yoyDiffSemua = data.yoy_diff_pct || 0;
+
+  // Tentukan skop aktif (default 'estet' mengikut Pilihan A)
+  const isEstetScope = scope === "estet";
+  const activeTan = isEstetScope ? tanEstet : totalTanSemua;
+  const activeYield = isEstetScope ? avgYieldEstet : avgYieldSemua;
+  const activeTarget = isEstetScope ? avgTargetEstet : avgTargetSemua;
+  const activePct = isEstetScope ? pctEstet : pctSemua;
+  const activeTargetDiff = isEstetScope ? targetDiffEstet : targetDiffSemua;
+  const activeYoyYieldDiff = isEstetScope ? yoyYieldDiffEstet : yoyYieldDiffSemua;
+  const activeYoyDiff = isEstetScope ? yoyDiffEstet : yoyDiffSemua;
+
   const totalMuda =
     data.totalMuda ||
     (data.pkt1_muda || 0) + (data.pkt2_muda || 0) + (data.felda_muda || 0) + (data.tambahan_muda || 0);
@@ -114,14 +147,6 @@ export const ReportSummarySection = ({
     targetTambahan > 0
       ? ((data.tambahan_tan || 0) / (luasTambahan || 1) / targetTambahan) * 100
       : 0;
-  const totalTargetTan =
-    targetPkt1 * luasPkt1 + targetPkt2 * luasPkt2 + targetFelda * luasFelda + targetTambahan * luasTambahan;
-  const pctAvg = totalTargetTan > 0 ? (totalTan / totalTargetTan) * 100 : 0;
-  const targetDiff = avgYield - avgTarget;
-  const yoyDiff = data.yoy_diff_pct || 0;
-  const ytd2025Yield =
-    totalLuas > 0 ? (data.total_ytd2025 || 0) / totalLuas : 0;
-  const yoyYieldDiff = avgYield - ytd2025Yield;
 
   // Calculate average price for 'harga' type
   const avgPrice = data.avgPrice || 0;
@@ -200,11 +225,11 @@ export const ReportSummarySection = ({
   // Generate unique data key to trigger transition animations on new data load
   const dataKey = React.useMemo(() => {
     try {
-      return `${type}-${period}-${mode}-${JSON.stringify(data)}`;
+      return `${type}-${period}-${mode}-${scope}-${JSON.stringify(data)}`;
     } catch {
-      return `${type}-${period}-${mode}`;
+      return `${type}-${period}-${mode}-${scope}`;
     }
-  }, [type, period, mode, data]);
+  }, [type, period, mode, scope, data]);
 
   return (
     <AnimatePresence mode="wait">
@@ -222,7 +247,7 @@ export const ReportSummarySection = ({
       >
       {type === "hasil" && (
         <div className="h-full">
-          {/* Hero Summary Card - New Red Box Layout - Condensed to fit */}
+          {/* Hero Summary Card - Condensed to fit */}
           {showHero && (
             <motion.div
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -230,16 +255,35 @@ export const ReportSummarySection = ({
               transition={{ duration: 0.45, ease: "easeOut" }}
               className="bg-[#020617] dark:bg-[#020617] p-2 rounded-[16px] border border-slate-800/60 shadow-2xl relative overflow-hidden h-full flex flex-col justify-between"
             >
-              {/* Card Header: Title + Icon */}
-              <div className="flex items-center gap-1 mb-1.5 opacity-90">
-                <Calendar size={8} className="text-emerald-500" />
-                <h3 className="text-[7px] font-black text-emerald-500 uppercase tracking-widest leading-none">
-                  {period === "day"
-                    ? "HARI INI"
-                    : period === "month"
-                      ? "BULAN INI"
-                      : "TAHUN INI (YTD)"}
-                </h3>
+              {/* Card Header: Title + Icon + Scope Pill */}
+              <div className="flex items-center justify-between mb-1.5 opacity-90">
+                <div className="flex items-center gap-1">
+                  <Calendar size={8} className="text-emerald-500" />
+                  <h3 className="text-[7px] font-black text-emerald-500 uppercase tracking-widest leading-none">
+                    {period === "day"
+                      ? "HARI INI"
+                      : period === "month"
+                        ? "BULAN INI"
+                        : "TAHUN INI (YTD)"}
+                  </h3>
+                </div>
+                {onToggleScope && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleScope(isEstetScope ? "all" : "estet");
+                    }}
+                    className={`px-1 py-0.5 rounded text-[5px] font-black uppercase tracking-wider transition-all leading-none ${
+                      isEstetScope
+                        ? "bg-emerald-950/80 text-emerald-400 border border-emerald-700/60 hover:bg-emerald-900"
+                        : "bg-blue-950/80 text-blue-300 border border-blue-700/60 hover:bg-blue-900"
+                    }`}
+                    title={isEstetScope ? "Tekan untuk tukar ke Keseluruhan (+ Lot Felda)" : "Tekan untuk tukar ke Estet Pkt 1 & 2 sahaja"}
+                  >
+                    {isEstetScope ? "PKT 1 & 2" : "+ FELDA"}
+                  </button>
+                )}
               </div>
 
               {/* Main Content Row */}
@@ -251,7 +295,7 @@ export const ReportSummarySection = ({
                       T/Ha
                     </p>
                     <p className="text-[13px] font-black text-emerald-500 leading-none mt-0.5">
-                      {avgYield.toFixed(2)}
+                      {activeYield.toFixed(2)}
                     </p>
                   </div>
                   <div className="flex flex-col">
@@ -259,7 +303,7 @@ export const ReportSummarySection = ({
                       TAN
                     </p>
                     <p className="text-[10px] font-black text-white leading-none mt-0.5">
-                      {totalTan.toLocaleString(undefined, {
+                      {activeTan.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -270,7 +314,7 @@ export const ReportSummarySection = ({
                 {/* Right: Circular Progress (Aligned right) */}
                 <div className="relative flex items-center justify-center mr-0.5 shrink-0">
                   <CircularProgress
-                    percent={pctAvg}
+                    percent={activePct}
                     label="CAPAI"
                     delay={0.2}
                   />
@@ -284,7 +328,7 @@ export const ReportSummarySection = ({
                     TARGET
                   </p>
                   <p className="text-[7.5px] font-black text-white mt-0.5 leading-none">
-                    {avgTarget.toFixed(2)}
+                    {activeTarget.toFixed(2)}
                     <span className="text-[5px] font-bold text-slate-500 ml-0.5">
                       T/H
                     </span>
@@ -296,24 +340,43 @@ export const ReportSummarySection = ({
                     {period === "year" ? "vs YOY 25" : "vs TARGET"}
                   </p>
                   <div
-                    className={`flex items-center gap-0.5 mt-0.5 font-black leading-none ${period === "year" ? (yoyDiff >= 0 ? "text-emerald-500" : "text-rose-500") : targetDiff >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                    className={`flex items-center gap-0.5 mt-0.5 font-black leading-none ${period === "year" ? (activeYoyDiff >= 0 ? "text-emerald-500" : "text-rose-500") : activeTargetDiff >= 0 ? "text-emerald-500" : "text-rose-500"}`}
                   >
                     <p className="text-[7.5px]">
-                      {(period === "year" ? yoyYieldDiff : targetDiff) >= 0
+                      {(period === "year" ? activeYoyYieldDiff : activeTargetDiff) >= 0
                         ? "+"
                         : ""}
                       {Math.abs(
-                        period === "year" ? yoyYieldDiff : targetDiff,
+                        period === "year" ? activeYoyYieldDiff : activeTargetDiff,
                       ).toFixed(2)}
                     </p>
                     {period === "year" && (
                       <p className="text-[6px] opacity-80 whitespace-nowrap">
-                        ({yoyDiff >= 0 ? "+" : ""}
-                        {yoyDiff.toFixed(0)}%)
+                        ({activeYoyDiff >= 0 ? "+" : ""}
+                        {activeYoyDiff.toFixed(0)}%)
                       </p>
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Mini Dual-Scope Switcher Strip */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleScope?.(isEstetScope ? "all" : "estet");
+                }}
+                className="mt-1 pt-1 border-t border-slate-800/60 flex items-center justify-between text-[5px] cursor-pointer transition-colors group select-none"
+                title={isEstetScope ? `Klik untuk tukar ke Keseluruhan (+ Lot Felda: ${totalLuasSemua.toFixed(1)} Ha)` : `Klik untuk tukar ke Estet Pkt 1 & 2 sahaja (${luasEstet.toFixed(1)} Ha)`}
+              >
+                <span className="font-bold text-slate-500 group-hover:text-emerald-400 transition-colors uppercase tracking-tight">
+                  {isEstetScope ? `+ FELDA (${totalLuasSemua.toFixed(1)}H):` : `ESTET (${luasEstet.toFixed(1)}H):`}
+                </span>
+                <span className="font-extrabold text-slate-300 group-hover:text-emerald-300 transition-colors">
+                  {isEstetScope
+                    ? `${totalTanSemua.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} T • ${avgYieldSemua.toFixed(2)} T/H`
+                    : `${tanEstet.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} T • ${avgYieldEstet.toFixed(2)} T/H`}
+                </span>
               </div>
             </motion.div>
           )}

@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
         regionId: 'WILAYAH_JB',
         regionName: 'FPM Wilayah Johor Bahru',
         millName: 'Kilang Sawit Adela',
-        totalHectares: 1563.15,
+        totalHectares: 1666.62,
         annualTargetPkt1: 28.0,
         annualTargetPkt2: 28.0,
         annualTargetFelda: 11.99,

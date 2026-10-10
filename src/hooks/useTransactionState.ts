@@ -153,17 +153,16 @@ export function normalizeSingleTransaction(item: any): Transaction {
     }
   } else {
     // Other estates (e.g. Tunggal, Kledang, Sening)
-    if (!peringkat || peringkat === "undefined") {
-      if (estateCfg?.blocks && estateCfg.blocks[cleanBlok]?.pkt) {
-        const pktCode = estateCfg.blocks[cleanBlok].pkt;
-        peringkat = pktCode === "001" ? "PKT 001" : pktCode === "002" ? "PKT 002" : pktCode === "003" ? "LOT FELDA" : pktCode === "004" ? "PKT 004" : `PKT ${pktCode}`;
-      } else {
-        const bNum = parseInt(cleanBlok.replace(/[^0-9]/g, ''), 10);
-        if (bNum >= 1 && bNum <= 17) peringkat = "PKT 001";
-        else if (bNum >= 18 && bNum <= 22) peringkat = "PKT 002";
-        else if (bNum === 88 || cleanBlok.toUpperCase() === "LF") peringkat = "LOT FELDA";
-        else peringkat = "PKT 001";
-      }
+    const bNum = parseInt(cleanBlok.replace(/[^0-9]/g, ''), 10);
+    if (estateCfg?.blocks && estateCfg.blocks[cleanBlok]?.pkt) {
+      const pktCode = estateCfg.blocks[cleanBlok].pkt;
+      peringkat = pktCode === "001" ? "PKT 001" : pktCode === "002" ? "PKT 002" : pktCode === "003" ? "LOT FELDA" : pktCode === "004" ? "PKT 004" : `PKT ${pktCode}`;
+    } else if (!isNaN(bNum)) {
+      if (bNum >= 1 && bNum <= 17) peringkat = "PKT 001";
+      else if (bNum >= 18 && bNum <= 22) peringkat = "PKT 002";
+      else if (bNum === 88 || cleanBlok.toUpperCase() === "LF" || cleanBlok.toUpperCase() === "88F") peringkat = "LOT FELDA";
+    } else if (!peringkat || peringkat === "undefined") {
+      peringkat = "PKT 001";
     }
   }
 

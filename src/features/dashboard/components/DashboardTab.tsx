@@ -89,6 +89,7 @@ export const DashboardTab = (props: any) => {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const [activeEstateId, setActiveEstateId] = React.useState<string>(() => props.activeEstateId || getActiveEstateId());
+  const [hasilScope, setHasilScope] = React.useState<'estet' | 'all'>('estet');
 
   React.useEffect(() => {
     const handleEstateChange = (e: any) => {
@@ -262,34 +263,65 @@ export const DashboardTab = (props: any) => {
       
                         {((reportType === "hasil" && currentHasilTab === 'kpi') || (reportType === "kualiti_bts" && activeKualitiTab !== 'penggredan') || (reportType === "efb" && currentEfbTab === 'kpi') || (reportType !== "hasil" && reportType !== "kualiti_bts" && reportType !== "efb")) && (
                           <div className="relative pt-1">
-                            {/* Overall Section Label Flag Style */}
-                            <div className="absolute -top-1.5 left-1 z-10 p-0 pointer-events-none">
-                              <div className="bg-slate-900 dark:bg-slate-800 border border-slate-800 dark:border-slate-700 shadow-md px-1.5 py-0.5 rounded-sm">
-                                <p className="text-[6px] font-black text-white uppercase tracking-[0.1em] leading-none">
-                                  KESELURUHAN
-                                </p>
+                            {/* Overall Section Header & Scope Switcher */}
+                            <div className="flex items-center justify-between pb-1.5 px-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className="bg-slate-900 dark:bg-slate-800 border border-slate-800 dark:border-slate-700 shadow-md px-1.5 py-0.5 rounded-sm">
+                                  <p className="text-[6px] font-black text-white uppercase tracking-[0.1em] leading-none">
+                                    KESELURUHAN
+                                  </p>
+                                </div>
+                                {reportType === "hasil" && (
+                                  <div className="inline-flex items-center bg-slate-200/90 dark:bg-slate-800/90 p-0.5 rounded-lg border border-slate-300/60 dark:border-slate-700/60 shadow-xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => setHasilScope('estet')}
+                                      className={`px-2 py-0.5 rounded-md text-[6.5px] font-black uppercase tracking-wider transition-all ${
+                                        hasilScope === 'estet'
+                                          ? 'bg-emerald-600 text-white shadow-xs'
+                                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                      }`}
+                                      title="Paparan Estet Utama (Pkt 1 & 2 sahaja)"
+                                    >
+                                      Estet Pkt 1 & 2
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setHasilScope('all')}
+                                      className={`px-2 py-0.5 rounded-md text-[6.5px] font-black uppercase tracking-wider transition-all ${
+                                        hasilScope === 'all'
+                                          ? 'bg-emerald-600 text-white shadow-xs'
+                                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                      }`}
+                                      title="Paparan Keseluruhan Portfolio (+ Lot Felda)"
+                                    >
+                                      + Lot Felda
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setShowSummaryCollapsed(!showSummaryCollapsed)
+                                  }
+                                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all"
+                                >
+                                  <motion.div
+                                    animate={{
+                                      rotate: showSummaryCollapsed ? 0 : 180,
+                                    }}
+                                  >
+                                    <ChevronDown
+                                      size={12}
+                                      className="text-slate-400"
+                                    />
+                                  </motion.div>
+                                </button>
                               </div>
                             </div>
-
-                          <div className="absolute right-1 -top-1.5 z-10">
-                            <button
-                              onClick={() =>
-                                setShowSummaryCollapsed(!showSummaryCollapsed)
-                              }
-                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all"
-                            >
-                              <motion.div
-                                animate={{
-                                  rotate: showSummaryCollapsed ? 0 : 180,
-                                }}
-                              >
-                                <ChevronDown
-                                  size={12}
-                                  className="text-slate-400"
-                                />
-                              </motion.div>
-                            </button>
-                          </div>
 
                           <AnimatePresence>
                             {!showSummaryCollapsed && (
@@ -306,6 +338,8 @@ export const DashboardTab = (props: any) => {
                                     period="day"
                                     isDarkMode={isDarkMode}
                                     mode="hero"
+                                    scope={hasilScope}
+                                    onToggleScope={setHasilScope}
                                   />
                                   <ReportSummarySection
                                     type={effectiveReportType}
@@ -313,6 +347,8 @@ export const DashboardTab = (props: any) => {
                                     period="month"
                                     isDarkMode={isDarkMode}
                                     mode="hero"
+                                    scope={hasilScope}
+                                    onToggleScope={setHasilScope}
                                   />
                                   <ReportSummarySection
                                     type={effectiveReportType}
@@ -320,6 +356,8 @@ export const DashboardTab = (props: any) => {
                                     period="year"
                                     isDarkMode={isDarkMode}
                                     mode="hero"
+                                    scope={hasilScope}
+                                    onToggleScope={setHasilScope}
                                   />
                                 </div>
                               </motion.div>

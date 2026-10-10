@@ -1,4 +1,6 @@
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
 import { getScopedSupabase, getWriteSupabase, getPrivilegedSupabase, isMissingTableError } from '../db.js';
 import { getLocalHantaran, saveLocalHantaran } from '../local.js';
 import { requireAuth, requireRole, isSuperAdminIdentity } from '../middleware/auth.js';
@@ -515,12 +517,17 @@ router.get("/hantaran", requireAuth, async (req, res) => {
         }
       }
 
-      // Tier 3: Merge local JSON backup records (ONLY for FPM_TUNGGAL or Region/ALL)
+      // Tier 3: Merge local JSON backup records (ONLY for FPM_TUNGGAL or Region/ALL) with strict estate isolation
       if (normTarget === 'FPM_TUNGGAL' || isAll) {
         const local = getLocalHantaran();
         if (Array.isArray(local) && local.length > 0) {
           const existingResits = new Set(allRecords.map(r => String(r.no_resit || '').toUpperCase()));
           for (const locRec of (local as HantaranRecord[])) {
+            // Strictly check estate_id to prevent cross-estate pollution
+            const locEstate = normalizeEstateId(locRec.estate_id || getReceiptEstate(locRec));
+            if (normTarget === 'FPM_TUNGGAL' && locEstate !== 'FPM_TUNGGAL') {
+              continue; // Reject records belonging to other estates (e.g. FPM_ADELA)
+            }
             const resitKey = String(locRec.no_resit || '').toUpperCase();
             if (resitKey && !existingResits.has(resitKey)) {
               allRecords.push(locRec);
@@ -528,9 +535,48 @@ router.get("/hantaran", requireAuth, async (req, res) => {
           }
         }
       }
+
+      // Tier 3.5: Locked Fallback Snapshot for FPM_TUNGGAL (Ensures zero drift & zero data loss)
+      if (normTarget === 'FPM_TUNGGAL' || isAll) {
+        try {
+          const tunggalLockFile = path.join(process.cwd(), 'data', 'tunggal_october_locked_records.json');
+          if (fs.existsSync(tunggalLockFile)) {
+            const lockedData = JSON.parse(fs.readFileSync(tunggalLockFile, 'utf-8'));
+            if (lockedData && Array.isArray(lockedData.records)) {
+              const existingResits = new Set(allRecords.map(r => String(r.no_resit || '').toUpperCase()));
+              for (const lockRec of (lockedData.records as HantaranRecord[])) {
+                const resitKey = String(lockRec.no_resit || '').toUpperCase();
+                if (resitKey && !existingResits.has(resitKey)) {
+                  allRecords.push(lockRec);
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
     } else {
       if (normTarget === 'FPM_TUNGGAL' || isAll) {
-        allRecords = (getLocalHantaran() as HantaranRecord[]) || [];
+        const rawLocal = (getLocalHantaran() as HantaranRecord[]) || [];
+        allRecords = normTarget === 'FPM_TUNGGAL'
+          ? rawLocal.filter(r => normalizeEstateId(r.estate_id || getReceiptEstate(r)) === 'FPM_TUNGGAL')
+          : rawLocal;
+
+        // Fallback to locked Tunggal snapshot if local is empty
+        try {
+          const tunggalLockFile = path.join(process.cwd(), 'data', 'tunggal_october_locked_records.json');
+          if (fs.existsSync(tunggalLockFile)) {
+            const lockedData = JSON.parse(fs.readFileSync(tunggalLockFile, 'utf-8'));
+            if (lockedData && Array.isArray(lockedData.records)) {
+              const existingResits = new Set(allRecords.map(r => String(r.no_resit || '').toUpperCase()));
+              for (const lockRec of (lockedData.records as HantaranRecord[])) {
+                const resitKey = String(lockRec.no_resit || '').toUpperCase();
+                if (resitKey && !existingResits.has(resitKey)) {
+                  allRecords.push(lockRec);
+                }
+              }
+            }
+          }
+        } catch (_) {}
       } else {
         allRecords = [];
       }
@@ -579,6 +625,23 @@ router.get("/hantaran", requireAuth, async (req, res) => {
     let local = (getLocalHantaran() as HantaranRecord[]) || [];
     const targetEstate = String(req.estateId || 'FPM_TUNGGAL').trim().toUpperCase();
     const isAll = targetEstate === 'ALL' || targetEstate === 'WILAYAH_JB' || targetEstate === 'WJB' || targetEstate === '0001';
+
+    // Inject locked Tunggal records if missing
+    try {
+      const tunggalLockFile = path.join(process.cwd(), 'data', 'tunggal_october_locked_records.json');
+      if (fs.existsSync(tunggalLockFile)) {
+        const lockedData = JSON.parse(fs.readFileSync(tunggalLockFile, 'utf-8'));
+        if (lockedData && Array.isArray(lockedData.records)) {
+          const existingResits = new Set(local.map(r => String(r.no_resit || '').toUpperCase()));
+          for (const r of (lockedData.records as HantaranRecord[])) {
+            const k = String(r.no_resit || '').toUpperCase();
+            if (k && !existingResits.has(k)) {
+              local.push(r);
+            }
+          }
+        }
+      }
+    } catch (_) {}
 
     if (!local.some((r: HantaranRecord) => getReceiptEstate(r) === 'FPM_ADELA')) {
       local = [...local, ...(generateAdelaBaselineTransactions() as HantaranRecord[])];

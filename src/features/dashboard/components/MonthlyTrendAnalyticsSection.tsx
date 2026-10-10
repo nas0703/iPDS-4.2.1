@@ -206,25 +206,75 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
                         }}
                       />
                       <Tooltip
-                        contentStyle={{
-                          borderRadius: "12px",
-                          border: "none",
-                          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-                          backgroundColor: isDarkMode ? "#1e293b" : "#ffffff",
-                          fontSize: "10px",
-                        }}
-                        formatter={(value: any, name: string) => {
-                          let displayLabel = label;
-                          if (name.includes("target_2026"))
-                            displayLabel = "TARGET 2026";
-                          else if (name.includes("2025"))
-                            displayLabel = "CAPAI 2025";
-                          return [`${value} ${unit}`, displayLabel];
+                        content={({ active, payload, label: xLabel }) => {
+                          if (!active || !payload || !payload.length) return null;
+                          const entry = payload[0]?.payload;
+                          if (!entry) return null;
+
+                          if (effectiveReportType === "muda") {
+                            const isOngoing = entry.isOngoingMonth && (entry.mudaForecastDelta || 0) > 0;
+                            return (
+                              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-1.5 text-slate-800 dark:text-slate-100 min-w-[170px]">
+                                <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-1">
+                                  {xLabel} {currentYear}
+                                </p>
+                                <div className="flex justify-between items-center text-[10px] gap-3">
+                                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-bold">
+                                    <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shrink-0" />
+                                    Sebenar Todate ({entry.daysMonitored || 1} Hari):
+                                  </span>
+                                  <span className="font-mono font-black text-rose-600 dark:text-rose-400">
+                                    {entry.muda ?? 0} Bts
+                                  </span>
+                                </div>
+                                {isOngoing && (
+                                  <>
+                                    <div className="flex justify-between items-center text-[9.5px] gap-3">
+                                      <span className="text-slate-500 dark:text-slate-400 font-medium">
+                                        Purata Harian:
+                                      </span>
+                                      <span className="font-mono font-bold text-slate-700 dark:text-slate-200">
+                                        {entry.mudaDailyAvg ?? 0} Bts / hari
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[10px] gap-3 pt-1 border-t border-dashed border-slate-200 dark:border-slate-800">
+                                      <span className="flex items-center gap-1.5 text-rose-500 dark:text-rose-400 font-black">
+                                        <span className="w-2 h-2 border border-dashed border-rose-500 bg-rose-500/20 inline-block rounded-xs shrink-0" />
+                                        Unjuran Akhir Bulan ({entry.daysInMonth} Hari):
+                                      </span>
+                                      <span className="font-mono font-black text-rose-600 dark:text-rose-400">
+                                        ~{entry.mudaForecast ?? entry.muda} Bts
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-[10px] min-w-[140px] space-y-1">
+                              <p className="font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-0.5">{xLabel} {currentYear}</p>
+                              {payload.map((p: any, idx: number) => {
+                                let displayLabel = label;
+                                if (p.name.includes("target_2026")) displayLabel = "TARGET 2026";
+                                else if (p.name.includes("2025")) displayLabel = "CAPAI 2025";
+                                else if (p.name === "mudaForecastDelta") return null;
+                                return (
+                                  <p key={idx} style={{ color: p.color || (isDarkMode ? "#38bdf8" : "#0284c7") }} className="font-mono flex justify-between gap-2">
+                                    <span>{displayLabel}:</span>
+                                    <span className="font-black">{p.value} {unit}</span>
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          );
                         }}
                       />
                       <Bar
                         dataKey={dataKey}
-                        radius={[4, 4, 0, 0]}
+                        stackId={effectiveReportType === "muda" ? "mudaStack" : undefined}
+                        radius={effectiveReportType === "muda" ? [0, 0, 0, 0] : [4, 4, 0, 0]}
                         onClick={(entry: any) => {
                           if (entry && entry.monthIndex) {
                             handleMonthChange(entry.monthIndex);
@@ -249,17 +299,119 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
                             />
                           );
                         })}
-                        <LabelList
-                          dataKey={dataKey}
-                          position="top"
-                          style={{
-                            fill: isDarkMode ? "#10b981" : "#059669",
-                            fontSize: "8px",
-                            fontWeight: "bold",
-                          }}
-                          formatter={(value: any) => (value > 0 ? value : "")}
-                        />
+                        {effectiveReportType !== "muda" ? (
+                          <LabelList
+                            dataKey={dataKey}
+                            position="top"
+                            style={{
+                              fill: isDarkMode ? "#10b981" : "#059669",
+                              fontSize: "8px",
+                              fontWeight: "bold",
+                            }}
+                            formatter={(value: any) => (value > 0 ? value : "")}
+                          />
+                        ) : (
+                          <LabelList
+                            dataKey="muda"
+                            position="top"
+                            content={(props: any) => {
+                              const { x, y, width, height, index } = props;
+                              const entry = analytics.monthlyTrend?.[index];
+                              if (!entry || entry.muda === null || entry.muda === undefined || entry.muda <= 0) return null;
+
+                              const isOngoing = entry.isOngoingMonth && (entry.mudaForecastDelta || 0) > 0;
+                              // For ongoing month, display the actual value on/above the solid bar segment
+                              if (isOngoing) {
+                                const showInside = height && height >= 14;
+                                return (
+                                  <text
+                                    x={x + width / 2}
+                                    y={showInside ? y + 10 : y - 3}
+                                    textAnchor="middle"
+                                    fill={showInside ? "#ffffff" : (isDarkMode ? "#f43f5e" : "#e11d48")}
+                                    fontSize="7.5"
+                                    fontWeight="900"
+                                    filter={showInside ? "drop-shadow(0px 1px 2px rgba(0,0,0,0.5))" : undefined}
+                                  >
+                                    {entry.muda}
+                                  </text>
+                                );
+                              }
+
+                              // For completed months (Jan-Sep), render actual number above the bar!
+                              return (
+                                <text
+                                  x={x + width / 2}
+                                  y={y - 4}
+                                  textAnchor="middle"
+                                  fill={isDarkMode ? "#f43f5e" : "#e11d48"}
+                                  fontSize="8"
+                                  fontWeight="bold"
+                                >
+                                  {entry.muda}
+                                </text>
+                              );
+                            }}
+                          />
+                        )}
                       </Bar>
+
+                      {effectiveReportType === "muda" && (
+                        <Bar
+                          dataKey="mudaForecastDelta"
+                          stackId="mudaStack"
+                          radius={[4, 4, 0, 0]}
+                          onClick={(entry: any) => {
+                            if (entry && entry.monthIndex) {
+                              handleMonthChange(entry.monthIndex);
+                            }
+                          }}
+                        >
+                          {analytics.monthlyTrend?.map((entry: any, index: number) => {
+                            const hasDelta = (entry.mudaForecastDelta || 0) > 0;
+                            return (
+                              <Cell
+                                key={`cell-forecast-${index}`}
+                                fill={hasDelta ? "#f43f5e" : "transparent"}
+                                fillOpacity={hasDelta ? 0.35 : 0}
+                                stroke={hasDelta ? "#f43f5e" : "none"}
+                                strokeWidth={hasDelta ? 1.5 : 0}
+                                strokeDasharray={hasDelta ? "3 3" : undefined}
+                                className="cursor-pointer hover:opacity-90 transition-opacity"
+                              />
+                            );
+                          })}
+                          <LabelList
+                            dataKey="mudaForecastDelta"
+                            position="top"
+                            content={(props: any) => {
+                              const { x, y, width, index, payload } = props;
+                              const entry = payload || analytics.monthlyTrend?.[index];
+                              if (!entry) return null;
+
+                              const isOngoing = entry.isOngoingMonth && (entry.mudaForecastDelta || 0) > 0;
+
+                              if (isOngoing) {
+                                const val = entry.mudaForecast ?? (entry.muda + entry.mudaForecastDelta);
+                                return (
+                                  <text
+                                    x={x + width / 2}
+                                    y={y - 4}
+                                    textAnchor="middle"
+                                    fill={isDarkMode ? "#f43f5e" : "#e11d48"}
+                                    fontSize="8"
+                                    fontWeight="900"
+                                  >
+                                    ~{val}
+                                  </text>
+                                );
+                              }
+
+                              return null;
+                            }}
+                          />
+                        </Bar>
+                      )}
                       {reportType === "hasil" && (
                         <>
                           <Line
@@ -317,9 +469,19 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
                               <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none">
                                 {reportType === "hasil"
                                   ? "CAPAI 2026"
-                                  : label.toUpperCase()}
+                                  : effectiveReportType === "muda"
+                                    ? "SEBENAR TODATE"
+                                    : label.toUpperCase()}
                               </span>
                             </div>
+                            {effectiveReportType === "muda" && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-2.5 h-2.5 rounded-xs border border-dashed border-rose-500 bg-rose-500/30" />
+                                <span className="text-[7px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest leading-none">
+                                  UNJURAN AKHIR BULAN
+                                </span>
+                              </div>
+                            )}
                             {reportType === "hasil" && (
                               <>
                                 <div className="flex items-center gap-1">

@@ -8,6 +8,7 @@ import {
 import { Transaction } from '../../../types';
 import { ZONES, ESTATES_REGISTRY, getEstateConfig, DEFAULT_MONTHLY_TARGETS_2026 } from '../../../config/estateRegistry';
 import { inferEstateFromReceipt } from '../../../utils/estateContext';
+import { getHistoricalYieldData2025 } from '../../../utils/constants';
 import { supabase } from '../../../services/supabaseClient';
 import { safeFetch } from '../../../utils/safeFetch';
 
@@ -20,10 +21,137 @@ export const cleanPktNum = (val: any): number => {
   return numMatch ? parseInt(numMatch[0], 10) : NaN;
 };
 
+// Helper penyelesaian peringkat transaksi yang tepat mengikut blok dan metadata ladang
+export const resolveTransactionPkt = (t: any, targetEstateId?: string): number => {
+  if (!t) return NaN;
+
+  // 1. Semak EFB (dikecualikan daripada pengiraan hasil TBS utama)
+  const isEFB = String(t.no_resit || '').startsWith('EFB-HIST-') || 
+                String(t.no_tiket || '').startsWith('EFB-') || 
+                String(t.kod_item || '').startsWith('EFB-') ||
+                t.is_efb === true ||
+                String(t.peringkat || '').toUpperCase().trim() === 'EFB' ||
+                String(t.blok || '').toUpperCase().trim() === 'EFB';
+  if (isEFB) return NaN;
+
+  const resolvedEstateId = targetEstateId || t.estate_id || inferEstateFromReceipt(t) || 'FPM_TUNGGAL';
+  const estCfg = ESTATES_REGISTRY[resolvedEstateId];
+
+  const rawBlok = String(t.blok || '').trim().toUpperCase();
+  const rawPkt = String(t.peringkat || '').trim().toUpperCase();
+  const rawKp = String(t.kod_penjual || '').trim().toUpperCase();
+  const rawKa = String(t.kod_akaun_bts || '').trim().toUpperCase();
+  const rawNp = String(t.nama_penjual || '').trim().toUpperCase();
+
+  // 2. Semak Lot Felda (Pkt 3) secara keutamaan tinggi
+  const isFelda = 
+    rawPkt.includes('003') || 
+    rawPkt.includes('FELDA') || 
+    rawBlok === '88' || 
+    rawBlok === '88F' || 
+    rawBlok === 'F88' || 
+    rawBlok === 'LF' || 
+    rawBlok === '1F' || 
+    rawBlok === '2F' ||
+    rawKp.includes('88F') ||
+    rawKa.includes('88F');
+  if (isFelda) return 3;
+
+  // 3. Semak Lot Tambahan (Pkt 4)
+  const isTambahan = 
+    rawPkt.includes('004') || 
+    rawPkt.includes('TAMBAHAN') || 
+    ['125Y', '128Y', '121V'].includes(rawBlok) ||
+    rawBlok.endsWith('Y') || 
+    rawBlok.endsWith('V');
+  if (isTambahan) return 4;
+
+  // 4. Semak Peringkat 2 (Pkt 2) secara eksplisit
+  const has020 =
+    rawKp.includes('-020-') ||
+    rawKa.includes('-020-') ||
+    /[-_]020[-_]/.test(rawKp) ||
+    /[-_]020[-_]/.test(rawKa) ||
+    /\b\d{4}-020-/.test(rawKp) ||
+    /\b\d{4}-020-/.test(rawKa) ||
+    /\b020\b/.test(rawKa);
+
+  const isExplicitPkt2 = 
+    rawBlok.startsWith('P2-') || 
+    rawBlok.startsWith('P2 ') || 
+    rawBlok.startsWith('PKT 2') || 
+    rawBlok.startsWith('PKT2') ||
+    rawPkt === '002' || 
+    rawPkt === '2' || 
+    rawPkt.includes('002') || 
+    rawPkt.includes('PKT 2') || 
+    rawPkt.includes('PKT2') || 
+    rawPkt.includes('PERINGKAT 2') ||
+    has020 ||
+    rawNp.includes('PKT 2') || 
+    rawNp.includes('PERINGKAT 2');
+
+  // 5. Semak mengikut Registry Blok Ladang
+  if (estCfg?.blocks && estCfg.blocks[rawBlok]) {
+    const bInfo = estCfg.blocks[rawBlok];
+    if (bInfo.pkt === '001') return 1;
+    if (bInfo.pkt === '002') return 2;
+    if (bInfo.pkt === '003') return 3;
+    if (bInfo.pkt === '004') return 4;
+  }
+
+  // 6. Semak nombor blok berangka mengikut ladang (SSOT Definisi Ladang)
+  const digitsOnly = rawBlok.replace(/[^0-9]/g, '');
+  const bNum = digitsOnly ? parseInt(digitsOnly, 10) : NaN;
+
+  if (resolvedEstateId === 'FPM_TUNGGAL') {
+    if (!isNaN(bNum)) {
+      if (bNum >= 1 && bNum <= 17) return 1;
+      if (bNum >= 18 && bNum <= 22) return 2;
+      if (bNum === 88) return 3;
+    }
+  } else if (resolvedEstateId === 'FPM_ADELA') {
+    if (isExplicitPkt2) return 2;
+    if (!isNaN(bNum)) {
+      if (bNum >= 1 && bNum <= 11) return 1;
+      if (bNum >= 12 && bNum <= 17) return 2;
+    }
+  }
+
+  if (isExplicitPkt2) return 2;
+
+  // 7. Semak Peringkat 1 (Pkt 1) secara eksplisit
+  const isExplicitPkt1 = 
+    rawBlok.startsWith('P1-') || 
+    rawBlok.startsWith('P1 ') || 
+    rawBlok.startsWith('PKT 1') || 
+    rawBlok.startsWith('PKT1') ||
+    rawPkt === '001' || 
+    rawPkt === '1' || 
+    rawPkt.includes('001') || 
+    rawPkt.includes('PKT 1') || 
+    rawPkt.includes('PKT1') || 
+    rawPkt.includes('PERINGKAT 1') ||
+    rawNp.includes('PKT 1') || 
+    rawNp.includes('PERINGKAT 1');
+
+  if (isExplicitPkt1) return 1;
+
+  if (!isNaN(bNum) && bNum >= 1 && bNum <= 17) {
+    return 1;
+  }
+
+  const pNum = cleanPktNum(rawPkt);
+  if (!isNaN(pNum)) return pNum;
+
+  return NaN;
+};
+
 export interface WilayahExperimentTableSectionProps {
   rawData: Transaction[];
   dashboardDate: string;
   isDarkMode: boolean;
+  blockAnnualData?: any[];
   onSelectEstate?: (estateId: string) => void;
 }
 
@@ -301,6 +429,7 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
   rawData,
   dashboardDate,
   isDarkMode,
+  blockAnnualData,
   onSelectEstate,
 }) => {
   // Pilihan sumber data: Lalai 'live' (Data masa nyata / real-time daripada transaksi semasa) dengan opsyen melihat 'rasmi' (Gambar arkib Ogos 2026)
@@ -329,6 +458,21 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
     const cfg = ZONES[selectedZone];
     return cfg ? cfg.name.toUpperCase() : selectedZone;
   }, [selectedZone]);
+
+  const activeDateInfo = useMemo(() => {
+    const todayStr = dashboardDate || new Date().toISOString().split('T')[0];
+    const [dbYear, dbMonth, dbDay] = todayStr.split('-');
+    const currentMonthIdx = Math.max(0, Math.min(11, parseInt(dbMonth || '10', 10) - 1));
+    const currentDayNum = Math.max(1, parseInt(dbDay || '1', 10));
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
+    const monthName = MONTH_NAMES[currentMonthIdx] || 'Bulan';
+    return {
+      dateStr: todayStr,
+      day: currentDayNum,
+      month: monthName,
+      label: `${currentDayNum} ${monthName}`,
+    };
+  }, [dashboardDate]);
 
   // Ambil data hasil 2025 sebenar & sasaran anggaran 2026 terus daripada Supabase / API backend
   useEffect(() => {
@@ -445,8 +589,11 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
     let rows: ZonPktRow[] = [];
 
     const todayStr = dashboardDate || new Date().toISOString().split('T')[0];
-    const [dbYear, dbMonth] = todayStr.split('-');
-    const currentMonthIdx = Math.max(0, Math.min(11, parseInt(dbMonth || '9', 10) - 1));
+    const [dbYear, dbMonth, dbDay] = todayStr.split('-');
+    const currentMonthIdx = Math.max(0, Math.min(11, parseInt(dbMonth || '10', 10) - 1));
+    const currentDayNum = Math.max(1, parseInt(dbDay || '1', 10));
+    const daysInCurrentMonth = new Date(parseInt(dbYear || '2026', 10), currentMonthIdx + 1, 0).getDate() || 31;
+    const currentDayRatio = Math.min(1, Math.max(0, currentDayNum / daysInCurrentMonth));
 
     // Helper mengira sasaran Anggaran Bulan Ini (BI) dan Hingga Bulan Ini (HBI) dari DB/Registry
     const getDynamicTarget = (baseRow: ZonPktRow) => {
@@ -473,13 +620,98 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
       };
     };
 
+    // Helper mengira hasil sebenar 2025 To-Date (sehingga tarikh pemantauan yang sepadan dalam 2025, cth 1 Jan - 7 Okt 2025)
+    const getHistorical2025ToDate = (baseRow: ZonPktRow): number => {
+      // 1. Semak jika ada rekod transaksi 2025 dalam rawData
+      const targetDate2025 = `2025-${dbMonth || '10'}-${dbDay || '07'}`;
+      const tx2025 = (rawData || []).filter((t: any) => {
+        if (!t) return false;
+        const isEFB = String(t.no_resit || '').startsWith('EFB-HIST-') || 
+                      String(t.no_tiket || '').startsWith('EFB-') || 
+                      String(t.kod_item || '').startsWith('EFB-');
+        if (isEFB) return false;
+
+        const estId = t.estate_id || inferEstateFromReceipt(t);
+        if (estId !== baseRow.estateId) return false;
+
+        const pktNum = resolveTransactionPkt(t, baseRow.estateId);
+        if (pktNum !== baseRow.pkt) return false;
+
+        const tDate = String(t.tarikh || '');
+        return tDate.startsWith('2025') && tDate <= targetDate2025;
+      });
+
+      if (tx2025.length > 0 && baseRow.luas > 0) {
+        const totalTan2025 = tx2025.reduce((sum: number, t: any) => sum + (Number(t.tan) || 0), 0);
+        return Number((totalTan2025 / baseRow.luas).toFixed(2));
+      }
+
+      // 2. Semak data bulanan sejarah 2025 dari dataset rasmi (Tunggal YIELD_DATA_2025 & Adela ADELA_YIELD_DATA_2025)
+      const histRecords = getHistoricalYieldData2025(baseRow.estateId);
+      if (Array.isArray(histRecords) && histRecords.length > 0) {
+        let cumulativeTan = 0;
+        // Bulan-bulan lengkap terdahulu (Januari hingga September bagi bulan Oktober)
+        for (let m = 0; m < currentMonthIdx && m < histRecords.length; m++) {
+          const rec = histRecords[m];
+          if (rec) {
+            if (baseRow.pkt === 1 && typeof rec.pkt1_tan === 'number') {
+              cumulativeTan += rec.pkt1_tan;
+            } else if (baseRow.pkt === 2 && typeof rec.pkt2_tan === 'number') {
+              cumulativeTan += rec.pkt2_tan;
+            } else if (baseRow.pkt === 3 && typeof rec.felda_tan === 'number') {
+              cumulativeTan += rec.felda_tan;
+            } else if (typeof rec.yield === 'number' && baseRow.luas > 0) {
+              cumulativeTan += (rec.t_h ? rec.t_h * baseRow.luas : rec.yield);
+            }
+          }
+        }
+        // Bulan semasa (dikira to-date pro-rata mengikut bilangan hari dipantau cth 7hb / 31 hari)
+        const currentMonthRec = histRecords[currentMonthIdx];
+        if (currentMonthRec) {
+          if (baseRow.pkt === 1 && typeof currentMonthRec.pkt1_tan === 'number') {
+            cumulativeTan += currentMonthRec.pkt1_tan * currentDayRatio;
+          } else if (baseRow.pkt === 2 && typeof currentMonthRec.pkt2_tan === 'number') {
+            cumulativeTan += currentMonthRec.pkt2_tan * currentDayRatio;
+          } else if (baseRow.pkt === 3 && typeof currentMonthRec.felda_tan === 'number') {
+            cumulativeTan += currentMonthRec.felda_tan * currentDayRatio;
+          } else if (typeof currentMonthRec.yield === 'number' && baseRow.luas > 0) {
+            cumulativeTan += (currentMonthRec.t_h ? currentMonthRec.t_h * baseRow.luas : currentMonthRec.yield) * currentDayRatio;
+          }
+        }
+
+        if (cumulativeTan > 0 && baseRow.luas > 0) {
+          return Number((cumulativeTan / baseRow.luas).toFixed(2));
+        }
+      }
+
+      // 3. Fallback: Gunakan nilai tahunan 2025 dari Supabase / baseline yang diskalakan to-date mengikut lengkung pengeluaran
+      const rowKey = `${baseRow.estateId}_P${baseRow.pkt}`;
+      const annual2025 = supabaseYields2025[rowKey] ?? supabaseYields2025[baseRow.estateId] ?? 0;
+      if (annual2025 > 0) {
+        const estCfg = ESTATES_REGISTRY[baseRow.estateId];
+        const monthlyTargets = estCfg?.monthlyTargets2026 || DEFAULT_MONTHLY_TARGETS_2026;
+        const pktKey = baseRow.pkt === 2 ? '002' : (baseRow.pkt === 3 ? '003' : '001');
+        const targetArr = (monthlyTargets && monthlyTargets[pktKey])
+          ? monthlyTargets[pktKey]
+          : (DEFAULT_MONTHLY_TARGETS_2026[pktKey] || DEFAULT_MONTHLY_TARGETS_2026['001']);
+
+        const annualTargetSum = targetArr.reduce((a: number, b: number) => a + b, 0);
+        const prevTargetSum = targetArr.slice(0, currentMonthIdx).reduce((a: number, b: number) => a + b, 0);
+        const toDateTarget = prevTargetSum + (targetArr[currentMonthIdx] || 0) * currentDayRatio;
+
+        const toDateRatio = annualTargetSum > 0 ? (toDateTarget / annualTargetSum) : ((currentMonthIdx + currentDayRatio) / 12);
+        return Number((annual2025 * toDateRatio).toFixed(2));
+      }
+
+      return 0;
+    };
+
     if (dataSource === 'rasmi') {
       rows = OFFICIAL_ALL_ESTATES_ROWS.map((r) => {
-        const rowKey = `${r.estateId}_P${r.pkt}`;
-        const y2025Dynamic = supabaseYields2025[rowKey] ?? supabaseYields2025[r.estateId] ?? 0;
-        const has2025 = y2025Dynamic > 0;
-        const beza_tan = has2025 ? r.hasil_2026 - y2025Dynamic : 0;
-        const pct_beza = has2025 ? Math.round((beza_tan / y2025Dynamic) * 100) : 0;
+        const y2025ToDate = getHistorical2025ToDate(r);
+        const has2025 = y2025ToDate > 0;
+        const beza_tan = has2025 ? r.hasil_2026 - y2025ToDate : 0;
+        const pct_beza = has2025 ? Math.round((beza_tan / y2025ToDate) * 100) : 0;
 
         const { angBi, angHbi } = getDynamicTarget(r);
         const pct_bi = angBi > 0 ? Math.round((r.capai_bi / angBi) * 100) : r.pct_bi;
@@ -493,7 +725,7 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
           pct_bi,
           pct_hbi,
           pct_capai_thnn,
-          hasil_2025: y2025Dynamic,
+          hasil_2025: y2025ToDate,
           beza_tan: Number(beza_tan.toFixed(2)),
           pct_beza,
           hasData: true,
@@ -506,9 +738,7 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
       const currentYear = todayStr.slice(0, 4);
 
       rows = OFFICIAL_ALL_ESTATES_ROWS.map((baseRow) => {
-        // Ambil pencapaian hasil 2025 secara dinamik dari Supabase mengikut peringkat ladang
-        const rowKey = `${baseRow.estateId}_P${baseRow.pkt}`;
-        const actual2025 = supabaseYields2025[rowKey] ?? supabaseYields2025[baseRow.estateId] ?? 0;
+        const actual2025ToDate = getHistorical2025ToDate(baseRow);
         const { angBi, angHbi } = getDynamicTarget(baseRow);
 
         const estateTx = (rawData || []).filter((t: any) => {
@@ -521,8 +751,8 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
           const estId = t.estate_id || inferEstateFromReceipt(t);
           if (estId !== baseRow.estateId) return false;
 
-          const pktNum = cleanPktNum(t.peringkat);
-          return pktNum === baseRow.pkt || (isNaN(pktNum) && baseRow.pkt === 1);
+          const pktNum = resolveTransactionPkt(t, baseRow.estateId);
+          return pktNum === baseRow.pkt;
         });
 
         // Jika TIADA transaksi langsung dalam pangkalan data untuk peringkat ladang ini,
@@ -532,7 +762,7 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
             ...baseRow,
             ang_bi: angBi,
             ang_hbi: angHbi,
-            hasil_2025: actual2025,
+            hasil_2025: actual2025ToDate,
             capai_bi: 0,
             capai_hbi: 0,
             pct_bi: 0,
@@ -558,15 +788,15 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
         const liveCapaiHbi = baseRow.luas > 0 ? tanYear / baseRow.luas : 0;
         const livePctBi = angBi > 0 ? Math.round((liveCapaiBi / angBi) * 100) : 0;
         const livePctHbi = angHbi > 0 ? Math.round((liveCapaiHbi / angHbi) * 100) : 0;
-        const liveBezaTan = actual2025 > 0 ? liveCapaiHbi - actual2025 : 0;
-        const livePctBeza = actual2025 > 0 ? Math.round((liveBezaTan / actual2025) * 100) : 0;
+        const liveBezaTan = actual2025ToDate > 0 ? liveCapaiHbi - actual2025ToDate : 0;
+        const livePctBeza = actual2025ToDate > 0 ? Math.round((liveBezaTan / actual2025ToDate) * 100) : 0;
         const livePctCapaiThnn = baseRow.ang2026 > 0 ? Math.round((liveCapaiHbi / baseRow.ang2026) * 100) : 0;
 
         return {
           ...baseRow,
           ang_bi: angBi,
           ang_hbi: angHbi,
-          hasil_2025: actual2025,
+          hasil_2025: actual2025ToDate,
           capai_bi: Number(liveCapaiBi.toFixed(2)),
           capai_hbi: Number(liveCapaiHbi.toFixed(2)),
           pct_bi: livePctBi,
@@ -752,8 +982,8 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
             <p className="text-[8px] sm:text-[9px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
               <span>
                 {dataSource === 'live'
-                  ? `Data Masa Nyata (Live) • Tarikh: ${dashboardDate || 'Semasa'} • Anggaran HBI dikira secara dinamik & diselaraskan dari pangkalan data Supabase • Perbandingan 2025 To-Date`
-                  : `Data Laporan Matang Utama • Anggaran HBI diselaraskan dengan pangkalan data Supabase • Tarikh: ${dashboardDate || 'Semasa'}`}
+                  ? `Data Masa Nyata (Live) • Tarikh: ${activeDateInfo.label} (${activeDateInfo.dateStr}) • Anggaran HBI dikira secara dinamik dari DB • Perbandingan Hasil Sebenar 2025 To-Date vs 2026 To-Date (sehingga ${activeDateInfo.label})`
+                  : `Data Laporan Matang Utama • Anggaran HBI diselaraskan dengan pangkalan data Supabase • Tarikh: ${activeDateInfo.label} (${activeDateInfo.dateStr})`}
               </span>
             </p>
           </div>
@@ -968,8 +1198,8 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
               <th className="px-1.5 py-1 border-r border-slate-400">HBI</th>
               <th className="px-1.5 py-1 border-r border-slate-400">% BI</th>
               <th className="px-1.5 py-1 border-r border-slate-400">% HBI</th>
-              <th className="px-1.5 py-1 border-r border-slate-400" title="Pencapaian Hasil 2025 To-Date (Sehingga September)">2025</th>
-              <th className="px-1.5 py-1 border-r border-slate-400">2026</th>
+              <th className="px-1.5 py-1 border-r border-slate-400" title={`Pencapaian Hasil 2025 To-Date (Sehingga ${activeDateInfo.label} 2025)`}>2025</th>
+              <th className="px-1.5 py-1 border-r border-slate-400" title={`Pencapaian Hasil 2026 To-Date (Sehingga ${activeDateInfo.label} 2026)`}>2026</th>
               <th className="px-1.5 py-1 border-r border-slate-400">BEZA</th>
               <th className="px-1.5 py-1 border-r border-slate-400">% BEZA</th>
             </tr>

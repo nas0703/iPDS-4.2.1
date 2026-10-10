@@ -135,7 +135,32 @@ export function getStaffNameForBlock(
     }
   }
 
-  // 2. Division / Supervisor assignment if no direct block match
+  // 2. Group / Penyelia specific assignment for Tunggal & estates
+  const groupUpper = (block.group || '').trim().toUpperCase();
+  if (normEst === 'FPM_TUNGGAL') {
+    if (groupUpper === 'ADIB' || groupUpper === '1A') {
+      const match = activeStaff.find(e => e.full_name?.toUpperCase().includes('ADIB') || e.staff_no === '2403468');
+      if (match) return match.full_name;
+      return 'MUHAMMAD ADIB HAZIM BIN HADIRON';
+    }
+    if (groupUpper === 'ARIL' || groupUpper === '1B') {
+      const match = activeStaff.find(e => e.full_name?.toUpperCase().includes('SASHRIL') || e.staff_no === '2403644');
+      if (match) return match.full_name;
+      return 'MD SASHRIL BIN TUMIJAN';
+    }
+    if (groupUpper === 'KIROMIN' || groupUpper === '1C' || groupUpper === '1D') {
+      const match = activeStaff.find(e => e.full_name?.toUpperCase().includes('KIROMIN') || e.staff_no === '2403532');
+      if (match) return match.full_name;
+      return 'MUHAMMAD KIROMIN BIN ISMADI';
+    }
+    if (groupUpper === 'WAN' || groupUpper === 'PKT2' || block.pkt === '002') {
+      const match = activeStaff.find(e => e.full_name?.toUpperCase().includes('AZUWAN') || e.staff_no === '2401859');
+      if (match) return match.full_name;
+      return 'AZUWAN BIN ALI';
+    }
+  }
+
+  // 3. Division / Supervisor assignment if no direct block/group match
   const isPkt1 = block.pkt === '001' || block.group === 'ADIB' || block.group === 'ARIL' || block.group === 'KIROMIN' || block.group === 'PKT1';
   const isPkt2 = block.pkt === '002' || block.group === 'wan' || block.group === 'PKT2';
 
