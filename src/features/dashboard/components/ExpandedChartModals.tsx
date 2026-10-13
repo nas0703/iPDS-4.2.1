@@ -326,20 +326,22 @@ export function ExpandedChartModals({
 
                                   const isOngoing = entry.isOngoingMonth && (entry.mudaForecastDelta || 0) > 0;
                                   if (isOngoing) {
-                                    const showInside = height && height >= 14;
-                                    return (
-                                      <text
-                                        x={x + width / 2}
-                                        y={showInside ? y + 11 : y - 3}
-                                        textAnchor="middle"
-                                        fill={showInside ? "#ffffff" : (isDarkMode ? "#f43f5e" : "#e11d48")}
-                                        fontSize="8.5"
-                                        fontWeight="900"
-                                        filter={showInside ? "drop-shadow(0px 1px 2px rgba(0,0,0,0.5))" : undefined}
-                                      >
-                                        {entry.muda}
-                                      </text>
-                                    );
+                                    if (height && height >= 14) {
+                                      return (
+                                        <text
+                                          x={x + width / 2}
+                                          y={y + 11}
+                                          textAnchor="middle"
+                                          fill="#ffffff"
+                                          fontSize="8.5"
+                                          fontWeight="900"
+                                          filter="drop-shadow(0px 1px 2px rgba(0,0,0,0.5))"
+                                        >
+                                          {entry.muda}
+                                        </text>
+                                      );
+                                    }
+                                    return null;
                                   }
 
                                   return (

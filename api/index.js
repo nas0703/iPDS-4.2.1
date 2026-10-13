@@ -1325,7 +1325,7 @@ function getEstateConfig(estateId) {
     regionId: "WILAYAH_JB",
     regionName: "FPM Wilayah Johor Bahru",
     millName: "Kilang Sawit Adela",
-    totalHectares: 1563.15,
+    totalHectares: 1666.62,
     annualTargetPkt1: 28,
     annualTargetPkt2: 28,
     annualTargetFelda: 11.99,
@@ -1581,7 +1581,7 @@ var init_estateRegistry = __esm({
         regionId: "WILAYAH_JB",
         regionName: "FPM Wilayah Johor Bahru",
         millName: "Kilang Sawit Adela",
-        totalHectares: 1563.15,
+        totalHectares: 1666.62,
         annualTargetPkt1: 28,
         annualTargetPkt2: 28,
         annualTargetFelda: 11.99,
@@ -3696,18 +3696,18 @@ var init_metrics = __esm({
        * Normalize route patterns to avoid high cardinality.
        * e.g., /api/hantaran/123 -> /api/hantaran/:id
        */
-      normalizeRoute(path9) {
-        if (!path9) return "/unknown";
-        let normalized = path9.replace(/\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?=\/|$)/g, "/:id");
+      normalizeRoute(path10) {
+        if (!path10) return "/unknown";
+        let normalized = path10.replace(/\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?=\/|$)/g, "/:id");
         normalized = normalized.replace(/\/\d+(?=\/|$)/g, "/:id");
         return normalized;
       }
-      recordRequest(path9, method = "GET", statusCode = 200, durationMs = 50) {
-        this.recordApiRequest(method, path9, statusCode, durationMs);
+      recordRequest(path10, method = "GET", statusCode = 200, durationMs = 50) {
+        this.recordApiRequest(method, path10, statusCode, durationMs);
       }
-      recordApiRequest(method, path9, statusCode, durationMs) {
+      recordApiRequest(method, path10, statusCode, durationMs) {
         try {
-          const route = this.normalizeRoute(path9);
+          const route = this.normalizeRoute(path10);
           const key = `${method} ${route}`;
           if (!this.endpointMetrics.has(key) && this.endpointMetrics.size >= MAX_ENDPOINTS) {
             return;
@@ -4267,14 +4267,14 @@ function requireRole(allowedRoles) {
             method: req.method
           },
           allowedRoles,
-          user.app_metadata.app_role
+          effectiveRole
         );
         return res.status(403).json({
           success: false,
-          error: `Akses dinafikan: Peranan '${user.app_metadata.app_role}' tidak dibenarkan untuk tindakan ini. Diperlukan salah satu: ${allowedRoles.join(", ")}`,
+          error: `Akses dinafikan: Peranan '${effectiveRole}' tidak dibenarkan untuk tindakan ini. Diperlukan salah satu: ${allowedRoles.join(", ")}`,
           code: "FORBIDDEN",
           requiredRoles: allowedRoles,
-          currentRole: user.app_metadata.app_role
+          currentRole: effectiveRole
         });
       }
       if (!validateTenantAccess(req, res)) {
@@ -4328,8 +4328,8 @@ function requireSuperAdmin(req, res, next) {
 function validateTenantAccess(req, res) {
   const user = req.user;
   if (!user) return true;
-  const userRole = (user.app_metadata.app_role || "").toLowerCase();
-  const userEstate = (user.app_metadata.estate_id || "FPM_TUNGGAL").trim().toUpperCase();
+  const userRole = (user.app_metadata?.app_role || user.app_role || user.role || req.authRole || "").toLowerCase();
+  const userEstate = (user.app_metadata?.estate_id || user.estate_id || user.estate || req.estateId || "FPM_TUNGGAL").trim().toUpperCase();
   let bodyEstate = void 0;
   if (req.body && typeof req.body === "object") {
     if (typeof req.body.estate_id === "string") {
@@ -4361,9 +4361,9 @@ function validateTenantAccess(req, res) {
             user: user ? {
               sub: user.sub,
               app_metadata: {
-                operator_id: user.app_metadata.operator_id,
-                app_role: user.app_metadata.app_role,
-                estate_id: user.app_metadata.estate_id
+                operator_id: user.app_metadata?.operator_id,
+                app_role: user.app_metadata?.app_role || userRole,
+                estate_id: user.app_metadata?.estate_id || userEstate
               },
               user_metadata: {
                 operator_name: user.user_metadata?.operator_name
@@ -4391,9 +4391,9 @@ function validateTenantAccess(req, res) {
           user: user ? {
             sub: user.sub,
             app_metadata: {
-              operator_id: user.app_metadata.operator_id,
-              app_role: user.app_metadata.app_role,
-              estate_id: user.app_metadata.estate_id
+              operator_id: user.app_metadata?.operator_id,
+              app_role: user.app_metadata?.app_role || userRole,
+              estate_id: user.app_metadata?.estate_id || userEstate
             },
             user_metadata: {
               operator_name: user.user_metadata?.operator_name
@@ -9568,6 +9568,8 @@ var fertilizer_routes_default = router6;
 // src/server/routes/hantaran.routes.ts
 init_db();
 import express7 from "express";
+import fs6 from "fs";
+import path6 from "path";
 init_auth();
 
 // src/server/estateStore.ts
@@ -9621,10 +9623,8 @@ function getReceiptEstate(record) {
   const namaPenjual = String(record.nama_penjual || "").toUpperCase();
   const noAkaun = String(record.no_akaun_terima || "").toUpperCase();
   const blok = String(record.blok || "").trim().toUpperCase();
-  if (nota.startsWith("155") || nota.startsWith("5155") || kodPenjual.startsWith("5155") || kodPenjual.includes("5155") || namaPenjual.includes("TUNGGAL") || noAkaun.includes("TUNGGAL") || noResit.includes("TGL") || noResit.includes("TUNGGAL") || noResit.startsWith("TGL-")) {
-    return "FPM_TUNGGAL";
-  }
-  if (nota.startsWith("136") || nota.startsWith("5136") || kodPenjual.startsWith("5136") || kodPenjual.includes("5136") || namaPenjual.includes("ADELA") || noAkaun.includes("ADELA") || noResit.includes("ADL") || noResit.includes("ADELA") || noResit.startsWith("ADL-") || ["1F", "2F", "125Y", "128Y", "121V"].includes(blok)) {
+  const lori = String(record.no_lori || "").trim().toUpperCase();
+  if (nota.startsWith("136") || nota.startsWith("5136") || kodPenjual.startsWith("5136") || kodPenjual.includes("5136") || namaPenjual.includes("ADELA") || noAkaun.includes("ADELA") || noResit.includes("ADL") || noResit.includes("ADELA") || noResit.startsWith("ADL-") || ["1F", "2F", "125Y", "128Y", "121V", "88F"].includes(blok) || ["BLS4830", "JRM970", "JCM3007", "JGG8910", "JBV7370", "JLF7922"].includes(lori)) {
     return "FPM_ADELA";
   }
   if (nota.startsWith("176") || nota.startsWith("5176") || kodPenjual.startsWith("5176") || kodPenjual.includes("5176") || namaPenjual.includes("KLEDANG") || noAkaun.includes("KLEDANG") || noResit.includes("KLD") || noResit.includes("KLEDANG") || noResit.startsWith("KLD-")) {
@@ -9633,10 +9633,16 @@ function getReceiptEstate(record) {
   if (nota.startsWith("156") || nota.startsWith("5156") || kodPenjual.startsWith("5156") || kodPenjual.includes("5156") || namaPenjual.includes("SENING") || noAkaun.includes("SENING") || noResit.includes("SNG") || noResit.includes("SENING") || noResit.startsWith("SNG-")) {
     return "FPM_SENING";
   }
+  if (nota.startsWith("155") || nota.startsWith("5155") || kodPenjual.startsWith("5155") || kodPenjual.includes("5155") || namaPenjual.includes("TUNGGAL") || noAkaun.includes("TUNGGAL") || noResit.includes("TGL") || noResit.includes("TUNGGAL") || noResit.startsWith("TGL-") || noResit.startsWith("0155") && !nota.startsWith("136") && !nota.startsWith("176") && !nota.startsWith("156")) {
+    return "FPM_TUNGGAL";
+  }
+  const rawEstate = String(record.estate_id || "").trim().toUpperCase();
+  if (rawEstate === "FPM_TUNGGAL" || rawEstate === "FPM_ADELA" || rawEstate === "FPM_KLEDANG" || rawEstate === "FPM_SENING") {
+    return rawEstate;
+  }
   if (noResit && estateMap[noResit]) {
     return estateMap[noResit];
   }
-  const rawEstate = String(record.estate_id || "").trim().toUpperCase();
   if (rawEstate) {
     const normalized = normalizeEstateId(rawEstate);
     if (normalized) return normalized;
@@ -9725,6 +9731,136 @@ function generateAdelaBaselineTransactions() {
         estate_id: "FPM_ADELA",
         created_at: `${dateStr}T10:30:00.000Z`
       });
+    });
+  });
+  return transactions;
+}
+
+// src/data/tunggalBaselineDeliveries.ts
+var TUNGGAL_MONTHLY_OFFICIAL_YIELDS = [
+  { month: "2026-01", pkt1: 3088.2, pkt2: 766.8, felda: 90.7, total: 3945.7 },
+  { month: "2026-02", pkt1: 2648.5, pkt2: 657.4, felda: 77.8, total: 3383.7 },
+  { month: "2026-03", pkt1: 2162.4, pkt2: 536.8, felda: 63.6, total: 2762.8 },
+  { month: "2026-04", pkt1: 2503.2, pkt2: 621.3, felda: 73.6, total: 3198.1 },
+  { month: "2026-05", pkt1: 2650.1, pkt2: 657.8, felda: 77.9, total: 3385.8 },
+  { month: "2026-06", pkt1: 3211.8, pkt2: 797.2, felda: 94.4, total: 4103.4 },
+  { month: "2026-07", pkt1: 3462.9, pkt2: 859.6, felda: 101.8, total: 4424.3 },
+  { month: "2026-08", pkt1: 3231.7, pkt2: 802.1, felda: 95, total: 4128.8 },
+  { month: "2026-09", pkt1: 3603.94, pkt2: 892.41, felda: 105.75, total: 4602.1 }
+];
+function generateTunggalBaselineTransactions() {
+  const transactions = [];
+  const pkt1Blocks = [
+    { blok: "1", luas: 72.1498 },
+    { blok: "2", luas: 68.3738 },
+    { blok: "3", luas: 76.594 },
+    { blok: "4", luas: 92.3907 },
+    { blok: "5", luas: 60.1871 },
+    { blok: "6", luas: 80.4161 },
+    { blok: "7", luas: 89.462 },
+    { blok: "8", luas: 82.026 },
+    { blok: "9", luas: 83.614 },
+    { blok: "10", luas: 84.357 },
+    { blok: "11", luas: 47.8496 },
+    { blok: "12", luas: 76.497 },
+    { blok: "13", luas: 50.75 },
+    { blok: "14", luas: 70.445 },
+    { blok: "15", luas: 68.357 },
+    { blok: "16", luas: 64.4435 },
+    { blok: "17", luas: 84.077 }
+  ];
+  const totalLuasPkt1 = pkt1Blocks.reduce((acc, b) => acc + b.luas, 0);
+  const pkt2Blocks = [
+    { blok: "18", luas: 76.197 },
+    { blok: "19", luas: 81.75 },
+    { blok: "20", luas: 68.621 },
+    { blok: "21", luas: 24.264 },
+    { blok: "22", luas: 65.29 }
+  ];
+  const totalLuasPkt2 = pkt2Blocks.reduce((acc, b) => acc + b.luas, 0);
+  const lorries = ["JTG5541", "JQR9912", "JPM2301", "JTK7711", "JNA4420", "JSD3312", "WYT9162", "JES4893"];
+  TUNGGAL_MONTHLY_OFFICIAL_YIELDS.forEach((mYield, mIdx) => {
+    const monthNumStr = String(mIdx + 1).padStart(2, "0");
+    const dateStr = `${mYield.month}-15`;
+    const rmMt = 880 + mIdx * 12;
+    const kpg = mIdx >= 3 ? "21.35" : "21.15";
+    let assignedPkt1 = 0;
+    pkt1Blocks.forEach((b, bIdx) => {
+      const isLast = bIdx === pkt1Blocks.length - 1;
+      const bTon = isLast ? parseFloat((mYield.pkt1 - assignedPkt1).toFixed(2)) : parseFloat((mYield.pkt1 * b.luas / totalLuasPkt1).toFixed(2));
+      assignedPkt1 += bTon;
+      const lorry = lorries[(mIdx + bIdx) % lorries.length];
+      const receiptNo = `TGL-2026-M${monthNumStr}-B${b.blok}`;
+      transactions.push({
+        no_resit: receiptNo,
+        no_akaun_terima: `TGL-${b.blok}`,
+        no_lori: lorry,
+        no_nota_hantaran: `155260${monthNumStr}${b.blok.padStart(2, "0")}`,
+        kpg,
+        blok: b.blok,
+        peringkat: "PKT 001",
+        tan: bTon,
+        muda: 0,
+        reject: 0,
+        sample: 100,
+        rm_mt: rmMt,
+        hasil_rm: parseFloat((bTon * rmMt).toFixed(2)),
+        thek: parseFloat((bTon / b.luas).toFixed(4)),
+        tarikh: dateStr,
+        masa_masuk: "10:15:00",
+        estate_id: "FPM_TUNGGAL",
+        created_at: `${dateStr}T10:15:00.000Z`
+      });
+    });
+    let assignedPkt2 = 0;
+    pkt2Blocks.forEach((b, bIdx) => {
+      const isLast = bIdx === pkt2Blocks.length - 1;
+      const bTon = isLast ? parseFloat((mYield.pkt2 - assignedPkt2).toFixed(2)) : parseFloat((mYield.pkt2 * b.luas / totalLuasPkt2).toFixed(2));
+      assignedPkt2 += bTon;
+      const lorry = lorries[(mIdx + bIdx + 3) % lorries.length];
+      const receiptNo = `TGL-2026-M${monthNumStr}-B${b.blok}`;
+      transactions.push({
+        no_resit: receiptNo,
+        no_akaun_terima: `TGL-${b.blok}`,
+        no_lori: lorry,
+        no_nota_hantaran: `155260${monthNumStr}${b.blok.padStart(2, "0")}`,
+        kpg,
+        blok: b.blok,
+        peringkat: "PKT 002",
+        tan: bTon,
+        muda: 0,
+        reject: 0,
+        sample: 100,
+        rm_mt: rmMt,
+        hasil_rm: parseFloat((bTon * rmMt).toFixed(2)),
+        thek: parseFloat((bTon / b.luas).toFixed(4)),
+        tarikh: dateStr,
+        masa_masuk: "11:30:00",
+        estate_id: "FPM_TUNGGAL",
+        created_at: `${dateStr}T11:30:00.000Z`
+      });
+    });
+    const feldaTon = parseFloat(mYield.felda.toFixed(2));
+    const feldaLorry = lorries[(mIdx + 6) % lorries.length];
+    transactions.push({
+      no_resit: `TGL-2026-M${monthNumStr}-B88`,
+      no_akaun_terima: "TGL-88",
+      no_lori: feldaLorry,
+      no_nota_hantaran: `155260${monthNumStr}88`,
+      kpg,
+      blok: "88",
+      peringkat: "LOT FELDA",
+      tan: feldaTon,
+      muda: 0,
+      reject: 0,
+      sample: 100,
+      rm_mt: rmMt,
+      hasil_rm: parseFloat((feldaTon * rmMt).toFixed(2)),
+      thek: parseFloat((feldaTon / 98.51).toFixed(4)),
+      tarikh: dateStr,
+      masa_masuk: "12:45:00",
+      estate_id: "FPM_TUNGGAL",
+      created_at: `${dateStr}T12:45:00.000Z`
     });
   });
   return transactions;
@@ -11360,13 +11496,13 @@ router7.get("/hantaran", requireAuth, async (req, res) => {
     const applyEstateFilter = (q) => {
       if (isAll) return q;
       if (normTarget === "FPM_ADELA") {
-        return q.or("estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%");
+        return q.or("estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%,no_nota_hantaran.ilike.136%,no_nota_hantaran.ilike.5136%,no_resit.ilike.ADL%");
       } else if (normTarget === "FPM_TUNGGAL") {
-        return q.or("estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%");
+        return q.or("estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%,no_nota_hantaran.ilike.155%,no_nota_hantaran.ilike.5155%,no_resit.ilike.TGL%");
       } else if (normTarget === "FPM_KLEDANG") {
-        return q.or("estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%");
+        return q.or("estate_id.eq.FPM_KLEDANG,estate_id.eq.5176,estate_id.ilike.%KLEDANG%,no_nota_hantaran.ilike.176%,no_nota_hantaran.ilike.5176%,no_resit.ilike.KLD%");
       } else if (normTarget === "FPM_SENING") {
-        return q.or("estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%");
+        return q.or("estate_id.eq.FPM_SENING,estate_id.eq.5156,estate_id.ilike.%SENING%,no_nota_hantaran.ilike.156%,no_nota_hantaran.ilike.5156%,no_resit.ilike.SNG%");
       }
       return q.eq("estate_id", targetEstate);
     };
@@ -11443,6 +11579,10 @@ router7.get("/hantaran", requireAuth, async (req, res) => {
         if (Array.isArray(local) && local.length > 0) {
           const existingResits = new Set(allRecords.map((r) => String(r.no_resit || "").toUpperCase()));
           for (const locRec of local) {
+            const locEstate = normalizeEstateId(locRec.estate_id || getReceiptEstate(locRec));
+            if (normTarget === "FPM_TUNGGAL" && locEstate !== "FPM_TUNGGAL") {
+              continue;
+            }
             const resitKey = String(locRec.no_resit || "").toUpperCase();
             if (resitKey && !existingResits.has(resitKey)) {
               allRecords.push(locRec);
@@ -11450,9 +11590,46 @@ router7.get("/hantaran", requireAuth, async (req, res) => {
           }
         }
       }
+      if (normTarget === "FPM_TUNGGAL" || isAll) {
+        try {
+          const tunggalLockFile = path6.join(process.cwd(), "data", "tunggal_october_locked_records.json");
+          if (fs6.existsSync(tunggalLockFile)) {
+            const lockedData = JSON.parse(fs6.readFileSync(tunggalLockFile, "utf-8"));
+            if (lockedData && Array.isArray(lockedData.records)) {
+              const existingKeys = new Set(allRecords.map((r) => r.id ? String(r.id) : `${String(r.no_resit || "")}_${String(r.tarikh || "")}`.toUpperCase()));
+              for (const lockRec of lockedData.records) {
+                const recKey = lockRec.id ? String(lockRec.id) : `${String(lockRec.no_resit || "")}_${String(lockRec.tarikh || "")}`.toUpperCase();
+                if (recKey && !existingKeys.has(recKey)) {
+                  allRecords.push(lockRec);
+                  existingKeys.add(recKey);
+                }
+              }
+            }
+          }
+        } catch (_) {
+        }
+      }
     } else {
       if (normTarget === "FPM_TUNGGAL" || isAll) {
-        allRecords = getLocalHantaran() || [];
+        const rawLocal = getLocalHantaran() || [];
+        allRecords = normTarget === "FPM_TUNGGAL" ? rawLocal.filter((r) => normalizeEstateId(r.estate_id || getReceiptEstate(r)) === "FPM_TUNGGAL") : rawLocal;
+        try {
+          const tunggalLockFile = path6.join(process.cwd(), "data", "tunggal_october_locked_records.json");
+          if (fs6.existsSync(tunggalLockFile)) {
+            const lockedData = JSON.parse(fs6.readFileSync(tunggalLockFile, "utf-8"));
+            if (lockedData && Array.isArray(lockedData.records)) {
+              const existingKeys = new Set(allRecords.map((r) => r.id ? String(r.id) : `${String(r.no_resit || "")}_${String(r.tarikh || "")}`.toUpperCase()));
+              for (const lockRec of lockedData.records) {
+                const recKey = lockRec.id ? String(lockRec.id) : `${String(lockRec.no_resit || "")}_${String(lockRec.tarikh || "")}`.toUpperCase();
+                if (recKey && !existingKeys.has(recKey)) {
+                  allRecords.push(lockRec);
+                  existingKeys.add(recKey);
+                }
+              }
+            }
+          }
+        } catch (_) {
+        }
       } else {
         allRecords = [];
       }
@@ -11476,6 +11653,25 @@ router7.get("/hantaran", requireAuth, async (req, res) => {
         }
       }
     }
+    if (normTarget === "FPM_TUNGGAL" || isAll) {
+      const tunggalBaseline = generateTunggalBaselineTransactions();
+      const baselineMap = new Map(tunggalBaseline.map((b) => [String(b.no_resit).toUpperCase(), b]));
+      const seenBaselines = /* @__PURE__ */ new Set();
+      allRecords = allRecords.map((r) => {
+        const resitKey = String(r.no_resit || "").toUpperCase();
+        if (baselineMap.has(resitKey)) {
+          seenBaselines.add(resitKey);
+          return { ...r, ...baselineMap.get(resitKey) };
+        }
+        return r;
+      });
+      for (const bRec of tunggalBaseline) {
+        const resitKey = String(bRec.no_resit || "").toUpperCase();
+        if (!seenBaselines.has(resitKey)) {
+          allRecords.push(bRec);
+        }
+      }
+    }
     const classifiedRecords = allRecords.map((r) => {
       const estateId = getReceiptEstate(r);
       return {
@@ -11490,8 +11686,28 @@ router7.get("/hantaran", requireAuth, async (req, res) => {
     let local = getLocalHantaran() || [];
     const targetEstate = String(req.estateId || "FPM_TUNGGAL").trim().toUpperCase();
     const isAll = targetEstate === "ALL" || targetEstate === "WILAYAH_JB" || targetEstate === "WJB" || targetEstate === "0001";
+    try {
+      const tunggalLockFile = path6.join(process.cwd(), "data", "tunggal_october_locked_records.json");
+      if (fs6.existsSync(tunggalLockFile)) {
+        const lockedData = JSON.parse(fs6.readFileSync(tunggalLockFile, "utf-8"));
+        if (lockedData && Array.isArray(lockedData.records)) {
+          const existingKeys = new Set(local.map((r) => r.id ? String(r.id) : `${String(r.no_resit || "")}_${String(r.tarikh || "")}`.toUpperCase()));
+          for (const r of lockedData.records) {
+            const k = r.id ? String(r.id) : `${String(r.no_resit || "")}_${String(r.tarikh || "")}`.toUpperCase();
+            if (k && !existingKeys.has(k)) {
+              local.push(r);
+              existingKeys.add(k);
+            }
+          }
+        }
+      }
+    } catch (_) {
+    }
     if (!local.some((r) => getReceiptEstate(r) === "FPM_ADELA")) {
       local = [...local, ...generateAdelaBaselineTransactions()];
+    }
+    if (!local.some((r) => getReceiptEstate(r) === "FPM_TUNGGAL" && r.tarikh && r.tarikh.startsWith("2026-01"))) {
+      local = [...local, ...generateTunggalBaselineTransactions()];
     }
     const classified = local.map((r) => ({ ...r, estate_id: getReceiptEstate(r) }));
     const filtered = isAll ? classified : classified.filter((r) => r.estate_id === targetEstate);
@@ -11823,8 +12039,8 @@ init_db();
 init_auth();
 init_audit_service();
 import express8 from "express";
-import fs6 from "fs";
-import path6 from "path";
+import fs7 from "fs";
+import path7 from "path";
 import sharp from "sharp";
 init_auth_service();
 var router8 = express8.Router();
@@ -11893,9 +12109,9 @@ function parseLogoDataUri(value) {
 }
 async function generatePwaIcons(logoDataUriOrUrl) {
   try {
-    const iconsDir = path6.join(process.cwd(), "public", "icons");
-    if (!fs6.existsSync(iconsDir)) {
-      fs6.mkdirSync(iconsDir, { recursive: true });
+    const iconsDir = path7.join(process.cwd(), "public", "icons");
+    if (!fs7.existsSync(iconsDir)) {
+      fs7.mkdirSync(iconsDir, { recursive: true });
     }
     const parsedLogo = parseLogoDataUri(logoDataUriOrUrl);
     if (parsedLogo) {
@@ -11908,26 +12124,26 @@ async function generatePwaIcons(logoDataUriOrUrl) {
           channels: 4,
           background: { r: 3, g: 19, b: 21, alpha: 1 }
         }
-      }).composite([{ input: maskableInner, gravity: "center" }]).png().toFile(path6.join(iconsDir, "icon-maskable.png"));
-      await sharp(inputBuffer).resize(192, 192, { fit: "contain", background: { r: 3, g: 19, b: 21, alpha: 1 } }).png().toFile(path6.join(iconsDir, "icon-192x192.png"));
-      await sharp(inputBuffer).resize(512, 512, { fit: "contain", background: { r: 3, g: 19, b: 21, alpha: 1 } }).png().toFile(path6.join(iconsDir, "icon-512x512.png"));
-      await sharp(inputBuffer).resize(180, 180, { fit: "contain", background: { r: 3, g: 19, b: 21, alpha: 1 } }).png().toFile(path6.join(iconsDir, "apple-touch-icon.png"));
-      await sharp(inputBuffer).resize(32, 32, { fit: "contain", background: { r: 3, g: 19, b: 21, alpha: 1 } }).png().toFile(path6.join(process.cwd(), "public", "favicon.png"));
+      }).composite([{ input: maskableInner, gravity: "center" }]).png().toFile(path7.join(iconsDir, "icon-maskable.png"));
+      await sharp(inputBuffer).resize(192, 192, { fit: "contain", background: { r: 3, g: 19, b: 21, alpha: 1 } }).png().toFile(path7.join(iconsDir, "icon-192x192.png"));
+      await sharp(inputBuffer).resize(512, 512, { fit: "contain", background: { r: 3, g: 19, b: 21, alpha: 1 } }).png().toFile(path7.join(iconsDir, "icon-512x512.png"));
+      await sharp(inputBuffer).resize(180, 180, { fit: "contain", background: { r: 3, g: 19, b: 21, alpha: 1 } }).png().toFile(path7.join(iconsDir, "apple-touch-icon.png"));
+      await sharp(inputBuffer).resize(32, 32, { fit: "contain", background: { r: 3, g: 19, b: 21, alpha: 1 } }).png().toFile(path7.join(process.cwd(), "public", "favicon.png"));
       console.log("[PWA_ICON_SYNC] Custom PWA icons (192, 512, maskable, apple-touch) generated successfully from uploaded logo.");
     } else {
-      const svg192Path = path6.join(iconsDir, "icon-192x192.svg");
-      const svg512Path = path6.join(iconsDir, "icon-512x512.svg");
-      const svgMaskPath = path6.join(iconsDir, "icon-maskable.svg");
-      if (fs6.existsSync(svg192Path)) {
-        await sharp(fs6.readFileSync(svg192Path)).resize(192, 192).png().toFile(path6.join(iconsDir, "icon-192x192.png"));
-        await sharp(fs6.readFileSync(svg192Path)).resize(180, 180).png().toFile(path6.join(iconsDir, "apple-touch-icon.png"));
-        await sharp(fs6.readFileSync(svg192Path)).resize(32, 32).png().toFile(path6.join(process.cwd(), "public", "favicon.png"));
+      const svg192Path = path7.join(iconsDir, "icon-192x192.svg");
+      const svg512Path = path7.join(iconsDir, "icon-512x512.svg");
+      const svgMaskPath = path7.join(iconsDir, "icon-maskable.svg");
+      if (fs7.existsSync(svg192Path)) {
+        await sharp(fs7.readFileSync(svg192Path)).resize(192, 192).png().toFile(path7.join(iconsDir, "icon-192x192.png"));
+        await sharp(fs7.readFileSync(svg192Path)).resize(180, 180).png().toFile(path7.join(iconsDir, "apple-touch-icon.png"));
+        await sharp(fs7.readFileSync(svg192Path)).resize(32, 32).png().toFile(path7.join(process.cwd(), "public", "favicon.png"));
       }
-      if (fs6.existsSync(svg512Path)) {
-        await sharp(fs6.readFileSync(svg512Path)).resize(512, 512).png().toFile(path6.join(iconsDir, "icon-512x512.png"));
+      if (fs7.existsSync(svg512Path)) {
+        await sharp(fs7.readFileSync(svg512Path)).resize(512, 512).png().toFile(path7.join(iconsDir, "icon-512x512.png"));
       }
-      if (fs6.existsSync(svgMaskPath)) {
-        await sharp(fs6.readFileSync(svgMaskPath)).resize(512, 512).png().toFile(path6.join(iconsDir, "icon-maskable.png"));
+      if (fs7.existsSync(svgMaskPath)) {
+        await sharp(fs7.readFileSync(svgMaskPath)).resize(512, 512).png().toFile(path7.join(iconsDir, "icon-maskable.png"));
       }
       console.log("[PWA_ICON_SYNC] Restored default official iPDS PNG icons for PWA.");
     }
@@ -11949,10 +12165,10 @@ async function generatePwaIcons(logoDataUriOrUrl) {
           }
         }
       }
-      const localRbacPath = path6.join(process.cwd(), "data", "rbac_registry.json");
-      if (fs6.existsSync(localRbacPath)) {
+      const localRbacPath = path7.join(process.cwd(), "data", "rbac_registry.json");
+      if (fs7.existsSync(localRbacPath)) {
         try {
-          const rawLocal = fs6.readFileSync(localRbacPath, "utf-8");
+          const rawLocal = fs7.readFileSync(localRbacPath, "utf-8");
           const localData = JSON.parse(rawLocal);
           if (localData && typeof localData === "object") {
             cachedRbacRegistry = localData;
@@ -12135,12 +12351,12 @@ router8.post(["/rbac", "/settings/rbac"], requireAuth, requireRbacAdmin, adminRa
       }
       updateServerPinConfig(pinMap);
       try {
-        const dataDir = path6.join(process.cwd(), "data");
-        if (!fs6.existsSync(dataDir)) {
-          fs6.mkdirSync(dataDir, { recursive: true });
+        const dataDir = path7.join(process.cwd(), "data");
+        if (!fs7.existsSync(dataDir)) {
+          fs7.mkdirSync(dataDir, { recursive: true });
         }
-        const rbacFilePath = path6.join(dataDir, "rbac_registry.json");
-        fs6.writeFileSync(rbacFilePath, JSON.stringify(safeRegistry, null, 2), "utf-8");
+        const rbacFilePath = path7.join(dataDir, "rbac_registry.json");
+        fs7.writeFileSync(rbacFilePath, JSON.stringify(safeRegistry, null, 2), "utf-8");
       } catch (fsErr) {
         console.warn("[RBAC_SYNC] Notice saving to local disk:", fsErr);
       }
@@ -12173,10 +12389,10 @@ router8.get(["/rbac", "/settings/rbac"], requireAuth, requireRbacAdmin, async (r
     if (cachedRbacRegistry) {
       return res.json({ success: true, registry: sanitizeRbacRegistryForResponse(cachedRbacRegistry) });
     }
-    const rbacFilePath = path6.join(process.cwd(), "data", "rbac_registry.json");
-    if (fs6.existsSync(rbacFilePath)) {
+    const rbacFilePath = path7.join(process.cwd(), "data", "rbac_registry.json");
+    if (fs7.existsSync(rbacFilePath)) {
       try {
-        const raw = fs6.readFileSync(rbacFilePath, "utf-8");
+        const raw = fs7.readFileSync(rbacFilePath, "utf-8");
         const fileRegistry = JSON.parse(raw);
         if (fileRegistry && typeof fileRegistry === "object") {
           cachedRbacRegistry = fileRegistry;
@@ -19139,32 +19355,105 @@ Hantar output dalam format JSON SAHAJA:
     });
   }
 });
-function detectEstateFromSeller(kodPenjual, namaPenjual, kodProjek, kodAkaunBts) {
+var ESTATE_CODE_MAP = {
+  "5155": { estateId: "FPM_TUNGGAL", estateName: "FPM Tunggal", code: "5155" },
+  "5136": { estateId: "FPM_ADELA", estateName: "FPM Adela", code: "5136" },
+  "5176": { estateId: "FPM_KLEDANG", estateName: "FPM Kledang", code: "5176" },
+  "5156": { estateId: "FPM_SENING", estateName: "FPM Sening", code: "5156" }
+};
+var ESTATE_ID_MAP = {
+  "FPM_TUNGGAL": { estateId: "FPM_TUNGGAL", estateName: "FPM Tunggal", code: "5155" },
+  "FPM_ADELA": { estateId: "FPM_ADELA", estateName: "FPM Adela", code: "5136" },
+  "FPM_KLEDANG": { estateId: "FPM_KLEDANG", estateName: "FPM Kledang", code: "5176" },
+  "FPM_SENING": { estateId: "FPM_SENING", estateName: "FPM Sening", code: "5156" },
+  "WILAYAH_JB": { estateId: "WILAYAH_JB", estateName: "FPM Wilayah Johor Bahru", code: "WJB" },
+  "ALL": { estateId: "WILAYAH_JB", estateName: "FPM Wilayah Johor Bahru (Semua Ladang)", code: "ALL" }
+};
+function detectEstateFromSeller(kodPenjual, namaPenjual, kodProjek, kodAkaunBts, noNotaHantaran) {
   const code = (kodPenjual || "").trim();
   const name = (namaPenjual || "").toUpperCase();
   const proj = (kodProjek || "").trim();
   const akaunBts = (kodAkaunBts || "").trim().toUpperCase();
-  const projMatch = proj.match(/^\d{4}/) || akaunBts.match(/^\d{4}/);
-  const projCode = projMatch ? projMatch[0] : proj.length >= 4 ? proj.slice(0, 4) : "";
-  if (projCode === "5155" || akaunBts.startsWith("5155")) return { estateId: "FPM_TUNGGAL", estateName: "FPM Tunggal" };
-  if (projCode === "5136" || akaunBts.startsWith("5136")) return { estateId: "FPM_ADELA", estateName: "FPM Adela" };
-  if (projCode === "5176" || akaunBts.startsWith("5176")) return { estateId: "FPM_KLEDANG", estateName: "FPM Kledang" };
-  if (projCode === "5156" || akaunBts.startsWith("5156")) return { estateId: "FPM_SENING", estateName: "FPM Sening" };
-  const fourDigitMatch = code.match(/^\d{4}/);
-  const fourDigitCode = fourDigitMatch ? fourDigitMatch[0] : code.length >= 4 ? code.slice(0, 4) : "";
-  if (fourDigitCode === "5155" || name.includes("TUNGGAL")) {
-    return { estateId: "FPM_TUNGGAL", estateName: "FPM Tunggal" };
+  const nota = (noNotaHantaran || "").trim();
+  const projMatch = proj.match(/^\d{4}/) || akaunBts.match(/^\d{4}/) || code.match(/^\d{4}/);
+  const fourDigitCode = projMatch ? projMatch[0] : proj.length >= 4 ? proj.slice(0, 4) : "";
+  if (fourDigitCode && ESTATE_CODE_MAP[fourDigitCode]) {
+    return ESTATE_CODE_MAP[fourDigitCode];
   }
-  if (fourDigitCode === "5136" || name.includes("ADELA")) {
-    return { estateId: "FPM_ADELA", estateName: "FPM Adela" };
-  }
-  if (fourDigitCode === "5176" || name.includes("KLEDANG")) {
-    return { estateId: "FPM_KLEDANG", estateName: "FPM Kledang" };
-  }
-  if (fourDigitCode === "5156" || name.includes("SENING")) {
-    return { estateId: "FPM_SENING", estateName: "FPM Sening" };
-  }
+  if (name.includes("TUNGGAL")) return ESTATE_CODE_MAP["5155"];
+  if (name.includes("ADELA")) return ESTATE_CODE_MAP["5136"];
+  if (name.includes("KLEDANG")) return ESTATE_CODE_MAP["5176"];
+  if (name.includes("SENING")) return ESTATE_CODE_MAP["5156"];
+  if (nota.startsWith("5155") || nota.startsWith("155")) return ESTATE_CODE_MAP["5155"];
+  if (nota.startsWith("5136") || nota.startsWith("136")) return ESTATE_CODE_MAP["5136"];
+  if (nota.startsWith("5176") || nota.startsWith("176")) return ESTATE_CODE_MAP["5176"];
+  if (nota.startsWith("5156") || nota.startsWith("156")) return ESTATE_CODE_MAP["5156"];
   return null;
+}
+function verifyEstateServer(sessionEstateId, ocrData) {
+  const normSessionId = (sessionEstateId || "FPM_TUNGGAL").trim().toUpperCase();
+  const sessionMeta = ESTATE_ID_MAP[normSessionId] || {
+    estateId: normSessionId,
+    estateName: normSessionId.replace(/_/g, " "),
+    code: normSessionId === "FPM_ADELA" ? "5136" : normSessionId === "FPM_KLEDANG" ? "5176" : normSessionId === "FPM_SENING" ? "5156" : "5155"
+  };
+  const candidate4Digit = (ocrData.kod_penjual_4digit || "").trim() || (ocrData.kod_projek || "").trim().slice(0, 4) || ((ocrData.kod_akaun_bts || "").match(/^\d{4}/)?.[0] || "") || ((ocrData.kod_penjual || "").match(/^\d{4}/)?.[0] || "");
+  const step2Matched = candidate4Digit && ESTATE_CODE_MAP[candidate4Digit] ? ESTATE_CODE_MAP[candidate4Digit] : null;
+  const rawSellerName = (ocrData.nama_penjual || "").trim().toUpperCase();
+  let step3Matched = null;
+  if (rawSellerName.includes("TUNGGAL")) step3Matched = ESTATE_CODE_MAP["5155"];
+  else if (rawSellerName.includes("ADELA")) step3Matched = ESTATE_CODE_MAP["5136"];
+  else if (rawSellerName.includes("KLEDANG")) step3Matched = ESTATE_CODE_MAP["5176"];
+  else if (rawSellerName.includes("SENING")) step3Matched = ESTATE_CODE_MAP["5156"];
+  const detected = step2Matched || step3Matched || detectEstateFromSeller(
+    ocrData.kod_penjual,
+    ocrData.nama_penjual,
+    ocrData.kod_projek,
+    ocrData.kod_akaun_bts,
+    ocrData.no_nota_hantaran
+  ) || ESTATE_CODE_MAP["5155"];
+  const isCrossEstateSession = normSessionId === "WILAYAH_JB" || normSessionId === "ALL" || normSessionId === "WJB" || normSessionId === "0001";
+  const isMatch2 = isCrossEstateSession || detected.estateId === sessionMeta.estateId;
+  let status = "MATCHED";
+  let message = "";
+  if (isCrossEstateSession) {
+    status = "CROSS_ESTATE_PERMITTED";
+    message = `\u{1F310} Akses Wilayah / HQ: Resit dikesan untuk ${detected.estateName} (Kod Penjual: ${detected.code} | Nama: ${ocrData.nama_penjual || detected.estateName}).`;
+  } else if (isMatch2) {
+    status = "MATCHED";
+    message = `\u2705 Pengesahan Ladang Sepadan (3/3): Sesi login [${sessionMeta.estateName}] sepadan dengan Kod Penjual [${detected.code}] & Nama Penjual [${ocrData.nama_penjual || detected.estateName}].`;
+  } else {
+    status = "MISMATCH";
+    message = `\u26D4 SEKATAN PERSEMPADAN LADANG: Sesi aktif anda ialah [${sessionMeta.estateName}], tetapi resit dikesan milik [${detected.estateName}] (Kod 4-Digit: ${detected.code} | Nama Penjual: ${ocrData.nama_penjual || detected.estateName}). Pemasukan rentas ladang disekat!`;
+  }
+  return {
+    session_estate_id: sessionMeta.estateId,
+    session_estate_name: sessionMeta.estateName,
+    session_code: sessionMeta.code,
+    seller_4digit_code: candidate4Digit || detected.code,
+    seller_name: ocrData.nama_penjual || detected.estateName,
+    detected_estate_id: detected.estateId,
+    detected_estate_name: detected.estateName,
+    detected_code: detected.code,
+    status,
+    is_match: isMatch2,
+    message,
+    step1_session: {
+      estate_id: sessionMeta.estateId,
+      estate_name: sessionMeta.estateName,
+      code: sessionMeta.code
+    },
+    step2_code_check: {
+      code: candidate4Digit,
+      matched_estate_id: step2Matched?.estateId || null,
+      matched_estate_name: step2Matched?.estateName || null
+    },
+    step3_name_check: {
+      seller_name: ocrData.nama_penjual || "",
+      matched_estate_id: step3Matched?.estateId || null,
+      matched_estate_name: step3Matched?.estateName || null
+    }
+  };
 }
 router13.post(["/", "/ocr-receipt", "/ai/ocr-receipt", "/ocr-receipt/", "/ai/ocr-receipt/", "/api/ai/ocr-receipt", "/api/ocr-receipt"], requireRole(["staff", "mandur", "pf", "fc", "afc", "fs", "eqi", "oc", "rc"]), async (req, res) => {
   console.log(`[OCR_AI] Request received for ocr-receipt. Path: ${req.path}, Payload: ${Math.round(JSON.stringify(req.body || {}).length / 1024)} KB`);
@@ -19251,36 +19540,48 @@ ATURAN EKSTRAKSI MEDAN:
 11. "tan": Berat bersih dalam tan (nombor, cth: 7.44 atau 6.80 daripada "Nett. 6.80").
 12. "muda": Peratusan/bilangan buah muda (nombor, cth: 0 atau 2.0).
 13. "no_seal": Nombor meter seal penuh jika ada (cth: "SL-99120").
-14. "rm_mt": Harga se-tan RM/MT (nombor, cth: 1036.06 daripada "Harga/Tan : 1036.06").
-15. "kod_penjual": Kod penjual / pembekal / syarikat persis di imej (cth: "5" daripada "5-FELDA ADELA", atau kod projek "5136").
-16. "nama_penjual": Nama penuh penjual/ladang (cth: "FELDA ADELA").
-17. "kod_projek": Kod projek/ladang 4-digit jika ada (cth: "5136" daripada "5136-020-4-04").
-18. "kod_akaun_bts": Kod akaun siri BTS penuh jika ada (cth: "5136-020-4-04").
-19. "is_efb": boolean (false untuk TBS/Sawit, true jika TANDAN KOSONG / EFB).
-20. "confidence": nombor antara 0 hingga 100 mengikut ketepatan pengecaman.
+14. "rm_mt": Harga se-tan RM/MT (nombor, cth: 1036.06 daripada "Harga/Tan : 1036.06" atau 934.76).
+15. "kod_penjual_4digit": 4 digit PERTAMA pada baris/row "Penjual" di bawah seksyen "AKUAN PENERIMAAN BTS" (cth: "5155" daripada "5155-010-3-03 SKB: 1000", atau "5136" daripada "5136-020-4-04 SKB: 1000", atau "5176", "5156").
+    - PANDUAN KRITIKAL PENGENALPASTIAN LADANG (3-LANGKAH WAJIB):
+      1. JANGAN KELIRU DENGAN NAMA KILANG DI KEPALA RESIT (cth: "KILANG SAWIT ADELA (4039)"). Itu hanyalah kilang pemprosesan sawit, BUKAN ladang penghantar! Kilang Sawit Adela menerima buah daripada Ladang Felda Tunggal, Ladang Felda Adela, dll.
+      2. 4 DIGIT PERTAMA PADA ROW PENJUAL:
+         * "5155" = Ladang FELDA TUNGGAL (FPM Tunggal)
+         * "5136" = Ladang FELDA ADELA (FPM Adela)
+         * "5176" = Ladang FELDA KLEDANG (FPM Kledang)
+         * "5156" = Ladang FELDA SENING (FPM Sening)
+      3. BARIS NAMA PENJUAL:
+         * "5-FELDA TUNGGAL" atau "FELDA TUNGGAL" = Ladang Felda Tunggal
+         * "5-FELDA ADELA" atau "FELDA ADELA" = Ladang Felda Adela
+16. "nama_penjual": Nama penuh penjual persis di baris "Nama Penjual" (cth: "5-FELDA TUNGGAL" atau "5-FELDA ADELA").
+17. "kod_penjual": Kod penjual / pembekal persis di imej (cth: "5155", "5136", atau kod ringkas "5").
+18. "kod_projek": Kod projek/ladang 4-digit (cth: "5155" atau "5136").
+19. "kod_akaun_bts": Kod akaun siri BTS penuh persis di baris Penjual (cth: "5155-010-3-03" atau "5136-020-4-04").
+20. "is_efb": boolean (false untuk TBS/Sawit, true jika TANDAN KOSONG / EFB).
+21. "confidence": nombor antara 0 hingga 100 mengikut ketepatan pengecaman.
 
 Output MESTI dalam format JSON SAHAJA mengikut struktur berikut:
 {
-  "tarikh": "2026-09-05",
-  "masa_masuk": "10:56:52",
-  "no_resit": "01547939",
-  "no_lori": "BLS4830",
-  "no_akuan_terima": "A00030622",
-  "kpg": 20.20,
-  "kpa": 20.75,
-  "no_nota_hantaran": "1362603085",
-  "peringkat": "PKT 002",
-  "blok": "04",
-  "tan": 7.44,
+  "tarikh": "2026-10-12",
+  "masa_masuk": "09:49:33",
+  "no_resit": "01551869",
+  "no_lori": "JKK7725",
+  "no_akuan_terima": "A00035758",
+  "kpg": 19.80,
+  "kpa": 21.25,
+  "no_nota_hantaran": "1552605915",
+  "peringkat": "PKT 001",
+  "blok": "03",
+  "tan": 7.68,
   "muda": 0.0,
-  "no_seal": "SL-99120",
-  "rm_mt": 1036.06,
-  "kod_penjual": "5",
-  "nama_penjual": "FELDA ADELA",
-  "kod_projek": "5136",
-  "kod_akaun_bts": "5136-020-4-04",
+  "no_seal": "",
+  "rm_mt": 934.76,
+  "kod_penjual_4digit": "5155",
+  "kod_penjual": "5155",
+  "nama_penjual": "5-FELDA TUNGGAL",
+  "kod_projek": "5155",
+  "kod_akaun_bts": "5155-010-3-03",
   "is_efb": false,
-  "confidence": 100
+  "confidence": 98
 }`;
     const rawText = await aiService.extractVision({
       prompt: promptText,
@@ -19467,12 +19768,21 @@ Output MESTI dalam format JSON SAHAJA mengikut struktur berikut:
         parsed.kpg = r2;
       }
     }
-    const estateInfo = detectEstateFromSeller(parsed.kod_penjual, parsed.nama_penjual, parsed.kod_projek, parsed.kod_akaun_bts);
-    if (estateInfo) {
-      parsed.detected_estate_id = estateInfo.estateId;
-      parsed.detected_estate_name = estateInfo.estateName;
-    }
-    const effectiveEstateId = parsed.detected_estate_id || req.headers["x-estate-id"] || req.body?.estate_id || "FPM_TUNGGAL";
+    const sessionEstateId = req.body?.sessionEstateId || req.body?.activeEstateId || req.headers["x-estate-id"] || req.user?.estate_id || "FPM_TUNGGAL";
+    const verification = verifyEstateServer(sessionEstateId, {
+      kod_penjual: parsed.kod_penjual,
+      nama_penjual: parsed.nama_penjual,
+      kod_projek: parsed.kod_projek,
+      kod_akaun_bts: parsed.kod_akaun_bts,
+      kod_penjual_4digit: parsed.kod_penjual_4digit,
+      no_nota_hantaran: parsed.no_nota_hantaran,
+      no_resit: parsed.no_resit
+    });
+    parsed.detected_estate_id = verification.detected_estate_id;
+    parsed.detected_estate_name = verification.detected_estate_name;
+    parsed.kod_penjual_4digit = verification.seller_4digit_code;
+    parsed.estate_verification = verification;
+    const effectiveEstateId = parsed.detected_estate_id || sessionEstateId || "FPM_TUNGGAL";
     if (parsed.peringkat === "LOT FELDA" && effectiveEstateId !== "FPM_ADELA" && effectiveEstateId !== "FPM_TUNGGAL") {
       parsed.peringkat = getPktDisplayName("003", effectiveEstateId);
     }
@@ -23097,8 +23407,8 @@ init_auth();
 init_metrics();
 init_alerts();
 import { Router as Router2 } from "express";
-import fs7 from "fs";
-import path7 from "path";
+import fs8 from "fs";
+import path8 from "path";
 var router17 = Router2();
 router17.get("/live", (req, res) => {
   res.status(200).json({
@@ -23215,16 +23525,16 @@ router17.get("/db", requireRole(["pf", "fc", "oc", "rc"]), async (req, res) => {
 });
 router17.get("/backup", requireRole(["pf", "fc", "oc", "rc"]), (req, res) => {
   try {
-    const backupDir = path7.join(process.cwd(), "backups");
+    const backupDir = path8.join(process.cwd(), "backups");
     let latestBackupName = null;
     let latestBackupTime = 0;
     let manifestData = null;
-    if (fs7.existsSync(backupDir)) {
-      const entries = fs7.readdirSync(backupDir);
+    if (fs8.existsSync(backupDir)) {
+      const entries = fs8.readdirSync(backupDir);
       for (const entry of entries) {
         if (entry.startsWith("ipds_backup_")) {
-          const entryPath = path7.join(backupDir, entry);
-          const stat = fs7.statSync(entryPath);
+          const entryPath = path8.join(backupDir, entry);
+          const stat = fs8.statSync(entryPath);
           if (stat.isDirectory() && stat.mtimeMs > latestBackupTime) {
             latestBackupTime = stat.mtimeMs;
             latestBackupName = entry;
@@ -23232,10 +23542,10 @@ router17.get("/backup", requireRole(["pf", "fc", "oc", "rc"]), (req, res) => {
         }
       }
       if (latestBackupName) {
-        const manifestPath = path7.join(backupDir, latestBackupName, "manifest.json");
-        if (fs7.existsSync(manifestPath)) {
+        const manifestPath = path8.join(backupDir, latestBackupName, "manifest.json");
+        if (fs8.existsSync(manifestPath)) {
           try {
-            manifestData = JSON.parse(fs7.readFileSync(manifestPath, "utf8"));
+            manifestData = JSON.parse(fs8.readFileSync(manifestPath, "utf8"));
           } catch (_) {
             manifestData = null;
           }
@@ -23743,9 +24053,10 @@ router20.get(["/hujan", "/api/hujan"], requireAuth, async (req, res) => {
     });
   }
 });
-router20.post("/hujan", requireAuth, async (req, res) => {
+router20.post(["/hujan", "/api/hujan"], requireAuth, async (req, res) => {
   try {
-    const estateId = req.estateId || "FPM_TUNGGAL";
+    const requestedEstate = req.body?.estate_id || req.headers["x-estate-id"] || req.estateId || "FPM_TUNGGAL";
+    const estateId = String(requestedEstate).trim().toUpperCase();
     const { bulan, tahun, jumlah } = req.body || {};
     if (!bulan || !tahun) {
       return res.status(400).json({
@@ -23753,24 +24064,48 @@ router20.post("/hujan", requireAuth, async (req, res) => {
         error: "Sila nyatakan bulan dan tahun rekod hujan."
       });
     }
+    const cleanBulan = String(bulan).trim().toUpperCase();
+    const cleanTahun = String(tahun).trim();
+    const cleanJumlah = Number(jumlah) || 0;
     const payload = {
-      bulan,
-      tahun: Number(tahun),
-      jumlah: Number(jumlah) || 0,
+      bulan: cleanBulan,
+      tahun: Number(cleanTahun),
+      jumlah: cleanJumlah,
       estate_id: estateId,
       updated_at: (/* @__PURE__ */ new Date()).toISOString()
     };
     const supabase = req.supabase || getScopedSupabase(req.rawToken);
     let savedRecord = payload;
     if (supabase) {
-      const { data, error } = await supabase.from("hujan_rekod").upsert([payload], { onConflict: "estate_id,bulan,tahun" }).select();
-      if (!error && data && data[0]) {
-        savedRecord = data[0];
+      try {
+        const { data: existingRows } = await supabase.from("hujan_rekod").select("id").eq("estate_id", estateId).eq("bulan", cleanBulan).eq("tahun", cleanTahun);
+        if (existingRows && existingRows.length > 0) {
+          const { data: updatedData, error: updateErr } = await supabase.from("hujan_rekod").update({
+            jumlah: cleanJumlah,
+            updated_at: (/* @__PURE__ */ new Date()).toISOString()
+          }).eq("id", existingRows[0].id).select();
+          if (!updateErr && updatedData && updatedData[0]) {
+            savedRecord = updatedData[0];
+          }
+        } else {
+          const { data: insertedData, error: insertErr } = await supabase.from("hujan_rekod").insert([{
+            bulan: cleanBulan,
+            tahun: cleanTahun,
+            jumlah: cleanJumlah,
+            estate_id: estateId,
+            created_at: (/* @__PURE__ */ new Date()).toISOString()
+          }]).select();
+          if (!insertErr && insertedData && insertedData[0]) {
+            savedRecord = insertedData[0];
+          }
+        }
+      } catch (dbErr) {
+        console.warn("Notice saving to Supabase hujan_rekod:", dbErr);
       }
     }
     const localStore = getLocalEstateJson("hujan_rekod", estateId, { records: [] });
     const records = Array.isArray(localStore.records) ? localStore.records : [];
-    const idx = records.findIndex((r) => r.bulan === bulan && Number(r.tahun) === Number(tahun));
+    const idx = records.findIndex((r) => String(r.bulan).toUpperCase() === cleanBulan && String(r.tahun) === cleanTahun);
     if (idx >= 0) {
       records[idx] = savedRecord;
     } else {
@@ -23890,9 +24225,16 @@ router21.delete("/workers/:id", requireRole(["pf", "fc"]), async (req, res) => {
 router21.get("/work-assignments", requireAuth, async (req, res) => {
   try {
     const estateId = req.estateId || "FPM_TUNGGAL";
+    const date = req.query.date;
+    const from = req.query.from;
+    const to = req.query.to;
     const supabase = getSupabase();
     if (supabase) {
-      const { data, error } = await supabase.from("work_assignments").select("*").eq("estate_id", estateId);
+      let query = supabase.from("work_assignments").select("*").eq("estate_id", estateId);
+      if (date) query = query.eq("date", date);
+      if (from) query = query.gte("date", from);
+      if (to) query = query.lte("date", to);
+      const { data, error } = await query;
       if (!error && data) {
         return res.json({
           success: true,
@@ -23902,10 +24244,14 @@ router21.get("/work-assignments", requireAuth, async (req, res) => {
       }
     }
     const local = getLocalEstateJson("work_assignments", estateId, { assignments: [] });
+    let list = Array.isArray(local.assignments) ? local.assignments : [];
+    if (date) list = list.filter((a) => String(a.date || "").split("T")[0] === date);
+    if (from) list = list.filter((a) => String(a.date || "").split("T")[0] >= from);
+    if (to) list = list.filter((a) => String(a.date || "").split("T")[0] <= to);
     return res.json({
       success: true,
       estate_id: estateId,
-      data: local.assignments || []
+      data: list
     });
   } catch (err) {
     console.error("Error fetching work assignments:", err);
@@ -24150,6 +24496,146 @@ router21.post("/work-assignments", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Error saving work assignments:", err);
     return res.status(500).json({ success: false, error: getSafeErrorMessage(err, "Gagal menyimpan tugasan kerja.") });
+  }
+});
+router21.get("/muster-chit", requireAuth, async (req, res) => {
+  try {
+    const estateId = resolveAuthorizedEstate(req) || req.estateId || "FPM_TUNGGAL";
+    const date = req.query.date;
+    if (!date || !isValidDateString(date)) {
+      return res.status(400).json({ success: false, error: "Parameter tarikh (YYYY-MM-DD) diperlukan." });
+    }
+    const settingKey = `muster_chit_${estateId}_${date}`;
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data, error } = await supabase.from("app_settings").select("value, updated_at").eq("key", settingKey).maybeSingle();
+      if (!error && data && data.value) {
+        return res.json({
+          success: true,
+          estate_id: estateId,
+          date,
+          data: data.value,
+          updated_at: data.updated_at,
+          source: "database"
+        });
+      }
+    }
+    const localStore = getLocalEstateJson("muster_chit", estateId, {});
+    const localRecord = localStore?.[date];
+    if (localRecord) {
+      return res.json({
+        success: true,
+        estate_id: estateId,
+        date,
+        data: localRecord,
+        source: "local"
+      });
+    }
+    return res.json({
+      success: true,
+      estate_id: estateId,
+      date,
+      data: null,
+      message: "Tiada rekod tersimpan untuk tarikh ini."
+    });
+  } catch (err) {
+    console.error("Error fetching muster chit:", err);
+    return res.status(500).json({
+      success: false,
+      error: getSafeErrorMessage(err, "Gagal mengambil rekod muster chit.")
+    });
+  }
+});
+router21.post("/muster-chit", requireAuth, async (req, res) => {
+  try {
+    const estateId = resolveAuthorizedEstate(req) || req.estateId || "FPM_TUNGGAL";
+    const body = req.body || {};
+    const date = String(body.date || "").trim();
+    if (!isValidDateString(date)) {
+      return res.status(400).json({ success: false, error: "Tarikh tidak sah (YYYY-MM-DD)." });
+    }
+    const operatorName = req.user?.operator_name || req.user?.username || "Staf Bertugas";
+    const savedPayload = {
+      date,
+      estate_id: estateId,
+      grid: body.grid || {},
+      perluMap: body.perluMap || {},
+      catitanMap: body.catitanMap || {},
+      kategoriSummary: body.kategoriSummary || null,
+      absentReasons: body.absentReasons || null,
+      absentWorkers: Array.isArray(body.absentWorkers) ? body.absentWorkers : [],
+      customNotes: String(body.customNotes || "").trim(),
+      preparedBy: String(body.preparedBy || "").trim(),
+      preparedTitle: String(body.preparedTitle || "").trim(),
+      verifiedBy: String(body.verifiedBy || "").trim(),
+      verifiedTitle: String(body.verifiedTitle || "").trim(),
+      savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      savedBy: operatorName,
+      isSaved: true
+    };
+    const settingKey = `muster_chit_${estateId}_${date}`;
+    const supabase = getSupabase();
+    if (supabase) {
+      const { error } = await supabase.from("app_settings").upsert({
+        key: settingKey,
+        value: savedPayload,
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      }, { onConflict: "key" });
+      if (error) {
+        console.warn("[MUSTER_CHIT_DB_WARN] Could not upsert into app_settings, falling back to local store:", error);
+      }
+    }
+    try {
+      const currentLocal = getLocalEstateJson("muster_chit", estateId, {}) || {};
+      currentLocal[date] = savedPayload;
+      saveLocalEstateJson("muster_chit", estateId, currentLocal);
+    } catch (localErr) {
+      console.warn("Error saving muster chit to local estate json:", localErr);
+    }
+    return res.json({
+      success: true,
+      estate_id: estateId,
+      date,
+      data: savedPayload,
+      message: "Rekod Muster Chit berjaya disimpan ke pangkalan data."
+    });
+  } catch (err) {
+    console.error("Error saving muster chit:", err);
+    return res.status(500).json({
+      success: false,
+      error: getSafeErrorMessage(err, "Gagal menyimpan rekod muster chit.")
+    });
+  }
+});
+router21.delete("/muster-chit", requireRole(["pf", "fc", "superadmin", "afc", "staff", "fs"]), async (req, res) => {
+  try {
+    const estateId = resolveAuthorizedEstate(req) || req.estateId || "FPM_TUNGGAL";
+    const date = req.query.date;
+    if (!date || !isValidDateString(date)) {
+      return res.status(400).json({ success: false, error: "Parameter tarikh (YYYY-MM-DD) diperlukan." });
+    }
+    const settingKey = `muster_chit_${estateId}_${date}`;
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.from("app_settings").delete().eq("key", settingKey);
+    }
+    const currentLocal = getLocalEstateJson("muster_chit", estateId, {}) || {};
+    if (currentLocal[date]) {
+      delete currentLocal[date];
+      saveLocalEstateJson("muster_chit", estateId, currentLocal);
+    }
+    return res.json({
+      success: true,
+      estate_id: estateId,
+      date,
+      message: "Rekod Muster Chit berjaya dipadam/direset."
+    });
+  } catch (err) {
+    console.error("Error deleting muster chit:", err);
+    return res.status(500).json({
+      success: false,
+      error: getSafeErrorMessage(err, "Gagal memadam rekod muster chit.")
+    });
   }
 });
 var workers_routes_default = router21;
@@ -26203,8 +26689,8 @@ init_auth();
 init_db();
 init_audit_service();
 import express24 from "express";
-import fs8 from "fs";
-import path8 from "path";
+import fs9 from "fs";
+import path9 from "path";
 var router25 = express24.Router();
 var EMPLOYEE_WRITE_ROLES = ["pf", "fc"];
 var EMPLOYMENT_STATUSES = ["ACTIVE", "PROBATION", "INACTIVE", "RETIRED", "TERMINATED", "RESIGNED"];
@@ -26310,15 +26796,15 @@ function reconcileLocalEmployees(existing, authoritative, scopeEstate) {
   );
   return dedupeEmployeesById([...retained, ...normalizedIncoming]);
 }
-var DATA_DIR3 = path8.join(process.cwd(), "data");
+var DATA_DIR3 = path9.join(process.cwd(), "data");
 if (process.env.VERCEL || process.env.NOW_REGION) {
   DATA_DIR3 = "/tmp";
 }
-var EMPLOYEES_FILE = path8.join(DATA_DIR3, "employees.json");
+var EMPLOYEES_FILE = path9.join(DATA_DIR3, "employees.json");
 function getLocalEmployees() {
   try {
-    if (fs8.existsSync(EMPLOYEES_FILE)) {
-      const raw = fs8.readFileSync(EMPLOYEES_FILE, "utf-8");
+    if (fs9.existsSync(EMPLOYEES_FILE)) {
+      const raw = fs9.readFileSync(EMPLOYEES_FILE, "utf-8");
       return JSON.parse(raw);
     }
   } catch (err) {
@@ -26328,10 +26814,10 @@ function getLocalEmployees() {
 }
 function saveLocalEmployees(list) {
   try {
-    if (!fs8.existsSync(DATA_DIR3)) {
-      fs8.mkdirSync(DATA_DIR3, { recursive: true });
+    if (!fs9.existsSync(DATA_DIR3)) {
+      fs9.mkdirSync(DATA_DIR3, { recursive: true });
     }
-    fs8.writeFileSync(EMPLOYEES_FILE, JSON.stringify(list, null, 2), "utf-8");
+    fs9.writeFileSync(EMPLOYEES_FILE, JSON.stringify(list, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving local employees file:", err);
   }
@@ -26938,12 +27424,14 @@ apiRouter.use("/devices", devices_routes_default);
 apiRouter.use("/employees", employees_routes_default);
 apiRouter.use(auth_routes_default);
 apiRouter.use(employees_routes_default);
+apiRouter.use(workers_routes_default);
 apiRouter.use(pruning_routes_default);
 apiRouter.use(merumput_routes_default);
 apiRouter.use(hantaran_routes_default);
 apiRouter.use(hasil_routes_default);
 apiRouter.use(penggredan_routes_default);
 apiRouter.use(fertilizer_routes_default);
+apiRouter.use(hujan_routes_default);
 apiRouter.use(settings_routes_default);
 apiRouter.use("/health", health_routes_default);
 apiRouter.get("/db-health", async (req, res) => {

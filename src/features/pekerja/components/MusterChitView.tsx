@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { getActiveEstateId, ESTATE_CHANGED_EVENT } from '../../../utils/estateContext';
 import { Worker, AttendanceRecord, WorkAssignment } from '../types';
-import { getWorkers, getAttendanceForDate, getWorkAssignmentsForDate } from '../services';
+import { 
+  getWorkers, 
+  getAttendanceForDate, 
+  getWorkAssignmentsForDate, 
+  getMusterChitForDate, 
+  saveMusterChitRecord, 
+  SavedMusterChitRecord 
+} from '../services';
 import { printReport } from '../../../utils/printHelper';
 import ExcelJS from 'exceljs';
 import { 
-  Calendar as CalendarIcon, Printer, Download, RefreshCw, Layers, Users, ShieldAlert, CheckSquare, Edit3, Trash2, CheckCircle2, UserCheck, AlertOctagon, FileSpreadsheet
+  Calendar as CalendarIcon, Printer, Download, RefreshCw, Layers, Users, ShieldAlert, CheckSquare, Edit3, Trash2, CheckCircle2, UserCheck, AlertOctagon, FileSpreadsheet, Save, Database, Sparkles, Check, AlertCircle, Clock
 } from 'lucide-react';
 
 interface MusterChitViewProps {
@@ -190,167 +197,213 @@ export const MusterChitView: React.FC<MusterChitViewProps> = ({ isDarkMode, onSh
   const [verifiedBy, setVerifiedBy] = useState('MD NASRUDDIN BIN BHSERANI');
   const [verifiedTitle, setVerifiedTitle] = useState('FIELD CONTROLLER');
 
-  // Load and auto-compute data
-  const handleRefreshAndCompute = async () => {
+  // Persistence status states (Supabase authoritative sync)
+  const [isRecordSavedInDb, setIsRecordSavedInDb] = useState(false);
+  const [savedMeta, setSavedMeta] = useState<{ savedAt?: string; savedBy?: string; updated_at?: string } | null>(null);
+  const [savingToDb, setSavingToDb] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Compute Muster Chit snapshot from raw attendance and work assignments
+  const computeFromRawRecords = async (dateStr: string, wasForced: boolean = false) => {
+    const allWorkers = await getWorkers();
+    const rawAttendance = await getAttendanceForDate(dateStr);
+    const rawAssignments = await getWorkAssignmentsForDate(dateStr);
+
+    setWorkers(allWorkers);
+    setAttendance(rawAttendance);
+    setAssignments(rawAssignments);
+
+    // 1. Reset Local Grid
+    const newGrid: Record<string, Record<string, number>> = {};
+    MUSTER_ACTIVITIES.forEach(act => {
+      newGrid[act.id] = {};
+      SECTORS.forEach(sec => {
+        newGrid[act.id][sec.code] = 0;
+      });
+    });
+
+    // 2. Populate Grid from actual Assignments
+    rawAssignments.forEach(asg => {
+      const workerObj = asg.worker || allWorkers.find(w => String(w.id) === String(asg.worker_id));
+      const roleLower = (workerObj?.role || '').toLowerCase();
+      const kumpulanLower = (workerObj?.kumpulan || '').toLowerCase();
+      const typeLower = (asg.work_type || '').toLowerCase();
+      
+      const isMandor = 
+        roleLower.includes('mandor') || roleLower.includes('mandur') || 
+        roleLower.includes('supervisor') || roleLower.includes('penyelia') ||
+        kumpulanLower.includes('mandor') || kumpulanLower.includes('mandur') || 
+        kumpulanLower.includes('supervisor') || kumpulanLower.includes('penyelia') ||
+        typeLower.includes('mandor') || typeLower.includes('mandur') || 
+        typeLower.includes('supervisor') || typeLower.includes('penyelia');
+
+      const isEQI =
+        roleLower.includes('eqi') || roleLower.includes('penggred') || roleLower.includes('gredding') ||
+        kumpulanLower.includes('eqi') || kumpulanLower.includes('penggred') || kumpulanLower.includes('gredding') ||
+        typeLower.includes('eqi') || typeLower.includes('penggred') || typeLower.includes('gredding');
+
+      let actMatch;
+      if (isMandor) {
+        actMatch = MUSTER_ACTIVITIES.find(act => act.id === 'MANDOR_LADANG') || MUSTER_ACTIVITIES[MUSTER_ACTIVITIES.length - 1];
+      } else if (isEQI) {
+        actMatch = MUSTER_ACTIVITIES.find(act => act.id === 'EQI') || MUSTER_ACTIVITIES[MUSTER_ACTIVITIES.length - 1];
+      } else {
+        actMatch = MUSTER_ACTIVITIES.find(act => {
+          return act.matchKeywords.some(keyword => typeLower.includes(keyword));
+        }) || MUSTER_ACTIVITIES[MUSTER_ACTIVITIES.length - 1];
+      }
+
+      const sectorCode = getSectorCodeFromBlock(asg.blok || '', asg.peringkat || '');
+      newGrid[actMatch.id][sectorCode] = (newGrid[actMatch.id][sectorCode] || 0) + 1;
+    });
+
+    setGrid(newGrid);
+
+    // 3. Populate Absent Workers Names from Attendance Status !== 'Hadir'
+    const absents = rawAttendance
+      .filter(att => att.status !== 'Hadir')
+      .map(att => {
+        const wObj = att.worker || allWorkers.find(w => String(w.id) === String(att.worker_id));
+        return wObj?.name || 'Pekerja';
+      });
+    setAbsentWorkers(absents);
+
+    // Count absent status
+    const sickCount = rawAttendance.filter(att => att.status === 'Sakit').length;
+    const pontengCount = rawAttendance.filter(att => att.status === 'Tidak Hadir').length;
+    const cutiCount = rawAttendance.filter(att => att.status === 'Cuti').length;
+
+    setAbsentReasons({
+      sakit: sickCount,
+      ponteng: pontengCount,
+      lain: cutiCount
+    });
+
+    // 4. Calculate Kategori Pekerja automatically based on actual workers list and attendance
+    const localKategori = {
+      tempatan: { total: 0, present: 0 },
+      tki: { total: 0, present: 0 },
+      tkin: { total: 0, present: 0 },
+      tkn: { total: 0, present: 0 },
+      kontraktor: { total: 0, present: 0 }
+    };
+
+    const activeWorkersList = allWorkers.filter(w => w.is_active !== false);
+    activeWorkersList.forEach(w => {
+      const country = (w.negara_asal || '').toLowerCase();
+      const role = (w.role || '').toLowerCase();
+      const attRec = rawAttendance.find(att => String(att.worker_id) === String(w.id));
+      const hasAssignment = rawAssignments.some(asg => String(asg.worker_id || asg.worker?.id) === String(w.id));
+      const isPresent = attRec ? attRec.status === 'Hadir' : hasAssignment;
+
+      let category: keyof typeof localKategori = 'tki';
+      if (country.includes('malaysia')) {
+        category = 'tempatan';
+      } else if (country.includes('indonesia')) {
+        category = 'tki';
+      } else if (country.includes('nepal')) {
+        category = 'tkn';
+      } else if (country.includes('bangladesh') || country.includes('india') || country.includes('nepal')) {
+        category = 'tkin';
+      }
+
+      if (role.includes('kontraktor') || role.includes('contractor')) {
+        category = 'kontraktor';
+      }
+
+      localKategori[category].total += 1;
+      if (isPresent) {
+        localKategori[category].present += 1;
+      }
+    });
+
+    // Check local storage overrides for this specific date
+    const savedExtra = getLocalMusterChitData(dateStr);
+    if (savedExtra) {
+      if (savedExtra.kontraktorCount !== undefined) {
+        localKategori.kontraktor = {
+          total: savedExtra.kontraktorCount,
+          present: savedExtra.kontraktorCount
+        };
+      }
+      if (savedExtra.preparedBy) setPreparedBy(savedExtra.preparedBy);
+      if (savedExtra.preparedTitle) setPreparedTitle(savedExtra.preparedTitle);
+      if (savedExtra.customNotes) setCustomNotes(savedExtra.customNotes);
+      if (savedExtra.absentReasons) setAbsentReasons(savedExtra.absentReasons);
+    }
+
+    if (activeWorkersList.length === 0 && (!savedExtra || savedExtra.kontraktorCount === undefined)) {
+      const activeEstate = getActiveEstateId();
+      if (activeEstate === 'FPM_TUNGGAL') {
+        setKategoriSummary({
+          tempatan: { total: 4, present: 3 },
+          tki: { total: 20, present: 20 },
+          tkin: { total: 9, present: 9 },
+          tkn: { total: 1, present: 1 },
+          kontraktor: { total: 60, present: 60 }
+        });
+      } else {
+        setKategoriSummary({
+          tempatan: { total: 0, present: 0 },
+          tki: { total: 0, present: 0 },
+          tkin: { total: 0, present: 0 },
+          tkn: { total: 0, present: 0 },
+          kontraktor: { total: 0, present: 0 }
+        });
+      }
+    } else {
+      setKategoriSummary(localKategori);
+    }
+
+    setIsRecordSavedInDb(false);
+    setSavedMeta(null);
+    setIsDirty(true);
+
+    if (wasForced) {
+      onShowToast('success', 'Muster Chit berjaya dihitung semula daripada rekod kehadiran & tugasan. Sila klik "Simpan ke Database" untuk mengekalkan rekod.');
+    } else {
+      onShowToast('success', 'Draf Muster Chit dihitung secara automatik berdasarkan rekod hari ini.');
+    }
+  };
+
+  // Main loader: First checks authoritative database persistence so NO RECALCULATION is needed!
+  const loadMusterChitData = async (dateToLoad: string, forceRecompute: boolean = false) => {
     try {
       setLoading(true);
-      const allWorkers = await getWorkers();
-      const rawAttendance = await getAttendanceForDate(selectedDate);
-      const rawAssignments = await getWorkAssignmentsForDate(selectedDate);
 
-      setWorkers(allWorkers);
-      setAttendance(rawAttendance);
-      setAssignments(rawAssignments);
+      // Check authoritative database record first unless user explicitly requests recompute
+      if (!forceRecompute) {
+        const saved = await getMusterChitForDate(dateToLoad);
+        if (saved && saved.grid && Object.keys(saved.grid).length > 0) {
+          // DIRECT PERSISTENCE RESTORATION - NO RECALCULATION RUN
+          setGrid(saved.grid);
+          if (saved.perluMap) setPerluMap(saved.perluMap);
+          if (saved.catitanMap) setCatitanMap(saved.catitanMap);
+          if (saved.kategoriSummary) setKategoriSummary(saved.kategoriSummary);
+          if (saved.absentReasons) setAbsentReasons(saved.absentReasons);
+          if (saved.absentWorkers) setAbsentWorkers(saved.absentWorkers);
+          if (saved.customNotes !== undefined) setCustomNotes(saved.customNotes);
+          if (saved.preparedBy) setPreparedBy(saved.preparedBy);
+          if (saved.preparedTitle) setPreparedTitle(saved.preparedTitle);
+          if (saved.verifiedBy) setVerifiedBy(saved.verifiedBy);
+          if (saved.verifiedTitle) setVerifiedTitle(saved.verifiedTitle);
 
-      // 1. Reset Local Grid
-      const newGrid: Record<string, Record<string, number>> = {};
-      MUSTER_ACTIVITIES.forEach(act => {
-        newGrid[act.id] = {};
-        SECTORS.forEach(sec => {
-          newGrid[act.id][sec.code] = 0;
-        });
-      });
+          setIsRecordSavedInDb(true);
+          setSavedMeta({
+            savedAt: saved.savedAt || saved.updated_at,
+            savedBy: saved.savedBy || 'Staf Bertugas',
+            updated_at: saved.updated_at
+          });
+          setIsDirty(false);
 
-      // 2. Populate Grid from actual Assignments
-      rawAssignments.forEach(asg => {
-        const workerObj = asg.worker || allWorkers.find(w => String(w.id) === String(asg.worker_id));
-        const roleLower = (workerObj?.role || '').toLowerCase();
-        const kumpulanLower = (workerObj?.kumpulan || '').toLowerCase();
-        const typeLower = (asg.work_type || '').toLowerCase();
-        
-        const isMandor = 
-          roleLower.includes('mandor') || roleLower.includes('mandur') || 
-          roleLower.includes('supervisor') || roleLower.includes('penyelia') ||
-          kumpulanLower.includes('mandor') || kumpulanLower.includes('mandur') || 
-          kumpulanLower.includes('supervisor') || kumpulanLower.includes('penyelia') ||
-          typeLower.includes('mandor') || typeLower.includes('mandur') || 
-          typeLower.includes('supervisor') || typeLower.includes('penyelia');
-
-        const isEQI =
-          roleLower.includes('eqi') || roleLower.includes('penggred') || roleLower.includes('gredding') ||
-          kumpulanLower.includes('eqi') || kumpulanLower.includes('penggred') || kumpulanLower.includes('gredding') ||
-          typeLower.includes('eqi') || typeLower.includes('penggred') || typeLower.includes('gredding');
-
-        let actMatch;
-        if (isMandor) {
-          actMatch = MUSTER_ACTIVITIES.find(act => act.id === 'MANDOR_LADANG') || MUSTER_ACTIVITIES[MUSTER_ACTIVITIES.length - 1];
-        } else if (isEQI) {
-          actMatch = MUSTER_ACTIVITIES.find(act => act.id === 'EQI') || MUSTER_ACTIVITIES[MUSTER_ACTIVITIES.length - 1];
-        } else {
-          // Find which activity matches best based on work_type
-          actMatch = MUSTER_ACTIVITIES.find(act => {
-            return act.matchKeywords.some(keyword => typeLower.includes(keyword));
-          }) || MUSTER_ACTIVITIES[MUSTER_ACTIVITIES.length - 1]; // Fallback to Lain-lain
+          // Background supplementary worker list update
+          getWorkers().then(setWorkers).catch(() => {});
+          return;
         }
-
-        const sectorCode = getSectorCodeFromBlock(asg.blok || '', asg.peringkat || '');
-
-        newGrid[actMatch.id][sectorCode] = (newGrid[actMatch.id][sectorCode] || 0) + 1;
-      });
-
-      setGrid(newGrid);
-
-      // 3. Populate Absent Workers Names from Attendance Status !== 'Hadir'
-      const absents = rawAttendance
-        .filter(att => att.status !== 'Hadir')
-        .map(att => {
-          const wObj = att.worker || allWorkers.find(w => String(w.id) === String(att.worker_id));
-          return wObj?.name || 'Pekerja';
-        });
-      setAbsentWorkers(absents);
-
-      // Count absent status
-      const sickCount = rawAttendance.filter(att => att.status === 'Sakit').length;
-      const pontengCount = rawAttendance.filter(att => att.status === 'Tidak Hadir').length;
-      const cutiCount = rawAttendance.filter(att => att.status === 'Cuti').length;
-
-      setAbsentReasons({
-        sakit: sickCount,
-        ponteng: pontengCount,
-        lain: cutiCount
-      });
-
-      // 4. Calculate Kategori Pekerja automatically based on actual workers list and attendance
-      const localKategori = {
-        tempatan: { total: 0, present: 0 },
-        tki: { total: 0, present: 0 },
-        tkin: { total: 0, present: 0 },
-        tkn: { total: 0, present: 0 },
-        kontraktor: { total: 0, present: 0 }
-      };
-
-      // Scan all active workers
-      const activeWorkersList = allWorkers.filter(w => w.is_active !== false);
-      activeWorkersList.forEach(w => {
-        const country = (w.negara_asal || '').toLowerCase();
-        const role = (w.role || '').toLowerCase();
-        const attRec = rawAttendance.find(att => String(att.worker_id) === String(w.id));
-        const hasAssignment = rawAssignments.some(asg => String(asg.worker_id || asg.worker?.id) === String(w.id));
-        const isPresent = attRec ? attRec.status === 'Hadir' : hasAssignment;
-
-        let category: keyof typeof localKategori = 'tki'; // Default fallback
-
-        if (country.includes('malaysia')) {
-          category = 'tempatan';
-        } else if (country.includes('indonesia')) {
-          category = 'tki';
-        } else if (country.includes('nepal')) {
-          category = 'tkn';
-        } else if (country.includes('bangladesh') || country.includes('india') || country.includes('nepal')) {
-          category = 'tkin';
-        }
-
-        // If explicitly contractor
-        if (role.includes('kontraktor') || role.includes('contractor')) {
-          category = 'kontraktor';
-        }
-
-        localKategori[category].total += 1;
-        if (isPresent) {
-          localKategori[category].present += 1;
-        }
-      });
-
-      // Check local storage overrides for this specific date
-      const savedExtra = getLocalMusterChitData(selectedDate);
-      if (savedExtra) {
-        if (savedExtra.kontraktorCount !== undefined) {
-          localKategori.kontraktor = {
-            total: savedExtra.kontraktorCount,
-            present: savedExtra.kontraktorCount
-          };
-        }
-        if (savedExtra.preparedBy) setPreparedBy(savedExtra.preparedBy);
-        if (savedExtra.preparedTitle) setPreparedTitle(savedExtra.preparedTitle);
-        if (savedExtra.customNotes) setCustomNotes(savedExtra.customNotes);
-        if (savedExtra.absentReasons) setAbsentReasons(savedExtra.absentReasons);
       }
 
-      // Adjust with default baseline from paper if local database is empty
-      if (activeWorkersList.length === 0 && (!savedExtra || savedExtra.kontraktorCount === undefined)) {
-        const activeEstate = getActiveEstateId();
-        if (activeEstate === 'FPM_TUNGGAL') {
-          setKategoriSummary({
-            tempatan: { total: 4, present: 3 },
-            tki: { total: 20, present: 20 },
-            tkin: { total: 9, present: 9 },
-            tkn: { total: 1, present: 1 },
-            kontraktor: { total: 60, present: 60 }
-          });
-        } else {
-          setKategoriSummary({
-            tempatan: { total: 0, present: 0 },
-            tki: { total: 0, present: 0 },
-            tkin: { total: 0, present: 0 },
-            tkn: { total: 0, present: 0 },
-            kontraktor: { total: 0, present: 0 }
-          });
-        }
-      } else {
-        setKategoriSummary(localKategori);
-      }
-
-      onShowToast('success', 'Muster Chit berjaya dihitung secara automatik berdasarkan rekod hari ini!');
+      // If no saved record or user forced recompute, compute from raw data
+      await computeFromRawRecords(dateToLoad, forceRecompute);
     } catch (err: any) {
       console.error(err);
       onShowToast('error', 'Gagal memuat atau mengira Muster Chit: ' + err.message);
@@ -359,15 +412,86 @@ export const MusterChitView: React.FC<MusterChitViewProps> = ({ isDarkMode, onSh
     }
   };
 
+  // Explicit Save to Database Button handler: Persists across all devices
+  const handleSaveToDatabase = async () => {
+    try {
+      setSavingToDb(true);
+      const activeEstate = getActiveEstateId();
+      const payload: Partial<SavedMusterChitRecord> & { date: string } = {
+        date: selectedDate,
+        estate_id: activeEstate,
+        grid,
+        perluMap,
+        catitanMap,
+        kategoriSummary,
+        absentReasons,
+        absentWorkers,
+        customNotes,
+        preparedBy,
+        preparedTitle,
+        verifiedBy,
+        verifiedTitle,
+        isSaved: true
+      };
+
+      const saved = await saveMusterChitRecord(payload);
+      setIsRecordSavedInDb(true);
+      setSavedMeta({
+        savedAt: saved.savedAt || new Date().toISOString(),
+        savedBy: saved.savedBy || 'Staf Bertugas',
+        updated_at: saved.updated_at
+      });
+      setIsDirty(false);
+
+      // Local backup sync
+      saveLocalMusterChitData(selectedDate, {
+        kontraktorCount: kategoriSummary.kontraktor.present,
+        preparedBy,
+        preparedTitle,
+        customNotes,
+        absentReasons
+      });
+
+      const formattedDate = selectedDate.split('-').reverse().join('/');
+      onShowToast('success', `Rekod Muster Chit (${formattedDate}) BERJAYA DISIMPAN KE PANGKALAN DATA! Data kini kekal dan terpapar di semua peranti.`);
+    } catch (err: any) {
+      console.error('Save Muster Chit error:', err);
+      onShowToast('error', 'Gagal menyimpan rekod ke database: ' + (err.message || 'Sila cuba lagi.'));
+    } finally {
+      setSavingToDb(false);
+    }
+  };
+
+  // Recalculate button handler: Asks confirmation if record is already saved in database
+  const handleRecalculateClick = async () => {
+    if (isRecordSavedInDb) {
+      const confirmed = window.confirm(
+        'PERHATIAN: Rekod Muster Chit bagi tarikh ini telah disimpan di pangkalan data.\n\nAdakah anda pasti ingin mengira semula daripada rekod tugasan kerja & kehadiran mentah hari ini? Data manual yang diubah mungkin akan digantikan.'
+      );
+      if (!confirmed) return;
+    }
+    await loadMusterChitData(selectedDate, true);
+  };
+
   useEffect(() => {
-    handleRefreshAndCompute();
+    loadMusterChitData(selectedDate, false);
 
     const handleEstateChange = () => {
-      handleRefreshAndCompute();
+      loadMusterChitData(selectedDate, false);
+    };
+
+    const handleExternalMusterSave = (e: any) => {
+      if (e?.detail?.date === selectedDate) {
+        loadMusterChitData(selectedDate, false);
+      }
     };
 
     window.addEventListener(ESTATE_CHANGED_EVENT, handleEstateChange);
-    return () => window.removeEventListener(ESTATE_CHANGED_EVENT, handleEstateChange);
+    window.addEventListener('IPDS_MUSTER_CHIT_SAVED', handleExternalMusterSave);
+    return () => {
+      window.removeEventListener(ESTATE_CHANGED_EVENT, handleEstateChange);
+      window.removeEventListener('IPDS_MUSTER_CHIT_SAVED', handleExternalMusterSave);
+    };
   }, [selectedDate]);
 
   // Handle cell value changes manually (for manual adjustments)
@@ -949,19 +1073,34 @@ export const MusterChitView: React.FC<MusterChitViewProps> = ({ isDarkMode, onSh
             />
           </div>
 
-          {/* Sync Button */}
+          {/* Save to Database Button */}
           <button
-            onClick={handleRefreshAndCompute}
+            onClick={handleSaveToDatabase}
+            disabled={savingToDb}
+            className={`py-2 px-3.5 rounded-xl border transition-all flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider cursor-pointer active:scale-95 shadow-sm ${
+              isRecordSavedInDb && !isDirty
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 ring-2 ring-emerald-500/40 animate-pulse'
+            }`}
+            title="Simpan rekod Muster Chit ke pangkalan data untuk paparan semua peranti"
+          >
+            <Database size={13} className={savingToDb ? 'animate-spin' : ''} />
+            <span>{savingToDb ? 'Menyimpan...' : isRecordSavedInDb && !isDirty ? 'Tersimpan di DB' : 'Simpan ke Database'}</span>
+          </button>
+
+          {/* Recalculate Button */}
+          <button
+            onClick={handleRecalculateClick}
             disabled={loading}
             className={`py-2 px-3 rounded-xl border transition-all flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider cursor-pointer active:scale-95 ${
               isDarkMode 
                 ? 'bg-slate-800/80 hover:bg-slate-800 border-white/10 text-slate-300' 
                 : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-sm'
             }`}
-            title="Muat semula dan kira berdasarkan kehadiran & tugasan sistem"
+            title="Kira semula daripada rekod kehadiran & tugasan kerja harian"
           >
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-            <span>Kira Automatik</span>
+            <span>Kira Semula</span>
           </button>
 
           {/* Excel Download Button (Compact & Modern) */}
@@ -1005,6 +1144,58 @@ export const MusterChitView: React.FC<MusterChitViewProps> = ({ isDarkMode, onSh
                 {formatDateMalay(selectedDate)}
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* AUTHORITATIVE DATABASE PERSISTENCE STATUS BANNER */}
+        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print ${
+          isRecordSavedInDb
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-200'
+            : 'bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-200'
+        }`}>
+          <div className="flex items-start sm:items-center gap-3">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+              isRecordSavedInDb ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+            }`}>
+              {isRecordSavedInDb ? <CheckCircle2 size={18} /> : <AlertOctagon size={18} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-[11px] uppercase tracking-wide">
+                  {isRecordSavedInDb ? 'REKOD KEKAL DI PANGKALAN DATA (SEMUA PERANTI)' : 'DRAF AUTOMATIK (BELUM DISIMPAN KE DATABASE)'}
+                </span>
+                {isRecordSavedInDb && (
+                  <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full text-[8px] font-black uppercase">
+                    Terpapar di Semua Peranti
+                  </span>
+                )}
+                {isDirty && (
+                  <span className="bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full text-[8px] font-black uppercase animate-pulse">
+                    Perubahan Belum Disimpan
+                  </span>
+                )}
+              </div>
+              <p className="text-[9px] font-semibold opacity-90 mt-0.5">
+                {isRecordSavedInDb
+                  ? `Disimpan pada: ${savedMeta?.savedAt ? new Date(savedMeta.savedAt).toLocaleString('ms-MY') : 'Terkini'} ${savedMeta?.savedBy ? `oleh ${savedMeta.savedBy}` : ''}. Rekod ini disimpan kekal di database — tidak perlu dibuat pengiraan lagi pada peranti lain.`
+                  : 'Data dihitung secara automatik daripada agihan tugasan kerja & kehadiran. Sila semak data dan klik butang "Simpan ke Database" supaya rekod ini kekal.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button
+              onClick={handleSaveToDatabase}
+              disabled={savingToDb}
+              className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
+                isRecordSavedInDb && !isDirty
+                  ? 'bg-emerald-600/80 hover:bg-emerald-600 text-white'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-500/40 animate-pulse'
+              }`}
+            >
+              <Database size={11} className={savingToDb ? 'animate-spin' : ''} />
+              <span>{savingToDb ? 'Menyimpan...' : isRecordSavedInDb && !isDirty ? 'Tersimpan di DB' : 'Simpan ke Database'}</span>
+            </button>
           </div>
         </div>
 
@@ -1576,6 +1767,36 @@ export const MusterChitView: React.FC<MusterChitViewProps> = ({ isDarkMode, onSh
                 <p className="text-[7px] font-bold text-slate-400 leading-none">81900 KOTA TINGGI JOHOR</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* BOTTOM SAVE TO DATABASE ACTION ROW (NO PRINT) */}
+        <div className="no-print pt-6 border-t border-slate-200 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-left">
+            <p className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Database size={13} className="text-emerald-500" />
+              Status Penyimpanan Pangkalan Data (Multi-Peranti)
+            </p>
+            <p className="text-[9px] text-slate-400 font-semibold mt-0.5">
+              {isRecordSavedInDb
+                ? `Rekod telah disimpan secara kekal di database (${savedMeta?.savedAt ? new Date(savedMeta.savedAt).toLocaleString('ms-MY') : 'Terkini'}). Semua peranti boleh terus melihat data ini tanpa perlu pengiraan semula.`
+                : 'Rekod masih draf. Klik butang di sebelah untuk menyimpan rekod ke database secara kekal.'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleSaveToDatabase}
+              disabled={savingToDb}
+              className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer active:scale-95 ${
+                isRecordSavedInDb && !isDirty
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-500/40 animate-pulse'
+              }`}
+            >
+              <Save size={14} className={savingToDb ? 'animate-spin' : ''} />
+              <span>{savingToDb ? 'Menyimpan ke Database...' : isRecordSavedInDb && !isDirty ? 'Kemas Kini Simpanan' : 'Simpan Rekod Muster Chit ke Database'}</span>
+            </button>
           </div>
         </div>
 

@@ -91,26 +91,11 @@ export function inferEstateFromReceipt(record: any): string {
   const noNota = String(record.no_nota_hantaran || '').trim().toUpperCase();
   const kodPenjual = String(record.kod_penjual || '').trim().toUpperCase();
   const namaPenjual = String(record.nama_penjual || '').toUpperCase();
-  const rawEstate = String(record.estate_id || '').trim().toUpperCase();
   const blok = String(record.blok || '').trim().toUpperCase();
+  const lori = String(record.no_lori || '').trim().toUpperCase();
 
   // 1. Strict metadata detection by delivery note (no_nota_hantaran), seller code, or receipt number
-  // Tunggal: 155 / 5155
-  if (
-    noNota.startsWith('155') || 
-    noNota.startsWith('5155') || 
-    kodPenjual.startsWith('5155') || 
-    kodPenjual.includes('5155') ||
-    noResit.includes('TUNGGAL') || 
-    noAkaun.includes('TUNGGAL') || 
-    namaPenjual.includes('TUNGGAL') || 
-    noResit.includes('TGL') ||
-    noResit.startsWith('TGL-')
-  ) {
-    return 'FPM_TUNGGAL';
-  }
-
-  // Adela: 136 / 5136
+  // Adela: 136 / 5136 or Adela blocks or Adela lorries
   if (
     noNota.startsWith('136') || 
     noNota.startsWith('5136') || 
@@ -121,7 +106,8 @@ export function inferEstateFromReceipt(record: any): string {
     namaPenjual.includes('ADELA') || 
     noResit.includes('ADL') ||
     noResit.startsWith('ADL-') ||
-    ['1F', '2F', '125Y', '128Y', '121V'].includes(blok)
+    ['1F', '2F', '125Y', '128Y', '121V', '88F'].includes(blok) ||
+    ['BLS4830', 'JRM970', 'JCM3007', 'JGG8910', 'JBV7370', 'JLF7922'].includes(lori)
   ) {
     return 'FPM_ADELA';
   }
@@ -154,6 +140,28 @@ export function inferEstateFromReceipt(record: any): string {
     noResit.startsWith('SNG-')
   ) {
     return 'FPM_SENING';
+  }
+
+  // Tunggal: 155 / 5155
+  if (
+    noNota.startsWith('155') || 
+    noNota.startsWith('5155') || 
+    kodPenjual.startsWith('5155') || 
+    kodPenjual.includes('5155') ||
+    noResit.includes('TUNGGAL') || 
+    noAkaun.includes('TUNGGAL') || 
+    namaPenjual.includes('TUNGGAL') || 
+    noResit.includes('TGL') ||
+    noResit.startsWith('TGL-') ||
+    (noResit.startsWith('0155') && !noNota.startsWith('136') && !noNota.startsWith('176') && !noNota.startsWith('156'))
+  ) {
+    return 'FPM_TUNGGAL';
+  }
+
+  const rawEstate = String(record.estate_id || '').trim().toUpperCase();
+  // If record already has explicit canonical estate and no contradictory delivery note, respect it
+  if (rawEstate === 'FPM_TUNGGAL' || rawEstate === 'FPM_ADELA' || rawEstate === 'FPM_KLEDANG' || rawEstate === 'FPM_SENING') {
+    return rawEstate;
   }
 
   // 2. Fall back to explicit estate_id in record

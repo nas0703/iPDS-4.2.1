@@ -7,6 +7,7 @@ import { requireAuth, requireRole, isSuperAdminIdentity } from '../middleware/au
 import { getReceiptEstate, setReceiptEstate } from '../estateStore.js';
 import { getEstateConfig, getBlockArea, getPktDisplayName, normalizeEstateId } from '../../config/estateRegistry.js';
 import { generateAdelaBaselineTransactions } from '../../data/adelaBaselineDeliveries.js';
+import { generateTunggalBaselineTransactions } from '../../data/tunggalBaselineDeliveries.js';
 import { cleanAndExtractBlockCode } from '../../utils/formatters.js';
 import { jobQueueService } from '../services/jobQueue.service.js';
 import { getSafeErrorMessage } from '../utils/errorUtils.js';
@@ -543,11 +544,12 @@ router.get("/hantaran", requireAuth, async (req, res) => {
           if (fs.existsSync(tunggalLockFile)) {
             const lockedData = JSON.parse(fs.readFileSync(tunggalLockFile, 'utf-8'));
             if (lockedData && Array.isArray(lockedData.records)) {
-              const existingResits = new Set(allRecords.map(r => String(r.no_resit || '').toUpperCase()));
+              const existingKeys = new Set(allRecords.map(r => r.id ? String(r.id) : `${String(r.no_resit || '')}_${String(r.tarikh || '')}`.toUpperCase()));
               for (const lockRec of (lockedData.records as HantaranRecord[])) {
-                const resitKey = String(lockRec.no_resit || '').toUpperCase();
-                if (resitKey && !existingResits.has(resitKey)) {
+                const recKey = lockRec.id ? String(lockRec.id) : `${String(lockRec.no_resit || '')}_${String(lockRec.tarikh || '')}`.toUpperCase();
+                if (recKey && !existingKeys.has(recKey)) {
                   allRecords.push(lockRec);
+                  existingKeys.add(recKey);
                 }
               }
             }
@@ -567,11 +569,12 @@ router.get("/hantaran", requireAuth, async (req, res) => {
           if (fs.existsSync(tunggalLockFile)) {
             const lockedData = JSON.parse(fs.readFileSync(tunggalLockFile, 'utf-8'));
             if (lockedData && Array.isArray(lockedData.records)) {
-              const existingResits = new Set(allRecords.map(r => String(r.no_resit || '').toUpperCase()));
+              const existingKeys = new Set(allRecords.map(r => r.id ? String(r.id) : `${String(r.no_resit || '')}_${String(r.tarikh || '')}`.toUpperCase()));
               for (const lockRec of (lockedData.records as HantaranRecord[])) {
-                const resitKey = String(lockRec.no_resit || '').toUpperCase();
-                if (resitKey && !existingResits.has(resitKey)) {
+                const recKey = lockRec.id ? String(lockRec.id) : `${String(lockRec.no_resit || '')}_${String(lockRec.tarikh || '')}`.toUpperCase();
+                if (recKey && !existingKeys.has(recKey)) {
                   allRecords.push(lockRec);
+                  existingKeys.add(recKey);
                 }
               }
             }
@@ -605,6 +608,49 @@ router.get("/hantaran", requireAuth, async (req, res) => {
       }
     }
 
+    // Tier 4.5: For FPM_TUNGGAL (or region query), merge calibrated baseline records ONLY IF real historical records are missing
+    if (normTarget === 'FPM_TUNGGAL' || isAll) {
+      const isEFBRec = (r: any) =>
+        r.is_efb === true ||
+        String(r.peringkat || '').toUpperCase().trim() === 'EFB' ||
+        String(r.blok || '').toUpperCase().trim() === 'EFB' ||
+        String(r.no_resit || '').toUpperCase().trim().startsWith('EFB');
+      const isSyntheticTunggal = (r: any) =>
+        String(r.no_resit || '').toUpperCase().trim().startsWith('TGL-2026-M');
+
+      const hasRealTunggalJanSep = allRecords.some(r => {
+        const est = normalizeEstateId(r.estate_id || getReceiptEstate(r));
+        return est === 'FPM_TUNGGAL' && !isSyntheticTunggal(r) && !isEFBRec(r) && r.tarikh && r.tarikh < '2026-10-01' && (Number(r.tan) || 0) > 0;
+      });
+
+      if (hasRealTunggalJanSep) {
+        // Real Jan-Sep delivery records already exist in Supabase/local!
+        // Strictly filter out any synthetic baseline records to prevent doubling figures in dashboard.
+        allRecords = allRecords.filter(r => !isSyntheticTunggal(r));
+      } else {
+        // Fallback: If no real Jan-Sep deliveries are present (e.g. fresh environment or offline October-only), inject baseline
+        const tunggalBaseline = generateTunggalBaselineTransactions() as HantaranRecord[];
+        const baselineMap = new Map(tunggalBaseline.map(b => [String(b.no_resit).toUpperCase(), b]));
+        const seenBaselines = new Set<string>();
+
+        allRecords = allRecords.map(r => {
+          const resitKey = String(r.no_resit || '').toUpperCase();
+          if (baselineMap.has(resitKey)) {
+            seenBaselines.add(resitKey);
+            return { ...r, ...baselineMap.get(resitKey) };
+          }
+          return r;
+        });
+
+        for (const bRec of tunggalBaseline) {
+          const resitKey = String(bRec.no_resit || '').toUpperCase();
+          if (!seenBaselines.has(resitKey)) {
+            allRecords.push(bRec);
+          }
+        }
+      }
+    }
+
     // Normalize & classify estate_id on every single record using the persistent estate registry
     const classifiedRecords = allRecords.map(r => {
       const estateId = getReceiptEstate(r);
@@ -632,11 +678,12 @@ router.get("/hantaran", requireAuth, async (req, res) => {
       if (fs.existsSync(tunggalLockFile)) {
         const lockedData = JSON.parse(fs.readFileSync(tunggalLockFile, 'utf-8'));
         if (lockedData && Array.isArray(lockedData.records)) {
-          const existingResits = new Set(local.map(r => String(r.no_resit || '').toUpperCase()));
+          const existingKeys = new Set(local.map(r => r.id ? String(r.id) : `${String(r.no_resit || '')}_${String(r.tarikh || '')}`.toUpperCase()));
           for (const r of (lockedData.records as HantaranRecord[])) {
-            const k = String(r.no_resit || '').toUpperCase();
-            if (k && !existingResits.has(k)) {
+            const k = r.id ? String(r.id) : `${String(r.no_resit || '')}_${String(r.tarikh || '')}`.toUpperCase();
+            if (k && !existingKeys.has(k)) {
               local.push(r);
+              existingKeys.add(k);
             }
           }
         }
@@ -645,6 +692,9 @@ router.get("/hantaran", requireAuth, async (req, res) => {
 
     if (!local.some((r: HantaranRecord) => getReceiptEstate(r) === 'FPM_ADELA')) {
       local = [...local, ...(generateAdelaBaselineTransactions() as HantaranRecord[])];
+    }
+    if (!local.some((r: HantaranRecord) => getReceiptEstate(r) === 'FPM_TUNGGAL' && r.tarikh && r.tarikh.startsWith('2026-01'))) {
+      local = [...local, ...(generateTunggalBaselineTransactions() as HantaranRecord[])];
     }
 
     const classified = local.map((r: HantaranRecord) => ({ ...r, estate_id: getReceiptEstate(r) }));

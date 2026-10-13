@@ -312,17 +312,17 @@ export const OFFICIAL_ALL_ESTATES_ROWS: ZonPktRow[] = [
     pkt: 1,
     luas: 613.64,
     ang2026: 25.0,
-    ang_bi: 2.90,
-    ang_hbi: 17.60,
-    capai_bi: 1.80,
-    capai_hbi: 13.91,
-    pct_bi: 62,
-    pct_hbi: 79,
+    ang_bi: 2.70,
+    ang_hbi: 20.30,
+    capai_bi: 0.71,
+    capai_hbi: 16.70,
+    pct_bi: 26,
+    pct_hbi: 82,
     hasil_2025: 0,
-    hasil_2026: 13.91,
+    hasil_2026: 16.70,
     beza_tan: 0,
     pct_beza: 0,
-    pct_capai_thnn: 56,
+    pct_capai_thnn: 67,
   },
   {
     bil: 24,
@@ -356,17 +356,17 @@ export const OFFICIAL_ALL_ESTATES_ROWS: ZonPktRow[] = [
     pkt: 2,
     luas: 333.42,
     ang2026: 25.0,
-    ang_bi: 2.30,
-    ang_hbi: 17.50,
-    capai_bi: 1.43,
-    capai_hbi: 12.71,
-    pct_bi: 62,
-    pct_hbi: 73,
+    ang_bi: 2.40,
+    ang_hbi: 19.90,
+    capai_bi: 0.46,
+    capai_hbi: 14.92,
+    pct_bi: 19,
+    pct_hbi: 75,
     hasil_2025: 0,
-    hasil_2026: 12.71,
+    hasil_2026: 14.92,
     beza_tan: 0,
     pct_beza: 0,
-    pct_capai_thnn: 51,
+    pct_capai_thnn: 60,
   },
 
   // ==========================================
@@ -611,12 +611,12 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
       const annualSum = targetArr.reduce((a, b) => a + b, 0);
       const scale = annualSum > 0 ? baseRow.ang2026 / annualSum : 1;
 
-      const dynamicAngBi = dbTarget?.ang_bi ?? Number((targetArr[currentMonthIdx] * scale).toFixed(2));
-      const dynamicAngHbi = dbTarget?.ang_hbi ?? Number((targetArr.slice(0, currentMonthIdx + 1).reduce((a, b) => a + b, 0) * scale).toFixed(2));
+      const dynamicAngBi = Number((targetArr[currentMonthIdx] * scale).toFixed(2));
+      const dynamicAngHbi = Number((targetArr.slice(0, currentMonthIdx + 1).reduce((a, b) => a + b, 0) * scale).toFixed(2));
 
       return {
-        angBi: dynamicAngBi > 0 ? dynamicAngBi : baseRow.ang_bi,
-        angHbi: dynamicAngHbi > 0 ? dynamicAngHbi : baseRow.ang_hbi,
+        angBi: dynamicAngBi > 0 ? dynamicAngBi : (dbTarget?.ang_bi ?? baseRow.ang_bi),
+        angHbi: dynamicAngHbi > 0 ? dynamicAngHbi : (dbTarget?.ang_hbi ?? baseRow.ang_hbi),
       };
     };
 
@@ -748,7 +748,7 @@ export const WilayahExperimentTableSection: React.FC<WilayahExperimentTableSecti
                         String(t.kod_item || '').startsWith('EFB-');
           if (isEFB) return false;
 
-          const estId = t.estate_id || inferEstateFromReceipt(t);
+          const estId = inferEstateFromReceipt(t) || t.estate_id;
           if (estId !== baseRow.estateId) return false;
 
           const pktNum = resolveTransactionPkt(t, baseRow.estateId);

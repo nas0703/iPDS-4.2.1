@@ -26,7 +26,9 @@ export interface ExtractedReceiptInfo {
   detected_estate_name?: string;
   detected_estate_id?: string;
   kod_penjual?: string;
+  kod_penjual_4digit?: string;
   nama_penjual?: string;
+  estate_verification?: any;
   confidence?: number;
   [key: string]: any;
 }
@@ -310,10 +312,50 @@ export const ReceiptDateVerificationModal: React.FC<ReceiptDateVerificationModal
 
             {/* Extracted Slip Context Card */}
             {receiptInfo && (
-              <div className={`p-3 rounded-2xl border text-xs ${
+              <div className={`p-3 rounded-2xl border text-xs space-y-2.5 ${
                 isDarkMode ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
               }`}>
-                <div className="flex items-center justify-between mb-2">
+                {/* 3-Step Estate Verification Strip */}
+                {receiptInfo.estate_verification && (
+                  <div className={`p-2.5 rounded-xl border ${
+                    receiptInfo.estate_verification.status === 'MISMATCH'
+                      ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                  }`}>
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase mb-1.5">
+                      <span className="flex items-center gap-1">
+                        <ShieldAlert size={12} className={receiptInfo.estate_verification.status === 'MISMATCH' ? "text-rose-400" : "text-emerald-400"} />
+                        Semakan Ladang 3-Langkah
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded-full font-mono text-[9px] ${
+                        receiptInfo.estate_verification.status === 'MISMATCH'
+                          ? "bg-rose-500/20 text-rose-300"
+                          : "bg-emerald-500/20 text-emerald-300"
+                      }`}>
+                        {receiptInfo.estate_verification.status === 'MISMATCH' ? "Tidak Sepadan ⛔" : "Sepadan (3/3) ✅"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                      <div className="bg-black/20 p-1.5 rounded-lg">
+                        <span className="text-slate-400 block text-[8px] uppercase">1. Sesi Login</span>
+                        <span className="font-bold text-white truncate block">{receiptInfo.estate_verification.sessionEstateName}</span>
+                        <span className="text-slate-400 text-[8px]">Kod {receiptInfo.estate_verification.sessionCode}</span>
+                      </div>
+                      <div className="bg-black/20 p-1.5 rounded-lg">
+                        <span className="text-slate-400 block text-[8px] uppercase">2. Row Penjual (4-Digit)</span>
+                        <span className="font-mono font-bold text-white block">{receiptInfo.estate_verification.seller4DigitCode || '-'}</span>
+                        <span className="text-slate-400 text-[8px]">{receiptInfo.estate_verification.detectedEstateName}</span>
+                      </div>
+                      <div className="bg-black/20 p-1.5 rounded-lg">
+                        <span className="text-slate-400 block text-[8px] uppercase">3. Nama Penjual</span>
+                        <span className="font-bold text-white truncate block">{receiptInfo.estate_verification.sellerName || '-'}</span>
+                        <span className="text-slate-400 text-[8px]">{receiptInfo.estate_verification.isMatch ? "Disahkan" : "Ralat Sempadan"}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                     <FileText size={12} /> Butiran Resit Diimbas
                   </span>

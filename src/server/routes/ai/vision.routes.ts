@@ -195,37 +195,165 @@ Hantar output dalam format JSON SAHAJA:
 });
 
 // Helper for detecting estate from seller code/name or BTS project code on server
-function detectEstateFromSeller(kodPenjual?: string, namaPenjual?: string, kodProjek?: string, kodAkaunBts?: string): { estateId: string; estateName: string } | null {
+export interface ServerEstateVerification {
+  session_estate_id: string;
+  session_estate_name: string;
+  session_code: string;
+  seller_4digit_code: string;
+  seller_name: string;
+  detected_estate_id: string;
+  detected_estate_name: string;
+  detected_code: string;
+  status: 'MATCHED' | 'MISMATCH' | 'CROSS_ESTATE_PERMITTED' | 'UNKNOWN';
+  is_match: boolean;
+  message: string;
+  step1_session: { estate_id: string; estate_name: string; code: string };
+  step2_code_check: { code: string; matched_estate_id: string | null; matched_estate_name: string | null };
+  step3_name_check: { seller_name: string; matched_estate_id: string | null; matched_estate_name: string | null };
+}
+
+const ESTATE_CODE_MAP: Record<string, { estateId: string; estateName: string; code: string }> = {
+  '5155': { estateId: 'FPM_TUNGGAL', estateName: 'FPM Tunggal', code: '5155' },
+  '5136': { estateId: 'FPM_ADELA', estateName: 'FPM Adela', code: '5136' },
+  '5176': { estateId: 'FPM_KLEDANG', estateName: 'FPM Kledang', code: '5176' },
+  '5156': { estateId: 'FPM_SENING', estateName: 'FPM Sening', code: '5156' },
+};
+
+const ESTATE_ID_MAP: Record<string, { estateId: string; estateName: string; code: string }> = {
+  'FPM_TUNGGAL': { estateId: 'FPM_TUNGGAL', estateName: 'FPM Tunggal', code: '5155' },
+  'FPM_ADELA': { estateId: 'FPM_ADELA', estateName: 'FPM Adela', code: '5136' },
+  'FPM_KLEDANG': { estateId: 'FPM_KLEDANG', estateName: 'FPM Kledang', code: '5176' },
+  'FPM_SENING': { estateId: 'FPM_SENING', estateName: 'FPM Sening', code: '5156' },
+  'WILAYAH_JB': { estateId: 'WILAYAH_JB', estateName: 'FPM Wilayah Johor Bahru', code: 'WJB' },
+  'ALL': { estateId: 'WILAYAH_JB', estateName: 'FPM Wilayah Johor Bahru (Semua Ladang)', code: 'ALL' },
+};
+
+export function detectEstateFromSeller(
+  kodPenjual?: string,
+  namaPenjual?: string,
+  kodProjek?: string,
+  kodAkaunBts?: string,
+  noNotaHantaran?: string
+): { estateId: string; estateName: string; code: string } | null {
   const code = (kodPenjual || '').trim();
   const name = (namaPenjual || '').toUpperCase();
   const proj = (kodProjek || '').trim();
   const akaunBts = (kodAkaunBts || '').trim().toUpperCase();
+  const nota = (noNotaHantaran || '').trim();
 
-  // 1. Semak kod projek 4-digit BTS (cth: 5136 daripada "5136-020-4-04")
-  const projMatch = proj.match(/^\d{4}/) || akaunBts.match(/^\d{4}/);
-  const projCode = projMatch ? projMatch[0] : (proj.length >= 4 ? proj.slice(0, 4) : '');
-  if (projCode === '5155' || akaunBts.startsWith('5155')) return { estateId: 'FPM_TUNGGAL', estateName: 'FPM Tunggal' };
-  if (projCode === '5136' || akaunBts.startsWith('5136')) return { estateId: 'FPM_ADELA', estateName: 'FPM Adela' };
-  if (projCode === '5176' || akaunBts.startsWith('5176')) return { estateId: 'FPM_KLEDANG', estateName: 'FPM Kledang' };
-  if (projCode === '5156' || akaunBts.startsWith('5156')) return { estateId: 'FPM_SENING', estateName: 'FPM Sening' };
+  // LANGKAH 2: Semak 4 digit pertama pada row Penjual / akaun BTS
+  // Contoh: "5155-010-3-03" -> 5155 (Tunggal), "5136-020-4-04" -> 5136 (Adela)
+  const projMatch = proj.match(/^\d{4}/) || akaunBts.match(/^\d{4}/) || code.match(/^\d{4}/);
+  const fourDigitCode = projMatch ? projMatch[0] : (proj.length >= 4 ? proj.slice(0, 4) : '');
 
-  // 2. Semak kod penjual atau nama
-  const fourDigitMatch = code.match(/^\d{4}/);
-  const fourDigitCode = fourDigitMatch ? fourDigitMatch[0] : (code.length >= 4 ? code.slice(0, 4) : '');
+  if (fourDigitCode && ESTATE_CODE_MAP[fourDigitCode]) {
+    return ESTATE_CODE_MAP[fourDigitCode];
+  }
 
-  if (fourDigitCode === '5155' || name.includes('TUNGGAL')) {
-    return { estateId: 'FPM_TUNGGAL', estateName: 'FPM Tunggal' };
-  }
-  if (fourDigitCode === '5136' || name.includes('ADELA')) {
-    return { estateId: 'FPM_ADELA', estateName: 'FPM Adela' };
-  }
-  if (fourDigitCode === '5176' || name.includes('KLEDANG')) {
-    return { estateId: 'FPM_KLEDANG', estateName: 'FPM Kledang' };
-  }
-  if (fourDigitCode === '5156' || name.includes('SENING')) {
-    return { estateId: 'FPM_SENING', estateName: 'FPM Sening' };
-  }
+  // LANGKAH 3: Semak / sahkan nama penjual (FELDA TUNGGAL vs FELDA ADELA vs KLEDANG vs SENING)
+  if (name.includes('TUNGGAL')) return ESTATE_CODE_MAP['5155'];
+  if (name.includes('ADELA')) return ESTATE_CODE_MAP['5136'];
+  if (name.includes('KLEDANG')) return ESTATE_CODE_MAP['5176'];
+  if (name.includes('SENING')) return ESTATE_CODE_MAP['5156'];
+
+  // Semak awalan No. Nota Hantaran
+  if (nota.startsWith('5155') || nota.startsWith('155')) return ESTATE_CODE_MAP['5155'];
+  if (nota.startsWith('5136') || nota.startsWith('136')) return ESTATE_CODE_MAP['5136'];
+  if (nota.startsWith('5176') || nota.startsWith('176')) return ESTATE_CODE_MAP['5176'];
+  if (nota.startsWith('5156') || nota.startsWith('156')) return ESTATE_CODE_MAP['5156'];
+
   return null;
+}
+
+export function verifyEstateServer(
+  sessionEstateId: string,
+  ocrData: {
+    kod_penjual?: string;
+    nama_penjual?: string;
+    kod_projek?: string;
+    kod_akaun_bts?: string;
+    kod_penjual_4digit?: string;
+    no_nota_hantaran?: string;
+    no_resit?: string;
+  }
+): ServerEstateVerification {
+  const normSessionId = (sessionEstateId || 'FPM_TUNGGAL').trim().toUpperCase();
+  const sessionMeta = ESTATE_ID_MAP[normSessionId] || {
+    estateId: normSessionId,
+    estateName: normSessionId.replace(/_/g, ' '),
+    code: normSessionId === 'FPM_ADELA' ? '5136' : normSessionId === 'FPM_KLEDANG' ? '5176' : normSessionId === 'FPM_SENING' ? '5156' : '5155',
+  };
+
+  // LANGKAH 2: 4-digit kod dari baris penjual
+  const candidate4Digit = (ocrData.kod_penjual_4digit || '').trim() ||
+    (ocrData.kod_projek || '').trim().slice(0, 4) ||
+    ((ocrData.kod_akaun_bts || '').match(/^\d{4}/)?.[0] || '') ||
+    ((ocrData.kod_penjual || '').match(/^\d{4}/)?.[0] || '');
+
+  const step2Matched = candidate4Digit && ESTATE_CODE_MAP[candidate4Digit] ? ESTATE_CODE_MAP[candidate4Digit] : null;
+
+  // LANGKAH 3: Nama penjual
+  const rawSellerName = (ocrData.nama_penjual || '').trim().toUpperCase();
+  let step3Matched: { estateId: string; estateName: string; code: string } | null = null;
+  if (rawSellerName.includes('TUNGGAL')) step3Matched = ESTATE_CODE_MAP['5155'];
+  else if (rawSellerName.includes('ADELA')) step3Matched = ESTATE_CODE_MAP['5136'];
+  else if (rawSellerName.includes('KLEDANG')) step3Matched = ESTATE_CODE_MAP['5176'];
+  else if (rawSellerName.includes('SENING')) step3Matched = ESTATE_CODE_MAP['5156'];
+
+  // Kesimpulan ladang dikesan
+  const detected = step2Matched || step3Matched || detectEstateFromSeller(
+    ocrData.kod_penjual,
+    ocrData.nama_penjual,
+    ocrData.kod_projek,
+    ocrData.kod_akaun_bts,
+    ocrData.no_nota_hantaran
+  ) || ESTATE_CODE_MAP['5155'];
+
+  const isCrossEstateSession = normSessionId === 'WILAYAH_JB' || normSessionId === 'ALL' || normSessionId === 'WJB' || normSessionId === '0001';
+  const isMatch = isCrossEstateSession || detected.estateId === sessionMeta.estateId;
+
+  let status: ServerEstateVerification['status'] = 'MATCHED';
+  let message = '';
+
+  if (isCrossEstateSession) {
+    status = 'CROSS_ESTATE_PERMITTED';
+    message = `🌐 Akses Wilayah / HQ: Resit dikesan untuk ${detected.estateName} (Kod Penjual: ${detected.code} | Nama: ${ocrData.nama_penjual || detected.estateName}).`;
+  } else if (isMatch) {
+    status = 'MATCHED';
+    message = `✅ Pengesahan Ladang Sepadan (3/3): Sesi login [${sessionMeta.estateName}] sepadan dengan Kod Penjual [${detected.code}] & Nama Penjual [${ocrData.nama_penjual || detected.estateName}].`;
+  } else {
+    status = 'MISMATCH';
+    message = `⛔ SEKATAN PERSEMPADAN LADANG: Sesi aktif anda ialah [${sessionMeta.estateName}], tetapi resit dikesan milik [${detected.estateName}] (Kod 4-Digit: ${detected.code} | Nama Penjual: ${ocrData.nama_penjual || detected.estateName}). Pemasukan rentas ladang disekat!`;
+  }
+
+  return {
+    session_estate_id: sessionMeta.estateId,
+    session_estate_name: sessionMeta.estateName,
+    session_code: sessionMeta.code,
+    seller_4digit_code: candidate4Digit || detected.code,
+    seller_name: ocrData.nama_penjual || detected.estateName,
+    detected_estate_id: detected.estateId,
+    detected_estate_name: detected.estateName,
+    detected_code: detected.code,
+    status,
+    is_match: isMatch,
+    message,
+    step1_session: {
+      estate_id: sessionMeta.estateId,
+      estate_name: sessionMeta.estateName,
+      code: sessionMeta.code,
+    },
+    step2_code_check: {
+      code: candidate4Digit,
+      matched_estate_id: step2Matched?.estateId || null,
+      matched_estate_name: step2Matched?.estateName || null,
+    },
+    step3_name_check: {
+      seller_name: ocrData.nama_penjual || '',
+      matched_estate_id: step3Matched?.estateId || null,
+      matched_estate_name: step3Matched?.estateName || null,
+    },
+  };
 }
 
 // POST /api/ai/ocr-receipt - Gemini Multimodal OCR for FGV & EFB Palm Oil Receipts
@@ -319,36 +447,48 @@ ATURAN EKSTRAKSI MEDAN:
 11. "tan": Berat bersih dalam tan (nombor, cth: 7.44 atau 6.80 daripada "Nett. 6.80").
 12. "muda": Peratusan/bilangan buah muda (nombor, cth: 0 atau 2.0).
 13. "no_seal": Nombor meter seal penuh jika ada (cth: "SL-99120").
-14. "rm_mt": Harga se-tan RM/MT (nombor, cth: 1036.06 daripada "Harga/Tan : 1036.06").
-15. "kod_penjual": Kod penjual / pembekal / syarikat persis di imej (cth: "5" daripada "5-FELDA ADELA", atau kod projek "5136").
-16. "nama_penjual": Nama penuh penjual/ladang (cth: "FELDA ADELA").
-17. "kod_projek": Kod projek/ladang 4-digit jika ada (cth: "5136" daripada "5136-020-4-04").
-18. "kod_akaun_bts": Kod akaun siri BTS penuh jika ada (cth: "5136-020-4-04").
-19. "is_efb": boolean (false untuk TBS/Sawit, true jika TANDAN KOSONG / EFB).
-20. "confidence": nombor antara 0 hingga 100 mengikut ketepatan pengecaman.
+14. "rm_mt": Harga se-tan RM/MT (nombor, cth: 1036.06 daripada "Harga/Tan : 1036.06" atau 934.76).
+15. "kod_penjual_4digit": 4 digit PERTAMA pada baris/row "Penjual" di bawah seksyen "AKUAN PENERIMAAN BTS" (cth: "5155" daripada "5155-010-3-03 SKB: 1000", atau "5136" daripada "5136-020-4-04 SKB: 1000", atau "5176", "5156").
+    - PANDUAN KRITIKAL PENGENALPASTIAN LADANG (3-LANGKAH WAJIB):
+      1. JANGAN KELIRU DENGAN NAMA KILANG DI KEPALA RESIT (cth: "KILANG SAWIT ADELA (4039)"). Itu hanyalah kilang pemprosesan sawit, BUKAN ladang penghantar! Kilang Sawit Adela menerima buah daripada Ladang Felda Tunggal, Ladang Felda Adela, dll.
+      2. 4 DIGIT PERTAMA PADA ROW PENJUAL:
+         * "5155" = Ladang FELDA TUNGGAL (FPM Tunggal)
+         * "5136" = Ladang FELDA ADELA (FPM Adela)
+         * "5176" = Ladang FELDA KLEDANG (FPM Kledang)
+         * "5156" = Ladang FELDA SENING (FPM Sening)
+      3. BARIS NAMA PENJUAL:
+         * "5-FELDA TUNGGAL" atau "FELDA TUNGGAL" = Ladang Felda Tunggal
+         * "5-FELDA ADELA" atau "FELDA ADELA" = Ladang Felda Adela
+16. "nama_penjual": Nama penuh penjual persis di baris "Nama Penjual" (cth: "5-FELDA TUNGGAL" atau "5-FELDA ADELA").
+17. "kod_penjual": Kod penjual / pembekal persis di imej (cth: "5155", "5136", atau kod ringkas "5").
+18. "kod_projek": Kod projek/ladang 4-digit (cth: "5155" atau "5136").
+19. "kod_akaun_bts": Kod akaun siri BTS penuh persis di baris Penjual (cth: "5155-010-3-03" atau "5136-020-4-04").
+20. "is_efb": boolean (false untuk TBS/Sawit, true jika TANDAN KOSONG / EFB).
+21. "confidence": nombor antara 0 hingga 100 mengikut ketepatan pengecaman.
 
 Output MESTI dalam format JSON SAHAJA mengikut struktur berikut:
 {
-  "tarikh": "2026-09-05",
-  "masa_masuk": "10:56:52",
-  "no_resit": "01547939",
-  "no_lori": "BLS4830",
-  "no_akuan_terima": "A00030622",
-  "kpg": 20.20,
-  "kpa": 20.75,
-  "no_nota_hantaran": "1362603085",
-  "peringkat": "PKT 002",
-  "blok": "04",
-  "tan": 7.44,
+  "tarikh": "2026-10-12",
+  "masa_masuk": "09:49:33",
+  "no_resit": "01551869",
+  "no_lori": "JKK7725",
+  "no_akuan_terima": "A00035758",
+  "kpg": 19.80,
+  "kpa": 21.25,
+  "no_nota_hantaran": "1552605915",
+  "peringkat": "PKT 001",
+  "blok": "03",
+  "tan": 7.68,
   "muda": 0.0,
-  "no_seal": "SL-99120",
-  "rm_mt": 1036.06,
-  "kod_penjual": "5",
-  "nama_penjual": "FELDA ADELA",
-  "kod_projek": "5136",
-  "kod_akaun_bts": "5136-020-4-04",
+  "no_seal": "",
+  "rm_mt": 934.76,
+  "kod_penjual_4digit": "5155",
+  "kod_penjual": "5155",
+  "nama_penjual": "5-FELDA TUNGGAL",
+  "kod_projek": "5155",
+  "kod_akaun_bts": "5155-010-3-03",
   "is_efb": false,
-  "confidence": 100
+  "confidence": 98
 }`;
 
     const rawText = await aiService.extractVision({
@@ -398,6 +538,9 @@ Output MESTI dalam format JSON SAHAJA mengikut struktur berikut:
       nama_penjual?: string;
       kod_projek?: string;
       kod_akaun_bts?: string;
+      kod_penjual_4digit?: string;
+      no_nota_hantaran?: string;
+      no_resit?: string;
       blok?: string;
       peringkat?: string;
       kpa?: number;
@@ -405,6 +548,7 @@ Output MESTI dalam format JSON SAHAJA mengikut struktur berikut:
       confidence?: number;
       detected_estate_id?: string;
       detected_estate_name?: string;
+      estate_verification?: ServerEstateVerification;
       [key: string]: unknown;
     }
 
@@ -631,15 +775,32 @@ Output MESTI dalam format JSON SAHAJA mengikut struktur berikut:
       }
     }
 
-    // 6. Kesan ladang (estate) daripada kod penjual, nama penjual, kod projek 4-digit, dan kod siri BTS
-    const estateInfo = detectEstateFromSeller(parsed.kod_penjual, parsed.nama_penjual, parsed.kod_projek, parsed.kod_akaun_bts);
-    if (estateInfo) {
-      parsed.detected_estate_id = estateInfo.estateId;
-      parsed.detected_estate_name = estateInfo.estateName;
-    }
+    // 6. Semakan Ladang 3-Langkah (Session -> 4-Digit Row Penjual -> Nama Penjual)
+    const sessionEstateId = (
+      req.body?.sessionEstateId ||
+      req.body?.activeEstateId ||
+      req.headers['x-estate-id'] ||
+      (req as any).user?.estate_id ||
+      'FPM_TUNGGAL'
+    ) as string;
+
+    const verification = verifyEstateServer(sessionEstateId, {
+      kod_penjual: parsed.kod_penjual,
+      nama_penjual: parsed.nama_penjual,
+      kod_projek: parsed.kod_projek,
+      kod_akaun_bts: parsed.kod_akaun_bts,
+      kod_penjual_4digit: parsed.kod_penjual_4digit,
+      no_nota_hantaran: parsed.no_nota_hantaran,
+      no_resit: parsed.no_resit,
+    });
+
+    parsed.detected_estate_id = verification.detected_estate_id;
+    parsed.detected_estate_name = verification.detected_estate_name;
+    parsed.kod_penjual_4digit = verification.seller_4digit_code;
+    parsed.estate_verification = verification;
 
     // Pastikan label peringkat mengikut format standard dan selamat bagi ladang
-    const effectiveEstateId = parsed.detected_estate_id || (req.headers['x-estate-id'] as string) || (req.body?.estate_id as string) || 'FPM_TUNGGAL';
+    const effectiveEstateId = parsed.detected_estate_id || sessionEstateId || 'FPM_TUNGGAL';
     if (parsed.peringkat === 'LOT FELDA' && effectiveEstateId !== 'FPM_ADELA' && effectiveEstateId !== 'FPM_TUNGGAL') {
       parsed.peringkat = getPktDisplayName('003', effectiveEstateId);
     }

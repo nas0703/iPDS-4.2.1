@@ -206,6 +206,7 @@ apiRouter.use('/employees', employeesRoutes);
 // Direct root fallbacks for legacy and module endpoints to support both prefixed and flat routing
 apiRouter.use(authRoutes);
 apiRouter.use(employeesRoutes);
+apiRouter.use(workersRoutes);
 apiRouter.use(pruningRoutes);
 apiRouter.use(merumputRoutes);
 apiRouter.use(hantaranRoutes);

@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Transaction } from "../types";
 import { supabase, updateSupabaseClient, isSupabaseReady } from "../services/supabaseClient";
 import { HISTORICAL_BLOCK_YIELDS } from "../utils/historicalYieldData";
-import { parseReceiptWithGemini, detectEstateFromSeller } from "../features/input/services/ocrService";
+import { parseReceiptWithGemini, detectEstateFromSeller, verifyReceiptEstate, EstateVerificationResult } from "../features/input/services/ocrService";
+import { isSuperAdmin } from "../features/auth/services/rbacService";
 import { offlineStore } from "../utils/offlineStore";
 import { getActiveEstateId, ESTATE_CHANGED_EVENT, inferEstateFromReceipt } from "../utils/estateContext";
 import { ESTATES_REGISTRY, getEstateConfig, normalizeEstateId } from "../config/estateRegistry";
 import { generateAdelaBaselineTransactions } from "../data/adelaBaselineDeliveries";
+import { generateTunggalBaselineTransactions } from "../data/tunggalBaselineDeliveries";
 import { getTodayDateString, normalizeDateToISO, getDaysDifferenceFromToday, cleanAndExtractBlockCode, extractBtsSerialDetails } from "../utils/formatters";
 
 export function normalizeSingleTransaction(item: any): Transaction {
@@ -113,7 +115,7 @@ export function normalizeSingleTransaction(item: any): Transaction {
 
   let peringkat = item.peringkat;
 
-  if (cleanBlok === "EFB" || item.is_efb) {
+  if (isEfb) {
     peringkat = "EFB";
   } else if (detectedEstate === 'FPM_ADELA') {
     const isAdelaFelda = 
@@ -181,7 +183,8 @@ export function normalizeSingleTransaction(item: any): Transaction {
     kpg: cleanKpg,
     kpa: cleanKpa,
     blok: cleanBlok,
-    peringkat: peringkat || "PKT 001",
+    peringkat: isEfb ? "EFB" : (peringkat || "PKT 001"),
+    is_efb: isEfb,
     tarikh: normalizedDate.trim() || todayIso,
     no_resit: String(item.no_resit || item.receipt_no || item.id || `REC-${Math.random().toString(36).substr(2, 6)}`),
     no_lori: String(item.no_lori || item.lorry_no || "-"),
@@ -215,6 +218,8 @@ export const INITIAL_FORM_DATA = {
   nama_penjual: "",
   kod_projek: "",
   kod_akaun_bts: "",
+  kod_penjual_4digit: "",
+  estate_verification: null as EstateVerificationResult | null,
   is_efb: false,
   is_baja: false,
   is_pruning: false,
@@ -249,9 +254,14 @@ export function useTransactionState({
           if (Array.isArray(parsed) && parsed.length > 0) {
             const isRegion = estateId === 'ALL' || estateId === 'WILAYAH_JB' || estateId === 'WJB' || estateId === '0001';
             const normTargetEstate = normalizeEstateId(estateId);
-            const valid = parsed
+            let valid = parsed
               .map((r: any) => normalizeSingleTransaction(r))
-              .filter((r: any) => isRegion || normalizeEstateId(r.estate_id) === normTargetEstate);
+              .filter((r: any) => {
+                if (isRegion) return true;
+                const stated = normalizeEstateId(r.estate_id);
+                const inferred = inferEstateFromReceipt(r);
+                return stated === normTargetEstate && inferred === normTargetEstate;
+              });
             if (estateId === 'FPM_ADELA' || isRegion) {
               const baseline = generateAdelaBaselineTransactions();
               const baselineMap = new Map(baseline.map(b => [String(b.no_resit).toUpperCase(), b]));
@@ -265,13 +275,48 @@ export function useTransactionState({
                 return r;
               });
               const missing = baseline.filter(b => !seen.has(String(b.no_resit || '').toUpperCase()));
-              return [...updatedValid, ...missing];
+              valid = [...updatedValid, ...missing];
+            }
+            if (estateId === 'FPM_TUNGGAL' || isRegion) {
+              const isEFBRec = (r: any) =>
+                r.is_efb === true ||
+                String(r.peringkat || '').toUpperCase().trim() === 'EFB' ||
+                String(r.blok || '').toUpperCase().trim() === 'EFB' ||
+                String(r.no_resit || '').toUpperCase().trim().startsWith('EFB');
+              const isSyntheticTgl = (r: any) =>
+                String(r.no_resit || '').toUpperCase().trim().startsWith('TGL-2026-M');
+
+              const hasRealTunggalJanSep = valid.some(r => {
+                const est = normalizeEstateId(r.estate_id);
+                return est === 'FPM_TUNGGAL' && !isSyntheticTgl(r) && !isEFBRec(r) && r.tarikh && r.tarikh < '2026-10-01' && (Number(r.tan) || 0) > 0;
+              });
+
+              if (hasRealTunggalJanSep) {
+                valid = valid.filter(r => !isSyntheticTgl(r));
+              } else {
+                const tglBaseline = generateTunggalBaselineTransactions();
+                const tglMap = new Map(tglBaseline.map(b => [String(b.no_resit).toUpperCase(), b]));
+                const seen = new Set<string>();
+                const updatedValid = valid.map((r: any) => {
+                  const k = String(r.no_resit || '').toUpperCase();
+                  if (tglMap.has(k)) {
+                    seen.add(k);
+                    return { ...r, ...tglMap.get(k) };
+                  }
+                  return r;
+                });
+                const missing = tglBaseline.filter(b => !seen.has(String(b.no_resit || '').toUpperCase()));
+                valid = [...updatedValid, ...missing];
+              }
             }
             return valid;
           }
         }
         if (estateId === 'FPM_ADELA') {
           return generateAdelaBaselineTransactions();
+        }
+        if (estateId === 'FPM_TUNGGAL') {
+          return generateTunggalBaselineTransactions();
         }
       } catch (_) {}
     }
@@ -528,7 +573,12 @@ export function useTransactionState({
         const normActiveEstate = normalizeEstateId(activeEstate);
         let parsedData = data
           .map((item: any) => normalizeSingleTransaction(item))
-          .filter((item: any) => isAll || normalizeEstateId(item.estate_id) === normActiveEstate);
+          .filter((item: any) => {
+            if (isAll) return true;
+            const stated = normalizeEstateId(item.estate_id);
+            const inferred = inferEstateFromReceipt(item);
+            return stated === normActiveEstate && inferred === normActiveEstate;
+          });
 
         if (activeEstate === 'FPM_ADELA' || isAll) {
           const baseline = generateAdelaBaselineTransactions();
@@ -544,6 +594,39 @@ export function useTransactionState({
           });
           const missing = baseline.filter(b => !seen.has(String(b.no_resit || '').toUpperCase()));
           parsedData = [...updatedParsed, ...missing];
+        }
+
+        if (activeEstate === 'FPM_TUNGGAL' || isAll) {
+          const isEFBRec = (r: any) =>
+            r.is_efb === true ||
+            String(r.peringkat || '').toUpperCase().trim() === 'EFB' ||
+            String(r.blok || '').toUpperCase().trim() === 'EFB' ||
+            String(r.no_resit || '').toUpperCase().trim().startsWith('EFB');
+          const isSyntheticTgl = (r: any) =>
+            String(r.no_resit || '').toUpperCase().trim().startsWith('TGL-2026-M');
+
+          const hasRealTunggalJanSep = parsedData.some(r => {
+            const est = normalizeEstateId(r.estate_id);
+            return est === 'FPM_TUNGGAL' && !isSyntheticTgl(r) && !isEFBRec(r) && r.tarikh && r.tarikh < '2026-10-01' && (Number(r.tan) || 0) > 0;
+          });
+
+          if (hasRealTunggalJanSep) {
+            parsedData = parsedData.filter(r => !isSyntheticTgl(r));
+          } else {
+            const tglBaseline = generateTunggalBaselineTransactions();
+            const tglMap = new Map(tglBaseline.map(b => [String(b.no_resit).toUpperCase(), b]));
+            const seen = new Set<string>();
+            const updatedParsed = parsedData.map((r: any) => {
+              const k = String(r.no_resit || '').toUpperCase();
+              if (tglMap.has(k)) {
+                seen.add(k);
+                return { ...r, ...tglMap.get(k) };
+              }
+              return r;
+            });
+            const missing = tglBaseline.filter(b => !seen.has(String(b.no_resit || '').toUpperCase()));
+            parsedData = [...updatedParsed, ...missing];
+          }
         }
 
         setRawData(parsedData);
@@ -857,6 +940,8 @@ export function useTransactionState({
       nama_penjual: (record as any).nama_penjual || "",
       kod_projek: (record as any).kod_projek || "",
       kod_akaun_bts: (record as any).kod_akaun_bts || "",
+      kod_penjual_4digit: (record as any).kod_penjual_4digit || "",
+      estate_verification: (record as any).estate_verification || null,
       is_efb: record.is_efb !== undefined ? !!record.is_efb : record.peringkat === "EFB",
       is_baja: false,
       is_pruning: false,
@@ -1114,6 +1199,8 @@ export function useTransactionState({
       nama_penjual: data.nama_penjual || prev.nama_penjual,
       kod_projek: data.kod_projek || prev.kod_projek,
       kod_akaun_bts: data.kod_akaun_bts || prev.kod_akaun_bts,
+      kod_penjual_4digit: data.kod_penjual_4digit || data.estate_verification?.seller4DigitCode || prev.kod_penjual_4digit,
+      estate_verification: data.estate_verification || prev.estate_verification,
       peringkat: isLotFeldaMatch ? "LOT FELDA" : (isPkt2FromBts ? "PKT 002" : (data.peringkat || prev.peringkat || "PKT 001")),
       blok: cleanedBlok || prev.blok || (data.is_efb ? "" : "1"),
     }));
@@ -1292,24 +1379,27 @@ export function useTransactionState({
     const scanStartTime = Date.now();
 
     try {
-      const result = await parseReceiptWithGemini(file);
+      // 1. SEMAK DULU SESSION LOGIN PENGGUNA (LANGKAH 1)
+      const activeSessionEstate = getActiveEstateId();
+      const activeSessionConfig = getEstateConfig(activeSessionEstate);
+
+      const result = await parseReceiptWithGemini(file, activeSessionEstate);
 
       if (result.no_resit || result.no_lori || result.tan) {
-        const activeEstate = getActiveEstateId();
-        const activeEstateConfig = getEstateConfig(activeEstate);
-        const detectedEstate = detectEstateFromSeller(
-          result.kod_penjual,
-          result.nama_penjual,
-          result.kod_projek,
-          result.no_nota_hantaran,
-          result.no_resit
-        );
+        // 2 & 3. SEMAK 4-DIGIT ROW PENJUAL & NAMA PENJUAL (LANGKAH 2 & 3)
+        const verification = result.estate_verification || verifyReceiptEstate(activeSessionEstate, result);
+        result.estate_verification = verification;
 
-        if (activeEstate !== 'ALL' && detectedEstate && detectedEstate.estateId !== activeEstate) {
+        const isCrossEstateUser = authRole === 'rc' || authRole === 'oc' || authRole === 'superadmin' || isSuperAdmin(authRole);
+
+        if (!verification.isMatch && !isCrossEstateUser) {
           showToast(
             "error",
-            `⛔ SEKATAN PERSEMPADAN LADANG: Resit yang diimbas dikesan milik ${detectedEstate.estateName} (Kod ${detectedEstate.code}), tetapi anda sedang mengakses ${activeEstateConfig.name}. Pemasukan resit merentasi ladang disekat demi integriti data!`
+            `⛔ SEKATAN PERSEMPADAN LADANG: Sesi aktif anda ialah [${verification.sessionEstateName}] (Kod ${verification.sessionCode}), tetapi 4-digit row penjual resit ialah "${verification.seller4DigitCode}" (${verification.detectedEstateName}) & nama penjual "${verification.sellerName}". Pemasukan resit merentasi ladang disekat demi integriti data!`
           );
+          setIsScanning(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          if (uploadInputRef.current) uploadInputRef.current.value = "";
           return;
         }
 
@@ -1355,15 +1445,18 @@ export function useTransactionState({
               blok: cleanedOcrBlok,
               rm_mt: result.rm_mt,
               is_efb: result.is_efb,
-              detected_estate_name: result.detected_estate_name,
-              detected_estate_id: result.detected_estate_id,
+              detected_estate_name: result.detected_estate_name || verification.detectedEstateName,
+              detected_estate_id: result.detected_estate_id || verification.detectedEstateId,
               kod_penjual: result.kod_penjual,
+              kod_penjual_4digit: result.kod_penjual_4digit || verification.seller4DigitCode,
               nama_penjual: result.nama_penjual,
+              estate_verification: verification,
               confidence: result.confidence,
             },
             extractedData: {
               ...result,
               blok: cleanedOcrBlok,
+              estate_verification: verification,
             },
           });
           setShowDateVerificationModal(true);
@@ -1382,14 +1475,9 @@ export function useTransactionState({
           if (result.confidence < 70) {
             showToast("error", `⚠️ Accuracy rendah (${result.confidence}%). Sila semak maklumat.`);
           } else {
-            const estateBadge = result.detected_estate_name
-              ? ` | ${result.detected_estate_name} (${result.kod_penjual || ''})`
-              : '';
             showToast(
               "success",
-              result.is_efb
-                ? `✅ Scan EFB berjaya (${result.confidence}%)${estateBadge}`
-                : `✅ Scan berjaya (${result.confidence}%)${estateBadge}`
+              verification.message || `✅ Scan berjaya (${result.confidence}%) | ${verification.detectedEstateName}`
             );
           }
         }

@@ -17,6 +17,7 @@ import { safeFetch } from '../../utils/safeFetch';
 const WORKERS_API = '/api/workers/workers';
 const WORK_ASSIGNMENTS_API = '/api/workers/work-assignments';
 const ATTENDANCE_API = '/api/workers/attendance';
+const MUSTER_CHIT_API = '/api/workers/muster-chit';
 
 const apiHeaders = (estateId: string, json = false): Record<string, string> => {
   const headers: Record<string, string> = { 'x-estate-id': estateId };
@@ -421,7 +422,7 @@ export const getWorkAssignmentsForDate = async (date: string) => {
   let results: WorkAssignment[] = [];
 
   try {
-    const data = await apiListOrThrow(WORK_ASSIGNMENTS_API, activeEstateId);
+    const data = await apiListOrThrow(`${WORK_ASSIGNMENTS_API}?date=${encodeURIComponent(date)}`, activeEstateId);
     // Match both plain `YYYY-MM-DD` and ISO timestamp values by normalising to the date part.
     const exact = data.filter((r: any) => String(r.date || '').split('T')[0] === date);
     if (exact.length > 0) {
@@ -555,4 +556,123 @@ export const upsertWorkAssignmentSingle = async (assignment: Partial<WorkAssignm
   const json = await apiPostJson(WORK_ASSIGNMENTS_API, { assignments: [item] }, activeEstateId);
   const saved = Array.isArray(json?.data) && json.data[0] ? json.data[0] : item;
   return saved as WorkAssignment;
+};
+
+/**
+ * ============================================================================
+ * MUSTER CHIT AUTHORITATIVE PERSISTENCE SERVICES
+ * ============================================================================
+ */
+
+export interface SavedMusterChitRecord {
+  date: string;
+  estate_id: string;
+  grid: Record<string, Record<string, number>>;
+  perluMap?: Record<string, number>;
+  catitanMap?: Record<string, string>;
+  kategoriSummary?: {
+    tempatan: { total: number; present: number };
+    tki: { total: number; present: number };
+    tkin: { total: number; present: number };
+    tkn: { total: number; present: number };
+    kontraktor: { total: number; present: number };
+  };
+  absentReasons?: {
+    sakit: number;
+    ponteng: number;
+    lain: number;
+  };
+  absentWorkers?: string[];
+  customNotes?: string;
+  preparedBy?: string;
+  preparedTitle?: string;
+  verifiedBy?: string;
+  verifiedTitle?: string;
+  savedAt?: string;
+  savedBy?: string;
+  isSaved?: boolean;
+  updated_at?: string;
+}
+
+export const getMusterChitForDate = async (date: string): Promise<SavedMusterChitRecord | null> => {
+  const activeEstateId = getActiveEstateId();
+  try {
+    const res = await safeFetch(`${MUSTER_CHIT_API}?date=${encodeURIComponent(date)}`, {
+      headers: apiHeaders(activeEstateId)
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.success && json.data) {
+        // Cache to local storage as fallback
+        try {
+          localStorage.setItem(`fpm_muster_chit_full_${activeEstateId}_${date}`, JSON.stringify(json.data));
+        } catch (_) {}
+        return json.data as SavedMusterChitRecord;
+      }
+    }
+  } catch (err) {
+    console.warn("API fetch error for getMusterChitForDate:", err);
+  }
+
+  // Fallback to local storage if offline or DB record exists locally
+  try {
+    const localStr = localStorage.getItem(`fpm_muster_chit_full_${activeEstateId}_${date}`);
+    if (localStr) {
+      return JSON.parse(localStr) as SavedMusterChitRecord;
+    }
+  } catch (e) {
+    console.error("Error reading muster chit from localStorage:", e);
+  }
+
+  return null;
+};
+
+export const saveMusterChitRecord = async (
+  record: Partial<SavedMusterChitRecord> & { date: string }
+): Promise<SavedMusterChitRecord> => {
+  const activeEstateId = getActiveEstateId();
+  const payload = {
+    ...record,
+    estate_id: record.estate_id || activeEstateId
+  };
+
+  // Cache locally immediately
+  try {
+    localStorage.setItem(`fpm_muster_chit_full_${activeEstateId}_${record.date}`, JSON.stringify(payload));
+  } catch (e) {
+    console.error("Error caching muster chit locally:", e);
+  }
+
+  // Save to authoritative server API
+  const json = await apiPostJson(MUSTER_CHIT_API, payload, activeEstateId);
+  const savedData = (json?.data || payload) as SavedMusterChitRecord;
+
+  // Dispatch event so other components or tabs update immediately
+  try {
+    window.dispatchEvent(
+      new CustomEvent('IPDS_MUSTER_CHIT_SAVED', { detail: { date: record.date, estate_id: activeEstateId } })
+    );
+  } catch (_) {}
+
+  return savedData;
+};
+
+export const deleteMusterChitRecord = async (date: string): Promise<boolean> => {
+  const activeEstateId = getActiveEstateId();
+  try {
+    const res = await safeFetch(`${MUSTER_CHIT_API}?date=${encodeURIComponent(date)}`, {
+      method: 'DELETE',
+      headers: apiHeaders(activeEstateId)
+    });
+    if (res.ok) {
+      try {
+        localStorage.removeItem(`fpm_muster_chit_full_${activeEstateId}_${date}`);
+        localStorage.removeItem(`fpm_muster_chit_extra_${date}`);
+      } catch (_) {}
+      return true;
+    }
+  } catch (err) {
+    console.error("Error deleting muster chit record:", err);
+  }
+  return false;
 };

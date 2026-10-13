@@ -168,13 +168,22 @@ router.delete('/workers/:id', requireRole(['pf', 'fc']), async (req: Request, re
 router.get('/work-assignments', requireAuth, async (req: Request, res: Response) => {
   try {
     const estateId = req.estateId || 'FPM_TUNGGAL';
+    const date = req.query.date as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
 
     const supabase = getSupabase();
     if (supabase) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('work_assignments')
         .select('*')
         .eq('estate_id', estateId);
+
+      if (date) query = query.eq('date', date);
+      if (from) query = query.gte('date', from);
+      if (to) query = query.lte('date', to);
+
+      const { data, error } = await query;
 
       if (!error && data) {
         return res.json({
@@ -186,10 +195,14 @@ router.get('/work-assignments', requireAuth, async (req: Request, res: Response)
     }
 
     const local = getLocalEstateJson('work_assignments', estateId, { assignments: [] });
+    let list: WorkAssignmentRecord[] = Array.isArray(local.assignments) ? local.assignments : [];
+    if (date) list = list.filter((a: WorkAssignmentRecord) => String(a.date || '').split('T')[0] === date);
+    if (from) list = list.filter((a: WorkAssignmentRecord) => String(a.date || '').split('T')[0] >= from);
+    if (to) list = list.filter((a: WorkAssignmentRecord) => String(a.date || '').split('T')[0] <= to);
     return res.json({
       success: true,
       estate_id: estateId,
-      data: local.assignments || []
+      data: list
     });
   } catch (err: unknown) {
     console.error('Error fetching work assignments:', err);
@@ -568,6 +581,191 @@ router.post('/work-assignments', requireAuth, async (req: Request, res: Response
   } catch (err: unknown) {
     console.error('Error saving work assignments:', err);
     return res.status(500).json({ success: false, error: getSafeErrorMessage(err, 'Gagal menyimpan tugasan kerja.') });
+  }
+});
+
+/**
+ * ============================================================================
+ * MUSTER CHIT PERSISTENCE API
+ * ============================================================================
+ * Stores and retrieves authoritative Muster Chit calculations and extra
+ * details across all devices. Backed by Supabase app_settings + server storage.
+ */
+
+/**
+ * GET /api/workers/muster-chit
+ * Retrieve authoritative Muster Chit record for the requested date and estate.
+ */
+router.get('/muster-chit', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const estateId = resolveAuthorizedEstate(req) || req.estateId || 'FPM_TUNGGAL';
+    const date = req.query.date as string | undefined;
+    if (!date || !isValidDateString(date)) {
+      return res.status(400).json({ success: false, error: 'Parameter tarikh (YYYY-MM-DD) diperlukan.' });
+    }
+
+    const settingKey = `muster_chit_${estateId}_${date}`;
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value, updated_at')
+        .eq('key', settingKey)
+        .maybeSingle();
+
+      if (!error && data && data.value) {
+        return res.json({
+          success: true,
+          estate_id: estateId,
+          date,
+          data: data.value,
+          updated_at: data.updated_at,
+          source: 'database'
+        });
+      }
+    }
+
+    // Local estate file fallback
+    const localStore = getLocalEstateJson('muster_chit', estateId, {});
+    const localRecord = localStore?.[date];
+    if (localRecord) {
+      return res.json({
+        success: true,
+        estate_id: estateId,
+        date,
+        data: localRecord,
+        source: 'local'
+      });
+    }
+
+    return res.json({
+      success: true,
+      estate_id: estateId,
+      date,
+      data: null,
+      message: 'Tiada rekod tersimpan untuk tarikh ini.'
+    });
+  } catch (err: unknown) {
+    console.error('Error fetching muster chit:', err);
+    return res.status(500).json({
+      success: false,
+      error: getSafeErrorMessage(err, 'Gagal mengambil rekod muster chit.')
+    });
+  }
+});
+
+/**
+ * POST /api/workers/muster-chit
+ * Authoritative save/update for Muster Chit daily record in database.
+ * Accessible to all devices across estates.
+ */
+router.post('/muster-chit', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const estateId = resolveAuthorizedEstate(req) || req.estateId || 'FPM_TUNGGAL';
+    const body = req.body || {};
+    const date = String(body.date || '').trim();
+
+    if (!isValidDateString(date)) {
+      return res.status(400).json({ success: false, error: 'Tarikh tidak sah (YYYY-MM-DD).' });
+    }
+
+    const operatorName = (req as any).user?.operator_name || (req as any).user?.username || 'Staf Bertugas';
+    const savedPayload = {
+      date,
+      estate_id: estateId,
+      grid: body.grid || {},
+      perluMap: body.perluMap || {},
+      catitanMap: body.catitanMap || {},
+      kategoriSummary: body.kategoriSummary || null,
+      absentReasons: body.absentReasons || null,
+      absentWorkers: Array.isArray(body.absentWorkers) ? body.absentWorkers : [],
+      customNotes: String(body.customNotes || '').trim(),
+      preparedBy: String(body.preparedBy || '').trim(),
+      preparedTitle: String(body.preparedTitle || '').trim(),
+      verifiedBy: String(body.verifiedBy || '').trim(),
+      verifiedTitle: String(body.verifiedTitle || '').trim(),
+      savedAt: new Date().toISOString(),
+      savedBy: operatorName,
+      isSaved: true
+    };
+
+    const settingKey = `muster_chit_${estateId}_${date}`;
+    const supabase = getSupabase();
+    if (supabase) {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({
+          key: settingKey,
+          value: savedPayload,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+      if (error) {
+        console.warn('[MUSTER_CHIT_DB_WARN] Could not upsert into app_settings, falling back to local store:', error);
+      }
+    }
+
+    // Save to server-side estate storage for resilience
+    try {
+      const currentLocal = getLocalEstateJson('muster_chit', estateId, {}) || {};
+      currentLocal[date] = savedPayload;
+      saveLocalEstateJson('muster_chit', estateId, currentLocal);
+    } catch (localErr) {
+      console.warn('Error saving muster chit to local estate json:', localErr);
+    }
+
+    return res.json({
+      success: true,
+      estate_id: estateId,
+      date,
+      data: savedPayload,
+      message: 'Rekod Muster Chit berjaya disimpan ke pangkalan data.'
+    });
+  } catch (err: unknown) {
+    console.error('Error saving muster chit:', err);
+    return res.status(500).json({
+      success: false,
+      error: getSafeErrorMessage(err, 'Gagal menyimpan rekod muster chit.')
+    });
+  }
+});
+
+/**
+ * DELETE /api/workers/muster-chit
+ * Reset or remove a saved Muster Chit record for the requested date.
+ */
+router.delete('/muster-chit', requireRole(['pf', 'fc', 'superadmin', 'afc', 'staff', 'fs']), async (req: Request, res: Response) => {
+  try {
+    const estateId = resolveAuthorizedEstate(req) || req.estateId || 'FPM_TUNGGAL';
+    const date = req.query.date as string | undefined;
+    if (!date || !isValidDateString(date)) {
+      return res.status(400).json({ success: false, error: 'Parameter tarikh (YYYY-MM-DD) diperlukan.' });
+    }
+
+    const settingKey = `muster_chit_${estateId}_${date}`;
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.from('app_settings').delete().eq('key', settingKey);
+    }
+
+    const currentLocal = getLocalEstateJson('muster_chit', estateId, {}) || {};
+    if (currentLocal[date]) {
+      delete currentLocal[date];
+      saveLocalEstateJson('muster_chit', estateId, currentLocal);
+    }
+
+    return res.json({
+      success: true,
+      estate_id: estateId,
+      date,
+      message: 'Rekod Muster Chit berjaya dipadam/direset.'
+    });
+  } catch (err: unknown) {
+    console.error('Error deleting muster chit:', err);
+    return res.status(500).json({
+      success: false,
+      error: getSafeErrorMessage(err, 'Gagal memadam rekod muster chit.')
+    });
   }
 });
 

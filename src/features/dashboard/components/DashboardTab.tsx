@@ -367,7 +367,7 @@ export const DashboardTab = (props: any) => {
                       )}
 
                         {/* SUBSECTION DETAILS */}
-                        {((reportType === "hasil" && currentHasilTab === 'kpi') || (reportType === "kualiti_bts" && activeKualitiTab !== 'penggredan') || (reportType !== "hasil" && reportType !== "kualiti_bts" && reportType !== "efb")) && (
+                        {((reportType === "hasil" && currentHasilTab === 'kpi') || (reportType === "kualiti_bts" && activeKualitiTab !== 'penggredan') || (reportType === "efb" && currentEfbTab === 'kpi') || (reportType !== "hasil" && reportType !== "kualiti_bts" && reportType !== "efb")) && (
                           isWilayah ? (
                             <WilayahEstatesSummarySection
                               rawData={rawData}
@@ -509,13 +509,19 @@ export const DashboardTab = (props: any) => {
                                             </div>
                                             <div className="flex items-center gap-2">
                                               <span className="text-[10px] font-black text-slate-500">
-                                                {b.yieldHek.toFixed(2)}
+                                                {reportType === "efb" ? `${(b.efb_tan || 0).toFixed(2)} T` : b.yieldHek.toFixed(2)}
                                               </span>
-                                              <span
-                                                className={`text-[10px] font-black ${b.targetPct >= 100 ? "text-emerald-500" : "text-amber-500"}`}
-                                              >
-                                                {Math.round(b.targetPct)}%
-                                              </span>
+                                              {reportType === "efb" ? (
+                                                <span className="text-[9px] font-mono font-bold text-purple-500">
+                                                  {b.resit_count || 0} R
+                                                </span>
+                                              ) : (
+                                                <span
+                                                  className={`text-[10px] font-black ${b.targetPct >= 100 ? "text-emerald-500" : "text-amber-500"}`}
+                                                >
+                                                  {Math.round(b.targetPct)}%
+                                                </span>
+                                              )}
                                             </div>
                                           </div>
                                         ))}
@@ -550,11 +556,17 @@ export const DashboardTab = (props: any) => {
                                             </div>
                                             <div className="flex items-center gap-2">
                                               <span className="text-[10px] font-black text-slate-500">
-                                                {b.yieldHek.toFixed(2)}
+                                                {reportType === "efb" ? `${(b.efb_tan || 0).toFixed(2)} T` : b.yieldHek.toFixed(2)}
                                               </span>
-                                              <span className="text-[10px] font-black text-rose-500">
-                                                {Math.round(b.targetPct)}%
-                                              </span>
+                                              {reportType === "efb" ? (
+                                                <span className="text-[9px] font-mono font-bold text-purple-500">
+                                                  {b.resit_count || 0} R
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px] font-black text-rose-500">
+                                                  {Math.round(b.targetPct)}%
+                                                </span>
+                                              )}
                                             </div>
                                           </div>
                                         ))}

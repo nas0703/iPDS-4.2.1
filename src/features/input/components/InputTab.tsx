@@ -1,6 +1,6 @@
 import React, { RefObject, Dispatch, SetStateAction } from "react";
 import { motion } from "motion/react";
-import { FileText, Factory, Droplets, Scissors, Save, AlertCircle, RefreshCw, Loader2, Send, Container, CloudRain, Sparkles, Scan, ShieldAlert } from "lucide-react";
+import { FileText, Factory, Droplets, Scissors, Save, AlertCircle, RefreshCw, Loader2, Send, Container, CloudRain, Sparkles, Scan, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { FloatingInput } from "../../../components/ui/FloatingInput";
 import { FertilizerInput } from "../../fertilizer/components/FertilizerInput";
 import { PruningInput } from "../../pruning/components/PruningInput";
@@ -506,6 +506,120 @@ export const InputTab: React.FC<InputTabProps> = ({
             />
           ) : (
             <form onSubmit={submitTransaction} className="space-y-3">
+              {/* KAD PENGESAHAN STATUS LADANG (3-LANGKAH SEMAKAN) */}
+              <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
+                formData.estate_verification?.status === 'MISMATCH'
+                  ? "bg-rose-500/10 border-rose-500/40 text-rose-300 shadow-sm"
+                  : formData.estate_verification?.status === 'CROSS_ESTATE_PERMITTED'
+                  ? "bg-sky-500/10 border-sky-500/40 text-sky-300 shadow-sm"
+                  : formData.estate_verification?.status === 'MATCHED'
+                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-sm"
+                  : "bg-slate-100/80 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300"
+              }`}>
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-white/10">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                      formData.estate_verification?.status === 'MISMATCH'
+                        ? "bg-rose-500/20 text-rose-400"
+                        : formData.estate_verification?.status === 'MATCHED'
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                    }`}>
+                      {formData.estate_verification?.status === 'MISMATCH' ? "⛔" : formData.estate_verification?.status === 'MATCHED' ? "✅" : "📋"}
+                    </div>
+                    <div>
+                      <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                        Semakan Ladang 3-Langkah
+                      </h4>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400">
+                        Sesi Login &rarr; 4-Digit Row Penjual &rarr; Nama Penjual
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full ${
+                    formData.estate_verification?.status === 'MISMATCH'
+                      ? "bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30 animate-pulse"
+                      : formData.estate_verification?.status === 'CROSS_ESTATE_PERMITTED'
+                      ? "bg-sky-500/20 text-sky-600 dark:text-sky-300 border border-sky-500/30"
+                      : formData.estate_verification?.status === 'MATCHED'
+                      ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                      : "bg-slate-200 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300"
+                  }`}>
+                    {formData.estate_verification?.status === 'MISMATCH'
+                      ? "Tidak Sepadan ⛔"
+                      : formData.estate_verification?.status === 'CROSS_ESTATE_PERMITTED'
+                      ? "Akses Wilayah / HQ 🌐"
+                      : formData.estate_verification?.status === 'MATCHED'
+                      ? "Sepadan (3/3) ✅"
+                      : "Menunggu Imbasan Resit"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2.5">
+                  {/* 1. Sesi Login */}
+                  <div className="p-2.5 rounded-xl bg-white/70 dark:bg-black/30 border border-slate-200/50 dark:border-white/5">
+                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      1️⃣ Sesi Login Semasa
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-white text-xs mt-0.5 truncate">
+                      {estateCfg.name}
+                    </p>
+                    <span className="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      Kod {estateCfg.shortName === 'Adela' ? '5136' : estateCfg.shortName === 'Tunggal' ? '5155' : estateCfg.shortName === 'Kledang' ? '5176' : estateCfg.shortName === 'Sening' ? '5156' : estateCfg.code}
+                    </span>
+                  </div>
+
+                  {/* 2. 4 Digit Pertama Row Penjual */}
+                  <div className="p-2.5 rounded-xl bg-white/70 dark:bg-black/30 border border-slate-200/50 dark:border-white/5">
+                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      2️⃣ Row Penjual (4-Digit)
+                    </span>
+                    <p className="font-mono font-bold text-slate-900 dark:text-white text-xs mt-0.5">
+                      {formData.kod_penjual_4digit || (formData.estate_verification?.seller4DigitCode) || (formData.kod_projek ? formData.kod_projek.slice(0, 4) : '-') || '-'}
+                    </p>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      {formData.kod_penjual_4digit === '5155' || formData.kod_projek === '5155'
+                        ? 'Ladang Tunggal (5155)'
+                        : formData.kod_penjual_4digit === '5136' || formData.kod_projek === '5136'
+                        ? 'Ladang Adela (5136)'
+                        : formData.kod_penjual_4digit === '5176' || formData.kod_projek === '5176'
+                        ? 'Ladang Kledang (5176)'
+                        : formData.kod_penjual_4digit === '5156' || formData.kod_projek === '5156'
+                        ? 'Ladang Sening (5156)'
+                        : '4 Digit Awalan Siri BTS'}
+                    </span>
+                  </div>
+
+                  {/* 3. Nama Penjual */}
+                  <div className="p-2.5 rounded-xl bg-white/70 dark:bg-black/30 border border-slate-200/50 dark:border-white/5">
+                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      3️⃣ Nama Penjual
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-white text-xs mt-0.5 truncate" title={formData.nama_penjual || '-'}>
+                      {formData.nama_penjual || '-'}
+                    </p>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      {formData.nama_penjual?.toUpperCase().includes('TUNGGAL')
+                        ? 'FELDA Tunggal'
+                        : formData.nama_penjual?.toUpperCase().includes('ADELA')
+                        ? 'FELDA Adela'
+                        : formData.nama_penjual?.toUpperCase().includes('KLEDANG')
+                        ? 'FELDA Kledang'
+                        : formData.nama_penjual?.toUpperCase().includes('SENING')
+                        ? 'FELDA Sening'
+                        : 'Pengesahan Teks Penjual'}
+                    </span>
+                  </div>
+                </div>
+
+                {formData.estate_verification && !formData.estate_verification.isMatch && (
+                  <div className="mt-2.5 p-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-800 dark:text-rose-200 text-[10px] leading-relaxed font-semibold">
+                    {formData.estate_verification.message}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <FloatingInput
                   id="input-no-resit"

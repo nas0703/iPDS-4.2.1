@@ -1112,7 +1112,7 @@ export const ReportSummarySection = ({
                 </div>
                 <div className="flex items-baseline gap-1">
                   <p className="text-[13px] font-display font-black text-white">
-                    {data.efb_tan.toFixed(2)}
+                    {(data.efb_tan || 0).toFixed(2)}
                   </p>
                   <p className="text-[8px] font-black text-emerald-400 uppercase">
                     Tan
@@ -1123,12 +1123,60 @@ export const ReportSummarySection = ({
                     Bilangan Resit
                   </p>
                   <p className="text-[10px] font-black text-white">
-                    {data.efb_resit}{" "}
+                    {data.efb_resit || 0}{" "}
                     <span className="text-[7px] opacity-60">RESIT</span>
                   </p>
                 </div>
               </div>
             </motion.div>
+          )}
+
+          {showDetails && (
+            <div className="flex flex-col gap-1 h-full pt-1.5">
+              {[
+                { id: "pkt1", label: "PERINGKAT 1", tan: data.pkt1_efb_tan || 0, resit: data.pkt1_efb_resit || 0 },
+                { id: "pkt2", label: "PERINGKAT 2", tan: data.pkt2_efb_tan || 0, resit: data.pkt2_efb_resit || 0 },
+                { id: "felda", label: pkt3Label, tan: data.felda_efb_tan || 0, resit: data.felda_efb_resit || 0 },
+              ].map((c, index) => (
+                <motion.div
+                  key={c.id}
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.4, delay: index * 0.08, ease: "easeOut" }}
+                  className="space-y-0 h-full flex flex-col relative"
+                >
+                  {mode === "details" && period === "day" && (
+                    <div className="absolute -top-2.5 left-1 z-10 p-0 pointer-events-none">
+                      <div className="bg-slate-900 dark:bg-slate-800 border border-slate-800 dark:border-slate-700 shadow-md px-1.5 py-0.5 rounded-sm">
+                        <p className="text-[6px] font-black text-white uppercase tracking-[0.1em] leading-none">
+                          {c.label}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between h-full">
+                    <div>
+                      <div className="flex justify-between items-baseline mb-1">
+                        <span className="text-[8px] font-black text-slate-800 dark:text-slate-200">
+                          {c.label}
+                        </span>
+                        <span className="text-[7px] font-mono font-bold text-slate-400">
+                          {c.resit} RESIT
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-[12px] font-black text-purple-600 dark:text-purple-400">
+                          {c.tan.toFixed(2)}
+                        </span>
+                        <span className="text-[7px] font-bold text-slate-400">
+                          Tan
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           )}
         </div>
       )}

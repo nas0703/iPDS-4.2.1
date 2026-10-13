@@ -417,7 +417,7 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({ isDarkMode, onSh
       });
 
       await saveWorkAssignmentsBatch(selectedDate, toSave);
-      onShowToast('success', `Tugasan kerja pada ${selectedDate.split('-').reverse().join('.')} berjaya disimpan.`);
+      onShowToast('success', `Tugasan kerja pada ${selectedDate.split('-').reverse().join('.')} berjaya disimpan ke database! Data kini kekal dan terpapar di semua peranti & Muster Chit.`);
     } catch (err: any) {
       console.error(err);
       onShowToast('error', 'Gagal menyimpan tugasan kerja: ' + err.message);

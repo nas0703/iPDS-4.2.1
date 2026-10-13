@@ -39,9 +39,9 @@ const OCR_STEPS: StepItem[] = [
   },
   {
     id: 4,
-    shortTitle: "Penentusahan & Semakan",
-    label: "Semakan Anti-Pertindihan & Registry",
-    sub: "Menentusahkan rekod ladang dan menghalang pertindihan resit",
+    shortTitle: "Semakan Ladang 3-Langkah",
+    label: "Semakan Ladang 3-Langkah & Anti-Pertindihan",
+    sub: "1. Sesi Login | 2. 4-Digit Row Penjual (5155/5136) | 3. Nama Penjual",
     progressPercent: 95,
   },
 ];

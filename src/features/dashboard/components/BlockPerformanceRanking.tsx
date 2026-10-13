@@ -39,7 +39,6 @@ export const BlockPerformanceRanking: React.FC<BlockPerformanceRankingProps> = (
     (reportType === "hasil" && currentHasilTab === 'analitik') ||
     (reportType !== "hasil" &&
       reportType !== "harga" &&
-      reportType !== "efb" &&
       reportType !== "pruning" &&
       reportType !== "merumput" &&
       (reportType !== "kualiti_bts" || activeKualitiTab !== 'penggredan'));
@@ -359,6 +358,11 @@ export const BlockPerformanceRanking: React.FC<BlockPerformanceRankingProps> = (
               else
                 kpiColorClass =
                   "bg-rose-500 text-white shadow-md shadow-rose-500/20";
+            } else if (effectiveReportType === "efb") {
+              kpiColorClass =
+                (s.efb_tan || 0) > 0
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/20"
+                  : "bg-slate-300 dark:bg-slate-800 text-slate-500";
             }
 
             return (
@@ -516,13 +520,23 @@ export const BlockPerformanceRanking: React.FC<BlockPerformanceRankingProps> = (
                           </p>
                         </div>
                       )}
+                      {effectiveReportType === "efb" && (
+                        <div className="flex flex-col items-center">
+                          <p className="text-[11px] font-black text-purple-600 dark:text-purple-400 leading-none">
+                            {(todayBlok?.efb_tan || 0).toFixed(1)}
+                          </p>
+                          <p className="text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-0.5">
+                            Tan
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* BULAN */}
                     <div
                       className={`text-center border-l border-slate-50 dark:border-slate-800 pl-0.5 transition-all duration-500 rounded-lg ${
                         rankingPeriod === "month" && showRanking
-                          ? "bg-emerald-500/10 dark:bg-emerald-500/20 z-20 pb-1 pt-0.5 shadow-sm border border-emerald-500/20"
+                          ? "bg-purple-500/10 dark:bg-purple-500/20 z-20 pb-1 pt-0.5 shadow-sm border border-purple-500/20"
                           : ""
                       }`}
                     >
@@ -571,13 +585,23 @@ export const BlockPerformanceRanking: React.FC<BlockPerformanceRankingProps> = (
                           </p>
                         </div>
                       )}
+                      {effectiveReportType === "efb" && (
+                        <div className="flex flex-col items-center">
+                          <p className="text-[11px] font-black text-purple-600 dark:text-purple-400 leading-none">
+                            {(monthBlok?.efb_tan || 0).toFixed(1)}
+                          </p>
+                          <p className="text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-0.5">
+                            Tan
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* TAHUN */}
                     <div
                       className={`text-center border-l border-slate-50 dark:border-slate-800 pl-0.5 transition-all duration-500 rounded-lg ${
                         rankingPeriod === "year" && showRanking
-                          ? "bg-emerald-500/10 dark:bg-emerald-500/20 z-20 pb-1 pt-0.5 shadow-sm border border-emerald-500/20"
+                          ? "bg-purple-500/10 dark:bg-purple-500/20 z-20 pb-1 pt-0.5 shadow-sm border border-purple-500/20"
                           : ""
                       }`}
                     >
@@ -595,8 +619,8 @@ export const BlockPerformanceRanking: React.FC<BlockPerformanceRankingProps> = (
                             <p
                               className={`text-[7px] font-black mt-0.5 ${
                                 pctYear >= 100
-                                  ? "text-emerald-500"
-                                  : "text-amber-500"
+                                    ? "text-emerald-500"
+                                    : "text-amber-500"
                               }`}
                             >
                               {pctYear.toFixed(0)}%
@@ -625,6 +649,16 @@ export const BlockPerformanceRanking: React.FC<BlockPerformanceRankingProps> = (
                                 )
                               : 0}
                             %
+                          </p>
+                        </div>
+                      )}
+                      {effectiveReportType === "efb" && (
+                        <div className="flex flex-col items-center">
+                          <p className="text-[11px] font-black text-purple-600 dark:text-purple-400 leading-none">
+                            {(yearBlok?.efb_tan || 0).toFixed(1)}
+                          </p>
+                          <p className="text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter mt-0.5">
+                            Tan
                           </p>
                         </div>
                       )}

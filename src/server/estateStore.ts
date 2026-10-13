@@ -61,24 +61,10 @@ export function getReceiptEstate(record: any): string {
   const namaPenjual = String(record.nama_penjual || '').toUpperCase();
   const noAkaun = String(record.no_akaun_terima || '').toUpperCase();
   const blok = String(record.blok || '').trim().toUpperCase();
+  const lori = String(record.no_lori || '').trim().toUpperCase();
 
   // 1. Strict metadata check FIRST (overrides misclassified rawEstate)
-  // Tunggal: 155 / 5155
-  if (
-    nota.startsWith('155') || 
-    nota.startsWith('5155') || 
-    kodPenjual.startsWith('5155') || 
-    kodPenjual.includes('5155') || 
-    namaPenjual.includes('TUNGGAL') || 
-    noAkaun.includes('TUNGGAL') || 
-    noResit.includes('TGL') || 
-    noResit.includes('TUNGGAL') ||
-    noResit.startsWith('TGL-')
-  ) {
-    return 'FPM_TUNGGAL';
-  }
-
-  // Adela: 136 / 5136
+  // Adela: 136 / 5136 or Adela blocks or Adela lorries
   if (
     nota.startsWith('136') || 
     nota.startsWith('5136') || 
@@ -89,7 +75,8 @@ export function getReceiptEstate(record: any): string {
     noResit.includes('ADL') || 
     noResit.includes('ADELA') ||
     noResit.startsWith('ADL-') ||
-    ['1F', '2F', '125Y', '128Y', '121V'].includes(blok)
+    ['1F', '2F', '125Y', '128Y', '121V', '88F'].includes(blok) ||
+    ['BLS4830', 'JRM970', 'JCM3007', 'JGG8910', 'JBV7370', 'JLF7922'].includes(lori)
   ) {
     return 'FPM_ADELA';
   }
@@ -124,13 +111,34 @@ export function getReceiptEstate(record: any): string {
     return 'FPM_SENING';
   }
 
+  // Tunggal: 155 / 5155
+  if (
+    nota.startsWith('155') || 
+    nota.startsWith('5155') || 
+    kodPenjual.startsWith('5155') || 
+    kodPenjual.includes('5155') || 
+    namaPenjual.includes('TUNGGAL') || 
+    noAkaun.includes('TUNGGAL') || 
+    noResit.includes('TGL') || 
+    noResit.includes('TUNGGAL') ||
+    noResit.startsWith('TGL-') ||
+    (noResit.startsWith('0155') && !nota.startsWith('136') && !nota.startsWith('176') && !nota.startsWith('156'))
+  ) {
+    return 'FPM_TUNGGAL';
+  }
+
+  const rawEstate = String(record.estate_id || '').trim().toUpperCase();
+  // If record already has explicit canonical estate and no contradictory delivery note, respect it
+  if (rawEstate === 'FPM_TUNGGAL' || rawEstate === 'FPM_ADELA' || rawEstate === 'FPM_KLEDANG' || rawEstate === 'FPM_SENING') {
+    return rawEstate;
+  }
+
   // 2. Lookup in persistent receipt -> estate map
   if (noResit && estateMap[noResit]) {
     return estateMap[noResit];
   }
 
   // 3. Explicit estate_id in record object
-  const rawEstate = String(record.estate_id || '').trim().toUpperCase();
   if (rawEstate) {
     const normalized = normalizeEstateId(rawEstate);
     if (normalized) return normalized;

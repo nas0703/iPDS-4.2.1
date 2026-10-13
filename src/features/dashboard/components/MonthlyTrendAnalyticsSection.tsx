@@ -100,7 +100,7 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
             </div>
           )}
 
-          {reportType === "hasil" && (
+          {(reportType === "hasil" || effectiveReportType === "efb") && (
             <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/50 dark:border-white/5">
               {(["overall", "pkt1", "pkt2", "felda"] as const).map((v) => (
                 <button
@@ -108,7 +108,9 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
                   onClick={() => setDashboardTrendView(v)}
                   className={`px-2 py-1 text-[7px] font-black rounded-md transition-all ${
                     dashboardTrendView === v
-                      ? "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm border border-slate-200 dark:border-slate-600"
+                      ? (effectiveReportType === "efb"
+                          ? "bg-white dark:bg-slate-700 text-purple-600 shadow-sm border border-slate-200 dark:border-slate-600"
+                          : "bg-white dark:bg-slate-700 text-emerald-600 shadow-sm border border-slate-200 dark:border-slate-600")
                       : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                   }`}
                 >
@@ -158,7 +160,13 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
                       : effectiveReportType === "muda"
                         ? "muda"
                         : effectiveReportType === "efb"
-                          ? "efb"
+                          ? dashboardTrendView === "overall"
+                            ? "efb"
+                            : dashboardTrendView === "pkt1"
+                              ? "pkt1Efb"
+                              : dashboardTrendView === "pkt2"
+                                ? "pkt2Efb"
+                                : "feldaEfb"
                           : "kpg";
 
                   const unit =
@@ -288,7 +296,9 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
                               ? "#10b981"
                               : effectiveReportType === "muda"
                                 ? "#f43f5e"
-                                : "#0ea5e9";
+                                : effectiveReportType === "efb"
+                                  ? "#8b5cf6"
+                                  : "#0ea5e9";
                           return (
                             <Cell
                               key={`cell-${index}`}
@@ -304,7 +314,9 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
                             dataKey={dataKey}
                             position="top"
                             style={{
-                              fill: isDarkMode ? "#10b981" : "#059669",
+                              fill: isDarkMode
+                                ? (effectiveReportType === "efb" ? "#c084fc" : "#10b981")
+                                : (effectiveReportType === "efb" ? "#7c3aed" : "#059669"),
                               fontSize: "8px",
                               fontWeight: "bold",
                             }}
@@ -320,22 +332,25 @@ export const MonthlyTrendAnalyticsSection: React.FC<MonthlyTrendAnalyticsSection
                               if (!entry || entry.muda === null || entry.muda === undefined || entry.muda <= 0) return null;
 
                               const isOngoing = entry.isOngoingMonth && (entry.mudaForecastDelta || 0) > 0;
-                              // For ongoing month, display the actual value on/above the solid bar segment
+                              // For ongoing month, display the actual value INSIDE the solid bar segment only if tall enough,
+                              // while the top forecast bar displays the unjuran (~val) on top to prevent text overlap.
                               if (isOngoing) {
-                                const showInside = height && height >= 14;
-                                return (
-                                  <text
-                                    x={x + width / 2}
-                                    y={showInside ? y + 10 : y - 3}
-                                    textAnchor="middle"
-                                    fill={showInside ? "#ffffff" : (isDarkMode ? "#f43f5e" : "#e11d48")}
-                                    fontSize="7.5"
-                                    fontWeight="900"
-                                    filter={showInside ? "drop-shadow(0px 1px 2px rgba(0,0,0,0.5))" : undefined}
-                                  >
-                                    {entry.muda}
-                                  </text>
-                                );
+                                if (height && height >= 14) {
+                                  return (
+                                    <text
+                                      x={x + width / 2}
+                                      y={y + 10}
+                                      textAnchor="middle"
+                                      fill="#ffffff"
+                                      fontSize="7.5"
+                                      fontWeight="900"
+                                      filter="drop-shadow(0px 1px 2px rgba(0,0,0,0.5))"
+                                    >
+                                      {entry.muda}
+                                    </text>
+                                  );
+                                }
+                                return null;
                               }
 
                               // For completed months (Jan-Sep), render actual number above the bar!
