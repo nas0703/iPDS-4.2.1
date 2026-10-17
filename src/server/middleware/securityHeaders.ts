@@ -18,8 +18,8 @@ export function isAllowedOrigin(origin: string): boolean {
   if (!origin) return false;
   const cleanOrigin = origin.trim().toLowerCase();
 
-  // Local development origins and null origin (sandboxed frame / browser popups)
-  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin) || cleanOrigin === 'null') {
+  // Local development origins
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) {
     return true;
   }
 
