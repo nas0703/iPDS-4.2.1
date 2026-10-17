@@ -146,7 +146,10 @@ async function runMasterRegressionSuite() {
   for (const mod of modules) {
     try {
       process.env.NODE_ENV = 'test';
+      const mStart = Date.now();
       const res: any = await mod.fn();
+      const mDuration = Date.now() - mStart;
+      console.log(`⏱️ [MODULE COMPLETE] ${mod.name}: ${(mDuration / 1000).toFixed(2)}s`);
       grandTotalPassed += res.passed;
       grandTotalTests += res.total;
       if (res.passed !== res.total) {

@@ -87,8 +87,9 @@ export function updateServerPinConfig(newConfig: Record<string, { app_role?: Aut
       const stationName = existingKiosk?.station_name || existingIdentity?.station_name || `Stesen Lapangan ${estateId}`;
       const staffNoHash = info.staff_no_hash || existingKiosk?.staff_no_hash || existingIdentity?.staff_no_hash;
 
-      const pinHash = bcrypt.hashSync(cleanPin, 10);
-      const passwordHash = info.password ? bcrypt.hashSync(info.password, 10) : pinHash;
+      const saltRounds = process.env.NODE_ENV === 'test' ? 4 : 10;
+      const pinHash = bcrypt.hashSync(cleanPin, saltRounds);
+      const passwordHash = info.password ? bcrypt.hashSync(info.password, saltRounds) : pinHash;
       const maskedPin = `****${cleanPin.slice(-2)}`;
 
       PIN_USERS_CONFIG[opId] = {

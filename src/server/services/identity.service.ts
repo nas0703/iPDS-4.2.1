@@ -317,8 +317,9 @@ export class IdentityService {
     else if (primaryEstate === '5156' || primaryEstate.includes('SENING')) primaryEstate = 'FPM_SENING';
     else if (primaryEstate === '0001' || primaryEstate.includes('WILAYAH') || primaryEstate === 'WILAYAH_JB') primaryEstate = 'WILAYAH_JB';
 
-    const pinHash = profile.pin_hash || (cleanPin.length >= 4 ? bcrypt.hashSync(cleanPin, 10) : undefined);
-    const passwordHash = profile.password_hash || (profile.password ? bcrypt.hashSync(profile.password, 10) : pinHash);
+    const saltRounds = process.env.NODE_ENV === 'test' ? 4 : 10;
+    const pinHash = profile.pin_hash || (cleanPin.length >= 4 ? bcrypt.hashSync(cleanPin, saltRounds) : undefined);
+    const passwordHash = profile.password_hash || (profile.password ? bcrypt.hashSync(profile.password, saltRounds) : pinHash);
 
     const updatedRecord: UnifiedIdentityProfile = {
       id: existing?.id || uuidv5(`user:${cleanOpId}`, IPDS_NAMESPACE),

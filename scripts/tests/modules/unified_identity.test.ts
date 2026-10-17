@@ -87,7 +87,7 @@ export async function runUnifiedIdentityTests() {
   const kioskStaffNo = 'ADL-STAFF-9001';
   IdentityService.registerOrUpdateIdentity({
     pin: '900101',
-    staff_no_hash: bcrypt.hashSync(kioskStaffNo, 10),
+    staff_no_hash: bcrypt.hashSync(kioskStaffNo, 4),
     app_role: 'staff',
     full_name: 'Kiosk Test Staff',
     operator_id: 'TEST-KIOSK-STAFF-01',

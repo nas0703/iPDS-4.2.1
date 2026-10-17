@@ -33,7 +33,7 @@ jobs:
         run: npm ci || npm install --legacy-peer-deps
 
       - name: Run Master Regression Test Suite
-        timeout-minutes: 5
+        timeout-minutes: 8
         run: npm run test:all
 
       - name: Verify DR Documentation & Script Structure

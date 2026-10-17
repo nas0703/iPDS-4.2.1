@@ -85,7 +85,7 @@ export async function runKioskLoginTests() {
   IdentityService.registerOrUpdateIdentity({
     pin: '900101',
     password: 'TEST-ONLY-LEGACY-PASSWORD',
-    staff_no_hash: bcrypt.hashSync(fixtureStaffNo, 10),
+    staff_no_hash: bcrypt.hashSync(fixtureStaffNo, 4),
     app_role: 'staff',
     full_name: 'Synthetic Kiosk Test User',
     operator_id: 'TEST-KIOSK-ADL-01',
@@ -138,7 +138,7 @@ export async function runKioskLoginTests() {
 
     const inactiveStaffNo = 'INACTIVE-KIOSK-STAFF-01';
     IdentityService.registerOrUpdateIdentity({
-      pin: '900104', staff_no_hash: bcrypt.hashSync(inactiveStaffNo, 10), app_role: 'staff',
+      pin: '900104', staff_no_hash: bcrypt.hashSync(inactiveStaffNo, 4), app_role: 'staff',
       full_name: 'Inactive Kiosk User', operator_id: 'TEST-KIOSK-INACTIVE-01', primary_estate_id: 'FPM_ADELA',
       station_name: 'Inactive Test Station', is_active: false
     });

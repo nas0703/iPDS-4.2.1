@@ -188,7 +188,7 @@ export async function runDeviceApprovalCapabilityTests() {
     const staffNo = 'CAP-TEST-STAFF-01';
     IdentityService.registerOrUpdateIdentity({
       pin: '2401199',
-      staff_no_hash: bcrypt.hashSync(staffNo, 10),
+      staff_no_hash: bcrypt.hashSync(staffNo, 4),
       app_role: 'staff',
       full_name: 'Capability Test Staff',
       operator_id: 'CAP-TEST-STAFF-01',

@@ -334,7 +334,8 @@ export function hashStaffNo(staffNo: string): string {
   if (!normalized || Buffer.byteLength(normalized, 'utf8') > 72) {
     throw new Error('Staff number is empty or exceeds the bcrypt input limit.');
   }
-  return bcrypt.hashSync(normalized, 10);
+  const saltRounds = process.env.NODE_ENV === 'test' ? 4 : 10;
+  return bcrypt.hashSync(normalized, saltRounds);
 }
 
 export function verifyStaffNoAgainstHash(staffNo: string, staffNoHash?: string | null): boolean {
