@@ -18,8 +18,8 @@ export function isAllowedOrigin(origin: string): boolean {
   if (!origin) return false;
   const cleanOrigin = origin.trim().toLowerCase();
 
-  // Local development origins
-  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) {
+  // Local development origins and null origin (sandboxed frame / browser popups)
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin) || cleanOrigin === 'null') {
     return true;
   }
 
@@ -39,6 +39,7 @@ export function isAllowedOrigin(origin: string): boolean {
     /^https:\/\/([a-zA-Z0-9-]+\.)*felda\.gov\.my$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*vercel\.app$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*run\.app$/,
+    /^https:\/\/([a-zA-Z0-9-]+\.)*applet\.ai$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*googleusercontent\.com$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*aistudio\.google\.com$/,
     /^https:\/\/([a-zA-Z0-9-]+\.)*google\.com$/,

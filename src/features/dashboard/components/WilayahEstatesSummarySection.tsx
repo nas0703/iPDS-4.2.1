@@ -7,7 +7,6 @@ import {
 import { getEstateConfig, DEFAULT_MONTHLY_TARGETS_2026 } from '../../../config/estateRegistry';
 import { inferEstateFromReceipt } from '../../../utils/estateContext';
 import { Transaction } from '../../../types';
-import { WilayahExperimentTableSection } from './WilayahExperimentTableSection';
 
 export interface WilayahEstatesSummarySectionProps {
   rawData: Transaction[];
@@ -17,7 +16,7 @@ export interface WilayahEstatesSummarySectionProps {
   onSelectEstate?: (estateId: string) => void;
 }
 
-export type WilayahViewMode = 'utama' | 'keseluruhan' | 'felda' | 'tambahan' | 'ranking';
+export type WilayahViewMode = 'utama' | 'keseluruhan' | 'felda' | 'ranking';
 
 interface EstateMetric {
   id: string;
@@ -61,16 +60,18 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
   blockAnnualData,
   onSelectEstate,
 }) => {
-  // Mode paparan utama: 'utama', 'tambahan', 'felda', 'keseluruhan', 'ranking'
+  // Mode paparan utama: 'utama', 'felda', 'keseluruhan', 'ranking'
   const [viewMode, setViewMode] = useState<WilayahViewMode>('keseluruhan');
   // Kategori terakhir yang dipilih (supaya apabila klik RANGKING, asas rangking mengikut kategori terkini)
-  const [lastCategory, setLastCategory] = useState<'utama' | 'tambahan' | 'felda' | 'keseluruhan'>('keseluruhan');
-  // Asas pengiraan ranking: boleh dipilih secara dinamik antara 'utama', 'tambahan', 'felda', atau 'keseluruhan'
-  const [rankingScope, setRankingScope] = useState<'utama' | 'tambahan' | 'felda' | 'keseluruhan'>('keseluruhan');
+  const [lastCategory, setLastCategory] = useState<'utama' | 'felda' | 'keseluruhan'>('keseluruhan');
+  // Asas pengiraan ranking: boleh dipilih secara dinamik antara 'utama', 'felda', atau 'keseluruhan'
+  const [rankingScope, setRankingScope] = useState<'utama' | 'felda' | 'keseluruhan'>('keseluruhan');
+  // Mod paparan item dalam kotak merah sahaja (pencapaian sebenar: T/H & Tan sahaja)
+  const [showActualOnly, setShowActualOnly] = useState<boolean>(false);
 
   const effectiveScope = viewMode === 'ranking' ? rankingScope : viewMode;
 
-  // Kira metrik untuk setiap ladang berasaskan skop (Utama vs Keseluruhan vs Felda vs Tambahan)
+  // Kira metrik untuk setiap ladang berasaskan skop (Utama vs Keseluruhan vs Felda)
   const estateMetrics: EstateMetric[] = useMemo(() => {
     const todayStr = dashboardDate || new Date().toISOString().split('T')[0];
     const currentMonth = todayStr.slice(0, 7);
@@ -94,19 +95,14 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
         const bUpper = String(blk.blok || bKey).toUpperCase();
 
         const isFelda = pkt === '003' || bUpper === '88' || bUpper === '88F' || bUpper === '1F' || bUpper === '2F';
-        const isTambahan = pkt === '004' || ['125Y', '128Y', '121V'].includes(bUpper);
 
         if (effectiveScope === 'utama') {
-          // Peringkat Utama: hanya Pkt 1 & Pkt 2 (TIDAK TERMASUK Lot Tambahan & Lot Felda)
-          return !isFelda && !isTambahan && (pkt === '001' || pkt === '002');
+          // Peringkat Utama: hanya Pkt 1 & Pkt 2 (TIDAK TERMASUK Lot Felda)
+          return !isFelda && (pkt === '001' || pkt === '002');
         }
         if (effectiveScope === 'felda') {
           // Hanya Lot Felda (Pkt 003 / Blok 88 / 88F / 1F / 2F)
           return isFelda;
-        }
-        if (effectiveScope === 'tambahan') {
-          // Hanya Lot Tambahan (Pkt 004 / Blok 125Y / 128Y / 121V)
-          return isTambahan;
         }
         // Keseluruhan: semua blok
         return true;
@@ -168,8 +164,6 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
           if (isFelda || isTambahan) return false;
         } else if (effectiveScope === 'felda') {
           if (!isFelda) return false;
-        } else if (effectiveScope === 'tambahan') {
-          if (!isTambahan) return false;
         }
 
         return true;
@@ -213,11 +207,6 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
           actualTHa_year = totalLuas > 0 ? actualTan_year / totalLuas : 8.55;
           targetTHa_year = 8.24;
           targetMt_year = targetTHa_year * totalLuas;
-        } else if (effectiveScope === 'tambahan') {
-          actualTan_year = 0;
-          actualTHa_year = 0;
-          targetTHa_year = 0;
-          targetMt_year = 0;
         } else {
           // Keseluruhan
           actualTan_year = Math.max(35318.08, computedTan);
@@ -238,11 +227,6 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
           actualTan_year = 600.46;
           actualTHa_year = totalLuas > 0 ? actualTan_year / totalLuas : 7.69;
           targetTHa_year = 10.63;
-          targetMt_year = targetTHa_year * totalLuas;
-        } else if (effectiveScope === 'tambahan') {
-          actualTan_year = 241.82;
-          actualTHa_year = totalLuas > 0 ? actualTan_year / totalLuas : 14.96;
-          targetTHa_year = 17.10;
           targetMt_year = targetTHa_year * totalLuas;
         } else {
           // Keseluruhan
@@ -396,114 +380,128 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
 
         <div
           onClick={() => onSelectEstate && onSelectEstate(item.id)}
-          className={`bg-white dark:bg-slate-900 p-1.5 rounded-[10px] shadow-sm border ${
-            isRanking ? rankInfo.cardBorder : 'border-slate-100 dark:border-slate-800'
-          } group hover:border-emerald-200 dark:hover:border-emerald-700 transition-all h-full flex flex-col cursor-pointer`}
+          className={`bg-white dark:bg-slate-900 ${showActualOnly ? 'p-1 sm:p-1.5' : 'p-1.5'} rounded-[10px] shadow-sm border ${
+            showActualOnly
+              ? 'border-emerald-300/60 dark:border-emerald-800/40'
+              : isRanking
+              ? rankInfo.cardBorder
+              : 'border-slate-100 dark:border-slate-800'
+          } group hover:border-emerald-200 dark:hover:border-emerald-700 transition-all h-full flex flex-col justify-center cursor-pointer`}
           title={`Klik untuk lihat analisis ${item.name}`}
         >
           {/* HEADER: YoY condensed & Ranking Indicator */}
-          <div className="flex justify-between items-center mb-0.5 min-h-[10px]">
-            {isRanking ? (
-              <span className={`text-[6px] font-black px-1 py-0.2 rounded ${rankInfo.bg}`}>
-                {rankInfo.icon} {rankInfo.label}
-              </span>
-            ) : (
-              <span className="text-[5.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
-                {item.code} • {item.luas > 0 ? `${item.luas.toFixed(0)} HA` : item.isStandby ? 'STANDBY' : 'TIADA LOT'}
-              </span>
+          {!showActualOnly && (
+            <div className="flex justify-between items-center mb-0.5 min-h-[10px]">
+              {isRanking ? (
+                <span className={`text-[6px] font-black px-1 py-0.2 rounded ${rankInfo.bg}`}>
+                  {rankInfo.icon} {rankInfo.label}
+                </span>
+              ) : (
+                <span className="text-[5.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
+                  {item.code} • {item.luas > 0 ? `${item.luas.toFixed(0)} HA` : item.isStandby ? 'STANDBY' : 'TIADA LOT'}
+                </span>
+              )}
+
+              {period === 'year' && (
+                <span
+                  className={`text-[6px] font-black flex items-center leading-none ${
+                    item.yoyYieldDiff >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                  }`}
+                >
+                  {item.yoyYieldDiff >= 0 ? '▲' : '▼'}
+                  {item.yoyYieldDiff >= 0 ? '+' : ''}
+                  {item.yoyYieldDiff.toFixed(2)}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col flex-1 justify-center gap-1">
+            {!showActualOnly && (
+              <>
+                {/* TARGET SECTION */}
+                <div className="flex justify-between items-baseline opacity-80">
+                  <p className="text-[5.5px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
+                    TARGET
+                  </p>
+                  <div className="flex gap-1.5">
+                    <p className="text-[7.5px] font-bold text-slate-700 dark:text-slate-300">
+                      {targetTHa.toFixed(2)}
+                      <span className="text-[5px] ml-0.5 opacity-60">T/H</span>
+                    </p>
+                    <p className="text-[7.5px] font-bold text-slate-700 dark:text-slate-300">
+                      {targetMt.toFixed(0)}
+                      <span className="text-[5px] ml-0.5 opacity-60">T</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* CAPAI PERCENTAGE */}
+                <div className="flex justify-between items-center py-0.5 border-t border-slate-50 dark:border-slate-800/40">
+                  <p className="text-[6px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
+                    CAPAI
+                  </p>
+                  <span
+                    className={`text-[9px] font-black ${
+                      isNoCategory
+                        ? 'text-slate-400 font-bold text-[7.5px]'
+                        : pct >= 100
+                        ? 'text-emerald-500'
+                        : pct >= 80
+                        ? 'text-amber-500'
+                        : pct > 0
+                        ? 'text-rose-500'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {isNoCategory ? 'TIADA' : pct > 0 ? `${pct.toFixed(0)}%` : item.isStandby ? 'STANDBY' : '0%'}
+                  </span>
+                </div>
+              </>
             )}
 
-            {period === 'year' && (
-              <span
-                className={`text-[6px] font-black flex items-center leading-none ${
-                  item.yoyYieldDiff >= 0 ? 'text-emerald-500' : 'text-rose-500'
-                }`}
-              >
-                {item.yoyYieldDiff >= 0 ? '▲' : '▼'}
-                {item.yoyYieldDiff >= 0 ? '+' : ''}
-                {item.yoyYieldDiff.toFixed(2)}
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-col flex-1 gap-1">
-            {/* TARGET SECTION */}
-            <div className="flex justify-between items-baseline opacity-80">
-              <p className="text-[5.5px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
-                TARGET
-              </p>
-              <div className="flex gap-1.5">
-                <p className="text-[7.5px] font-bold text-slate-700 dark:text-slate-300">
-                  {targetTHa.toFixed(2)}
-                  <span className="text-[5px] ml-0.5 opacity-60">T/H</span>
-                </p>
-                <p className="text-[7.5px] font-bold text-slate-700 dark:text-slate-300">
-                  {targetMt.toFixed(0)}
-                  <span className="text-[5px] ml-0.5 opacity-60">T</span>
-                </p>
-              </div>
-            </div>
-
-            {/* CAPAI PERCENTAGE */}
-            <div className="flex justify-between items-center py-0.5 border-t border-slate-50 dark:border-slate-800/40">
-              <p className="text-[6px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
-                CAPAI
-              </p>
-              <span
-                className={`text-[9px] font-black ${
-                  isNoCategory
-                    ? 'text-slate-400 font-bold text-[7.5px]'
-                    : pct >= 100
-                    ? 'text-emerald-500'
-                    : pct >= 80
-                    ? 'text-amber-500'
-                    : pct > 0
-                    ? 'text-rose-500'
-                    : 'text-slate-400'
-                }`}
-              >
-                {isNoCategory ? 'TIADA' : pct > 0 ? `${pct.toFixed(0)}%` : item.isStandby ? 'STANDBY' : '0%'}
-              </span>
-            </div>
-
-            {/* HERO BOX: THE ACTUALS */}
-            <div className="flex-1 flex items-center justify-center py-1 bg-slate-50/50 dark:bg-white/5 rounded-[8px] border border-slate-100 dark:border-white/5">
+            {/* HERO BOX: THE ACTUALS (ITEM DALAM KOTAK MERAH) */}
+            <div className={`flex-1 flex items-center justify-center ${showActualOnly ? 'py-2 px-1 bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/20' : 'py-1 bg-slate-50/50 dark:bg-white/5 border-slate-100 dark:border-white/5'} rounded-[8px] border`}>
               {item.isStandby && actualTan === 0 ? (
                 <div className="text-center py-0.5">
                   <p className="text-[7px] font-black text-slate-400 dark:text-slate-500 tracking-wider">
                     MENUNGGU DATA
                   </p>
-                  <p className="text-[5.5px] text-slate-400 opacity-70">
-                    Sedia Terima Pendaftaran
-                  </p>
+                  {!showActualOnly && (
+                    <p className="text-[5.5px] text-slate-400 opacity-70">
+                      Sedia Terima Pendaftaran
+                    </p>
+                  )}
                 </div>
               ) : isNoCategory ? (
                 <div className="text-center py-0.5">
                   <p className="text-[7px] font-black text-slate-400 dark:text-slate-500 tracking-wider">
-                    TIADA LOT {effectiveScope === 'felda' ? 'FELDA' : 'TAMBAHAN'}
+                    TIADA LOT FELDA
                   </p>
-                  <p className="text-[5.5px] text-slate-400 opacity-70">
-                    Tiada peruntukan kategori ini
-                  </p>
+                  {!showActualOnly && (
+                    <p className="text-[5.5px] text-slate-400 opacity-70">
+                      Tiada peruntukan kategori ini
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="flex items-baseline gap-0.5">
-                    <p className="text-[14px] font-black text-emerald-500 leading-none">
+                    <p className={`${showActualOnly ? 'text-[15px] sm:text-[16px]' : 'text-[14px]'} font-black text-emerald-500 leading-none`}>
                       {actualTHa.toFixed(2)}
                     </p>
-                    <p className="text-[6px] font-bold text-emerald-500 uppercase opacity-70">
+                    <p className={`${showActualOnly ? 'text-[7px]' : 'text-[6px]'} font-bold text-emerald-500 uppercase opacity-70`}>
                       T/H
                     </p>
                   </div>
                   <div className="flex items-baseline gap-0.5 opacity-70">
-                    <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 leading-none">
+                    <p className={`${showActualOnly ? 'text-[10px] sm:text-[11px]' : 'text-[9px]'} font-black text-slate-700 dark:text-slate-300 leading-none`}>
                       {actualTan.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </p>
-                    <p className="text-[5.5px] font-bold text-slate-500 dark:text-slate-400 uppercase opacity-60">
+                    <p className={`${showActualOnly ? 'text-[6px]' : 'text-[5.5px]'} font-bold text-slate-500 dark:text-slate-400 uppercase opacity-60`}>
                       T
                     </p>
                   </div>
@@ -543,7 +541,7 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
           </div>
         </div>
 
-        {/* 5 BUTANG PILIHAN SEPERTI DIARAHKAN USER */}
+        {/* 4 BUTANG PILIHAN SEPERTI DIARAHKAN USER (UTAMA, FELDA, KESELURUHAN, RANGKING) */}
         <div className="flex flex-wrap items-center gap-1 bg-slate-200/60 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-300/50 dark:border-slate-700/50 self-start lg:self-auto">
           {/* 1. PKT UTAMA */}
           <button
@@ -558,32 +556,13 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
                 ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/50'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-700/50'
             }`}
-            title="Peringkat Utama: Hanya Pkt 1 & Pkt 2 (tidak termasuk Pkt Tambahan dan Lot Felda)"
+            title="Peringkat Utama: Hanya Pkt 1 & Pkt 2 (tidak termasuk Lot Felda)"
           >
             <Sprout size={10} className={viewMode === 'utama' ? 'text-white' : 'text-emerald-500'} />
             <span>PKT UTAMA</span>
           </button>
 
-          {/* 2. PKT TAMBAHAN */}
-          <button
-            id="btn-wilayah-pkt-tambahan"
-            type="button"
-            onClick={() => {
-              setViewMode('tambahan');
-              setLastCategory('tambahan');
-            }}
-            className={`px-2 sm:px-2.5 py-1 rounded-lg text-[7.5px] sm:text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-              viewMode === 'tambahan'
-                ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/50'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-700/50'
-            }`}
-            title="Peringkat Tambahan: Hanya Peringkat 4 / Blok Lot Tambahan (Blok 125Y/128Y/121V Adela)"
-          >
-            <PlusCircle size={10} className={viewMode === 'tambahan' ? 'text-white' : 'text-emerald-500'} />
-            <span>PKT TAMBAHAN</span>
-          </button>
-
-          {/* 3. LOT FELDA */}
+          {/* 2. LOT FELDA */}
           <button
             id="btn-wilayah-lot-felda"
             type="button"
@@ -602,7 +581,7 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
             <span>LOT FELDA</span>
           </button>
 
-          {/* 4. KESELURUHAN */}
+          {/* 3. KESELURUHAN */}
           <button
             id="btn-wilayah-keseluruhan"
             type="button"
@@ -615,13 +594,13 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
                 ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/50'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-700/50'
             }`}
-            title="Keseluruhan: Termasuk Pkt 1, Pkt 2, Pkt Tambahan dan Lot Felda"
+            title="Keseluruhan: Termasuk Pkt 1, Pkt 2 dan Lot Felda"
           >
             <Layers size={10} className={viewMode === 'keseluruhan' ? 'text-white' : 'text-emerald-500'} />
             <span>KESELURUHAN</span>
           </button>
 
-          {/* 5. RANGKING */}
+          {/* 4. RANGKING */}
           <button
             id="btn-wilayah-rangking"
             type="button"
@@ -640,92 +619,119 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
             <Trophy size={10} className={viewMode === 'ranking' ? 'text-slate-950 fill-slate-950' : 'text-amber-500'} />
             <span>RANGKING</span>
           </button>
+
+          {/* PEMISAH / DIVIDER */}
+          <div className="w-[1px] h-3.5 bg-slate-300 dark:bg-slate-700 mx-0.5" />
+
+          {/* 5. BUTANG RINGKAS / TERPERINCI (ON/OFF TOGGLE SWITCH) */}
+          <button
+            id="btn-wilayah-ringkas-terperinci"
+            type="button"
+            onClick={() => setShowActualOnly((prev) => !prev)}
+            className={`px-2 sm:px-2.5 py-1 rounded-lg text-[7.5px] sm:text-[8px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+              showActualOnly
+                ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400 font-black'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-700/50 border border-slate-300/40 dark:border-slate-700/40'
+            }`}
+            title="Tukar mod Ringkas (Hasil T/H & Tan sahaja) dan Terperinci (Target & % Capai)"
+          >
+            {/* Visual On/Off Switch Slider */}
+            <div
+              className={`w-5 h-3 flex items-center rounded-full p-0.5 transition-colors ${
+                showActualOnly
+                  ? 'bg-white/40 justify-end'
+                  : 'bg-slate-300 dark:bg-slate-600 justify-start'
+              }`}
+            >
+              <div
+                className={`w-2 h-2 rounded-full shadow-xs transition-all ${
+                  showActualOnly ? 'bg-white scale-110' : 'bg-slate-500 dark:bg-slate-300'
+                }`}
+              />
+            </div>
+            <span>Ringkas/Terperinci</span>
+            <span
+              className={`text-[6.5px] px-1 py-0.2 rounded font-black ${
+                showActualOnly
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              {showActualOnly ? 'ON' : 'OFF'}
+            </span>
+          </button>
         </div>
       </div>
 
       {/* SUB-BAR STATUS / PENJELASAN MOD ATAU PILIHAN ASAS RANGKING */}
-      <div className="mb-2.5">
-        {viewMode === 'ranking' ? (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-amber-500/10 dark:bg-amber-500/15 p-1.5 sm:p-2 rounded-xl border border-amber-500/30">
-            <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
-              <Trophy size={12} className="text-amber-500 shrink-0 fill-amber-500" />
-              <span className="font-black text-[7.5px] sm:text-[8px] uppercase tracking-wider">
-                PILIH ASAS RANGKING:
-              </span>
+      {!showActualOnly && (
+        <div className="mb-2.5">
+          {viewMode === 'ranking' ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-amber-500/10 dark:bg-amber-500/15 p-1.5 sm:p-2 rounded-xl border border-amber-500/30">
+              <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                <Trophy size={12} className="text-amber-500 shrink-0 fill-amber-500" />
+                <span className="font-black text-[7.5px] sm:text-[8px] uppercase tracking-wider">
+                  PILIH ASAS RANGKING:
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setRankingScope('utama')}
+                  className={`px-2 py-0.5 rounded-lg text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                    rankingScope === 'utama'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm font-black ring-1 ring-amber-400'
+                      : 'bg-white/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Sprout size={8} />
+                  <span>1. PKT UTAMA</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRankingScope('felda')}
+                  className={`px-2 py-0.5 rounded-lg text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                    rankingScope === 'felda'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm font-black ring-1 ring-amber-400'
+                      : 'bg-white/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Home size={8} />
+                  <span>2. LOT FELDA</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRankingScope('keseluruhan')}
+                  className={`px-2 py-0.5 rounded-lg text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+                    rankingScope === 'keseluruhan'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm font-black ring-1 ring-amber-400'
+                      : 'bg-white/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Layers size={8} />
+                  <span>3. KESELURUHAN</span>
+                </button>
+              </div>
             </div>
-
-            <div className="flex flex-wrap items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setRankingScope('utama')}
-                className={`px-2 py-0.5 rounded-lg text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                  rankingScope === 'utama'
-                    ? 'bg-amber-500 text-slate-950 shadow-sm font-black ring-1 ring-amber-400'
-                    : 'bg-white/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                <Sprout size={8} />
-                <span>1. PKT UTAMA</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRankingScope('tambahan')}
-                className={`px-2 py-0.5 rounded-lg text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                  rankingScope === 'tambahan'
-                    ? 'bg-amber-500 text-slate-950 shadow-sm font-black ring-1 ring-amber-400'
-                    : 'bg-white/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                <PlusCircle size={8} />
-                <span>2. PKT TAMBAHAN</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRankingScope('felda')}
-                className={`px-2 py-0.5 rounded-lg text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                  rankingScope === 'felda'
-                    ? 'bg-amber-500 text-slate-950 shadow-sm font-black ring-1 ring-amber-400'
-                    : 'bg-white/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                <Home size={8} />
-                <span>3. LOT FELDA</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRankingScope('keseluruhan')}
-                className={`px-2 py-0.5 rounded-lg text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-                  rankingScope === 'keseluruhan'
-                    ? 'bg-amber-500 text-slate-950 shadow-sm font-black ring-1 ring-amber-400'
-                    : 'bg-white/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                <Layers size={8} />
-                <span>4. KESELURUHAN</span>
-              </button>
+          ) : (
+            <div className="flex items-center gap-1 text-[7px] text-slate-500 dark:text-slate-400 font-medium px-1">
+              <Info size={9} className="text-emerald-500 shrink-0" />
+              {viewMode === 'utama' && (
+                <span>Mod Peringkat Utama: Mengira Peringkat 1 & 2 sahaja (<strong>tidak termasuk Lot Felda</strong>).</span>
+              )}
+              {viewMode === 'felda' && (
+                <span>Mod Lot Felda: Mengira keluasan & hasil <strong>Lot Felda sahaja</strong> (Blok 88 Tunggal & Blok 1F/2F Adela).</span>
+              )}
+              {viewMode === 'keseluruhan' && (
+                <span>Mod Keseluruhan: Mengira semua blok (<strong>termasuk Lot Felda</strong>).</span>
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 text-[7px] text-slate-500 dark:text-slate-400 font-medium px-1">
-            <Info size={9} className="text-emerald-500 shrink-0" />
-            {viewMode === 'utama' && (
-              <span>Mod Peringkat Utama: Mengira Peringkat 1 & 2 sahaja (<strong>tidak termasuk Pkt Tambahan & Lot Felda</strong>).</span>
-            )}
-            {viewMode === 'tambahan' && (
-              <span>Mod Peringkat Tambahan: Mengira keluasan & hasil <strong>Pkt Tambahan sahaja</strong> (Blok 125Y/128Y/121V Adela).</span>
-            )}
-            {viewMode === 'felda' && (
-              <span>Mod Lot Felda: Mengira keluasan & hasil <strong>Lot Felda sahaja</strong> (Blok 88 Tunggal & Blok 1F/2F Adela).</span>
-            )}
-            {viewMode === 'keseluruhan' && (
-              <span>Mod Keseluruhan: Mengira semua blok (<strong>termasuk Pkt Tambahan & Lot Felda</strong>).</span>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* 3 KOLUM TEMPOH: HARI INI, BULAN INI, TAHUN INI (YTD) */}
       <div className="overflow-hidden">
@@ -768,15 +774,6 @@ export const WilayahEstatesSummarySection: React.FC<WilayahEstatesSummarySection
           </div>
         </div>
       </div>
-
-      {/* PAPARAN EKSPERIMEN BARU DI BAHAGIAN BAWAH PAPARAN WILAYAH */}
-      <WilayahExperimentTableSection
-        rawData={rawData}
-        dashboardDate={dashboardDate}
-        isDarkMode={isDarkMode}
-        blockAnnualData={blockAnnualData}
-        onSelectEstate={onSelectEstate}
-      />
     </div>
   );
 };

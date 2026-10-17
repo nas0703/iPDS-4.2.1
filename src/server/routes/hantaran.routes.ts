@@ -815,7 +815,7 @@ router.post("/seed-historical", requireRole(['pf', 'fc']), async (req, res) => {
       return res.status(400).json({ error: "Data diperlukan." });
     }
 
-    const supabase = req.supabase || getScopedSupabase(req.rawToken);
+    const supabase = req.supabase || getScopedSupabase(req.rawToken) || getPrivilegedSupabase();
     if (supabase) {
       const enriched = (data as Record<string, unknown>[]).map(item => ({
         ...item,

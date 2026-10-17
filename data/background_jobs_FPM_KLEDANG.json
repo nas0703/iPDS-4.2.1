@@ -1,6 +1,134 @@
 {
   "jobs": [
     {
+      "id": "066cbaeb-1a05-4273-a5f7-eefe660baf10",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_KLEDANG",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_KLEDANG:2026-10-17",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-17"
+      },
+      "result": {
+        "taskDate": "2026-10-17",
+        "sourceWindowStart": "2026-10-10",
+        "sourceWindowEnd": "2026-10-16",
+        "taskCount": 0,
+        "estate_id": "FPM_KLEDANG"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-17T09:59:34.270Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-17T09:59:34.270Z",
+      "updated_at": "2026-10-17T09:59:35.670Z",
+      "started_at": "2026-10-17T09:59:34.277Z",
+      "completed_at": "2026-10-17T09:59:35.670Z"
+    },
+    {
+      "id": "70bed1d4-01fb-457c-ad27-b51917f19afe",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_KLEDANG",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_KLEDANG:2026-10-16",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-16"
+      },
+      "result": {
+        "taskDate": "2026-10-16",
+        "sourceWindowStart": "2026-10-09",
+        "sourceWindowEnd": "2026-10-15",
+        "taskCount": 0,
+        "estate_id": "FPM_KLEDANG"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-16T11:12:01.359Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-16T11:12:01.359Z",
+      "updated_at": "2026-10-16T11:12:19.727Z",
+      "started_at": "2026-10-16T11:12:01.361Z",
+      "completed_at": "2026-10-16T11:12:19.727Z"
+    },
+    {
+      "id": "0b1cb015-3f7f-441e-8981-b7825393607e",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_KLEDANG",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_KLEDANG:2026-10-15",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-15"
+      },
+      "result": {
+        "taskDate": "2026-10-15",
+        "sourceWindowStart": "2026-10-08",
+        "sourceWindowEnd": "2026-10-14",
+        "taskCount": 0,
+        "estate_id": "FPM_KLEDANG"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-14T22:43:12.871Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-14T22:43:12.871Z",
+      "updated_at": "2026-10-14T22:43:13.888Z",
+      "started_at": "2026-10-14T22:43:12.875Z",
+      "completed_at": "2026-10-14T22:43:13.888Z"
+    },
+    {
+      "id": "3f070d40-58eb-4660-8986-0117694d983f",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_KLEDANG",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_KLEDANG:2026-10-14",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-14"
+      },
+      "result": {
+        "taskDate": "2026-10-14",
+        "sourceWindowStart": "2026-10-07",
+        "sourceWindowEnd": "2026-10-13",
+        "taskCount": 0,
+        "estate_id": "FPM_KLEDANG"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-14T14:27:37.491Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-14T14:27:37.491Z",
+      "updated_at": "2026-10-14T14:27:38.438Z",
+      "started_at": "2026-10-14T14:27:37.494Z",
+      "completed_at": "2026-10-14T14:27:38.438Z"
+    },
+    {
       "id": "06a59b63-7601-44da-b980-3b4e9ea08b86",
       "type": "GRADING_TASK_GENERATION",
       "estate_id": "FPM_KLEDANG",
@@ -469,5 +597,5 @@
       "failed_at": "2026-09-25T14:02:21.585Z"
     }
   ],
-  "last_updated": "2026-10-13T11:28:55.075Z"
+  "last_updated": "2026-10-17T09:59:35.670Z"
 }

@@ -1,6 +1,134 @@
 {
   "jobs": [
     {
+      "id": "05956aa7-5421-4bd1-9827-ee532ec6c4d4",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_SENING",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_SENING:2026-10-17",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-17"
+      },
+      "result": {
+        "taskDate": "2026-10-17",
+        "sourceWindowStart": "2026-10-10",
+        "sourceWindowEnd": "2026-10-16",
+        "taskCount": 0,
+        "estate_id": "FPM_SENING"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-17T09:59:34.276Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-17T09:59:34.276Z",
+      "updated_at": "2026-10-17T09:59:37.015Z",
+      "started_at": "2026-10-17T09:59:36.404Z",
+      "completed_at": "2026-10-17T09:59:37.015Z"
+    },
+    {
+      "id": "04cf5b3b-34f1-488e-b70a-4a078600010b",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_SENING",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_SENING:2026-10-16",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-16"
+      },
+      "result": {
+        "taskDate": "2026-10-16",
+        "sourceWindowStart": "2026-10-09",
+        "sourceWindowEnd": "2026-10-15",
+        "taskCount": 0,
+        "estate_id": "FPM_SENING"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-16T11:12:01.360Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-16T11:12:01.360Z",
+      "updated_at": "2026-10-16T11:12:19.704Z",
+      "started_at": "2026-10-16T11:12:01.361Z",
+      "completed_at": "2026-10-16T11:12:19.704Z"
+    },
+    {
+      "id": "5802976f-6503-4cde-bb33-f8b7088f9da1",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_SENING",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_SENING:2026-10-15",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-15"
+      },
+      "result": {
+        "taskDate": "2026-10-15",
+        "sourceWindowStart": "2026-10-08",
+        "sourceWindowEnd": "2026-10-14",
+        "taskCount": 0,
+        "estate_id": "FPM_SENING"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-14T22:43:12.874Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-14T22:43:12.874Z",
+      "updated_at": "2026-10-14T22:43:14.694Z",
+      "started_at": "2026-10-14T22:43:14.196Z",
+      "completed_at": "2026-10-14T22:43:14.694Z"
+    },
+    {
+      "id": "66cc58b1-372b-4a46-9d68-96f0bdd68437",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_SENING",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_SENING:2026-10-14",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-14"
+      },
+      "result": {
+        "taskDate": "2026-10-14",
+        "sourceWindowStart": "2026-10-07",
+        "sourceWindowEnd": "2026-10-13",
+        "taskCount": 0,
+        "estate_id": "FPM_SENING"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-14T14:27:37.494Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-14T14:27:37.494Z",
+      "updated_at": "2026-10-14T14:27:40.168Z",
+      "started_at": "2026-10-14T14:27:39.512Z",
+      "completed_at": "2026-10-14T14:27:40.168Z"
+    },
+    {
       "id": "585a2f59-3ad6-4566-8343-988a4f427af8",
       "type": "GRADING_TASK_GENERATION",
       "estate_id": "FPM_SENING",
@@ -469,5 +597,5 @@
       "failed_at": "2026-09-25T14:02:23.737Z"
     }
   ],
-  "last_updated": "2026-10-13T11:28:56.118Z"
+  "last_updated": "2026-10-17T09:59:37.015Z"
 }

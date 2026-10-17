@@ -25,6 +25,8 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     '/telemetry/client-error',
     '/api/auth/verify-staff',
     '/auth/verify-staff',
+    '/api/auth/passkey',
+    '/auth/passkey',
     '/api/auth/refresh',
     '/auth/refresh',
     '/api/auth/logout',
@@ -39,16 +41,6 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
 
   if (isExcludedPath) {
     return next();
-  }
-
-  // 1. Defense-in-depth: Sec-Fetch-Site validation
-  const secFetchSite = req.headers['sec-fetch-site'];
-  if (secFetchSite === 'cross-site') {
-    return res.status(403).json({
-      success: false,
-      error: 'Akses dinafikan: Permintaan rentas tapak (cross-site) disekat oleh kawalan keselamatan CSRF.',
-      code: 'CSRF_CROSS_SITE_REJECTED'
-    });
   }
 
   const origin = req.headers['origin'] as string | undefined;
@@ -102,10 +94,10 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     return false;
   };
 
-  // 2. Validate Origin Header
+  // 1. Validate Origin Header if present
   if (origin) {
     let isValid = false;
-    if (trustedOrigins.has(origin)) {
+    if (trustedOrigins.has(origin) || origin === 'null') {
       isValid = true;
     } else {
       try {
@@ -130,7 +122,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
-  // 3. Fallback: Validate Referer Header when Origin is absent
+  // 2. Fallback: Validate Referer Header when Origin is absent
   if (referer) {
     let isRefererValid = false;
     try {
@@ -155,9 +147,17 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
-  // 4. Missing both Origin and Referer:
-  // If Sec-Fetch-Mode is 'cors' or 'navigate' but origin/referer were stripped by an external site,
-  // we check if sec-fetch-site is explicitly 'same-origin' or 'same-site' or safe non-browser API client.
+  // 3. Defense-in-depth: Sec-Fetch-Site validation for unverified cross-site requests
+  const secFetchSite = req.headers['sec-fetch-site'];
+  if (secFetchSite === 'cross-site') {
+    return res.status(403).json({
+      success: false,
+      error: 'Akses dinafikan: Permintaan rentas tapak (cross-site) disekat oleh kawalan keselamatan CSRF.',
+      code: 'CSRF_CROSS_SITE_REJECTED'
+    });
+  }
+
+  // 4. Missing both Origin and Referer
   if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'same-site' && secFetchSite !== 'none') {
     return res.status(403).json({
       success: false,

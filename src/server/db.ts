@@ -210,8 +210,8 @@ export function getScopedSupabase(
   const creds = getSupabaseCredentials();
   if (!creds) return null;
 
-  const serviceKey = creds.isServiceRole ? creds.supabaseKey : undefined;
   const mode = options?.mode || 'read';
+  const serviceKey = creds.isServiceRole ? creds.supabaseKey : undefined;
 
   if (mode === 'read' && creds.hasReadReplica && creds.readReplicaUrl) {
     return buildScopedClient(creds.readReplicaUrl, creds.readReplicaAnonKey, userJwt, serviceKey);
@@ -233,7 +233,10 @@ export function getReadSupabase(userJwt?: string): SupabaseClient | null {
  * Always routes to Primary DB / Pooled Connection.
  */
 export function getWriteSupabase(userJwt?: string): SupabaseClient | null {
-  return getScopedSupabase(userJwt, { mode: 'write' });
+  if (isUsableUserJwt(userJwt)) {
+    return getScopedSupabase(userJwt, { mode: 'write' });
+  }
+  return getPrivilegedSupabase();
 }
 
 /**

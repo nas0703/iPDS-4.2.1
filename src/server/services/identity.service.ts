@@ -353,7 +353,7 @@ export class IdentityService {
    */
   static createUnifiedSession(
     profile: UnifiedIdentityProfile,
-    authMethod: 'PIN_KIOSK' | 'ESTATE_STAFF_PIN' | 'KIOSK_STAFF_NO' | 'ENTERPRISE_PASSWORD' | 'SUPABASE_SSO' | 'ADMIN_ACTING_AS' | 'SESSION_RESTORE',
+    authMethod: 'PIN_KIOSK' | 'ESTATE_STAFF_PIN' | 'KIOSK_STAFF_NO' | 'ENTERPRISE_PASSWORD' | 'SUPABASE_SSO' | 'ADMIN_ACTING_AS' | 'SESSION_RESTORE' | 'PASSKEY_WEBAUTHN',
     selectedEstateId?: string
   ): UserSession | null {
     if (!profile || !profile.is_active) return null;

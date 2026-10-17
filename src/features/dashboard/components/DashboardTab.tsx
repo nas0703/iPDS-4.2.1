@@ -41,6 +41,7 @@ import { LaporanProduktivitiView } from '../../hasil/components/LaporanProduktiv
 import { PenggredanView } from '../../kualiti/components/PenggredanView';
 import { ExecutiveZoneDashboard } from './ExecutiveZoneDashboard';
 import { WilayahEstatesSummarySection } from './WilayahEstatesSummarySection';
+import { WilayahExperimentTableSection } from './WilayahExperimentTableSection';
 import { getActiveEstateId, ESTATE_CHANGED_EVENT, setRuntimeEstateId } from '../../../utils/estateContext';
 
 const SubmoduleFallback = () => (
@@ -369,16 +370,28 @@ export const DashboardTab = (props: any) => {
                         {/* SUBSECTION DETAILS */}
                         {((reportType === "hasil" && currentHasilTab === 'kpi') || (reportType === "kualiti_bts" && activeKualitiTab !== 'penggredan') || (reportType === "efb" && currentEfbTab === 'kpi') || (reportType !== "hasil" && reportType !== "kualiti_bts" && reportType !== "efb")) && (
                           isWilayah ? (
-                            <WilayahEstatesSummarySection
-                              rawData={rawData}
-                              dashboardDate={dashboardDate || todayIso}
-                              isDarkMode={isDarkMode}
-                              blockAnnualData={blockAnnualData}
-                              onSelectEstate={(estId) => {
-                                setRuntimeEstateId(estId);
-                                showToast?.('info', `Memaparkan perincian ladang ${estId}...`);
-                              }}
-                            />
+                            <>
+                              <WilayahEstatesSummarySection
+                                rawData={rawData}
+                                dashboardDate={dashboardDate || todayIso}
+                                isDarkMode={isDarkMode}
+                                blockAnnualData={blockAnnualData}
+                                onSelectEstate={(estId) => {
+                                  setRuntimeEstateId(estId);
+                                  showToast?.('info', `Memaparkan perincian ladang ${estId}...`);
+                                }}
+                              />
+                              <WilayahExperimentTableSection
+                                rawData={rawData}
+                                dashboardDate={dashboardDate || todayIso}
+                                isDarkMode={isDarkMode}
+                                blockAnnualData={blockAnnualData}
+                                onSelectEstate={(estId) => {
+                                  setRuntimeEstateId(estId);
+                                  showToast?.('info', `Memaparkan perincian ladang ${estId}...`);
+                                }}
+                              />
+                            </>
                           ) : (
                           <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-[24px] border border-slate-200 dark:border-slate-800 mb-4 relative mt-6">
                           <div className="overflow-hidden">
@@ -432,6 +445,18 @@ export const DashboardTab = (props: any) => {
 
                         {/* RANKING CARDS - ONLY FOR ANALITIK TAB */}
                         {reportType === "hasil" && currentHasilTab === 'analitik' && (
+                          isWilayah ? (
+                            <WilayahExperimentTableSection
+                              rawData={rawData}
+                              dashboardDate={dashboardDate || todayIso}
+                              isDarkMode={isDarkMode}
+                              blockAnnualData={blockAnnualData}
+                              onSelectEstate={(estId) => {
+                                setRuntimeEstateId(estId);
+                                showToast?.('info', `Memaparkan perincian ladang ${estId}...`);
+                              }}
+                            />
+                          ) : (
                           <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-md border border-slate-100 dark:border-slate-800 mb-4 relative">
                             <div className={`flex justify-between items-center ${showRankingCollapsed ? "mb-0" : "mb-4"}`}>
                               <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 pl-1">
@@ -576,6 +601,7 @@ export const DashboardTab = (props: any) => {
                               )}
                             </AnimatePresence>
                           </div>
+                          )
                         )}
 
                         {/* TREND ANALYTICS SECTION */}
