@@ -158,19 +158,26 @@ export class IdentityService {
     // Refresh registry to include any freshly loaded kiosk roster identities
     refreshMasterIdentityRegistry();
 
+    const cleanUpper = cleanStaffNo.toUpperCase();
     const matchingProfiles: UnifiedIdentityProfile[] = [];
     for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
-      if (!profile.is_active) continue;
-      if (profile.staff_no_hash && verifyStaffNoAgainstHash(cleanStaffNo, profile.staff_no_hash)) {
-        matchingProfiles.push(profile);
-      }
-    }
+      if (!profile.is_active || !profile.staff_no_hash) continue;
 
-    if (matchingProfiles.length === 0) {
-      // Fallback: lookup by operator_id, username, or staff number (e.g. 2401, 0001, 5155, FC-2401199)
-      const directMatch = IdentityService.findIdentityByStaffNo(cleanStaffNo);
-      if (directMatch) {
-        matchingProfiles.push(directMatch);
+      // 1. Primary: bcrypt hash verification against stored staff_no_hash
+      if (verifyStaffNoAgainstHash(cleanStaffNo, profile.staff_no_hash)) {
+        matchingProfiles.push(profile);
+        continue;
+      }
+
+      // 2. Secondary: short code or operator_id match ONLY for identities with an active staff_no_hash
+      const numSuffix = profile.operator_id.toUpperCase().replace(/^[A-Z]+-/, '');
+      if (
+        profile.operator_id.toUpperCase() === cleanUpper ||
+        numSuffix === cleanUpper ||
+        (cleanUpper.length >= 3 && numSuffix.startsWith(cleanUpper)) ||
+        (profile.username && profile.username.toUpperCase() === cleanUpper)
+      ) {
+        matchingProfiles.push(profile);
       }
     }
 
