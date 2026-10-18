@@ -186,7 +186,7 @@ iPDS ialah platform berbilang ladang (multi-estate). **Kesilapan rentas ladang a
 - **DR:** sasaran RPO ≤ 5 min, RTO ≤ 60 min (`docs/DR_ARCHITECTURE.md`, `docs/DR_RUNBOOK.md`). Pemulihan mesti melalui `dr:restore:preflight` yang **menolak produksi** (safety lockout).
 - **Peraturan keras:**
   - Jangan deploy/ubah konfigurasi produksi tanpa diminta.
-  - `api/index.js` dan `api/index.js.map` diabaikan dalam `.gitignore` (dijana secara dinamik semasa `npm run build`) — mengelakkan pertembungan dan bloat repositori.
+  - `api/index.js` dan `api/index.js.map` dijejaki dalam git (output esbuild) — jangan keliru dengan `dist/` yang diabaikan.
   - Jangan longgarkan gate CI atau safety lockout DR.
 
 ---
@@ -242,7 +242,7 @@ iPDS ialah platform berbilang ladang (multi-estate). **Kesilapan rentas ladang a
 
 - **Gaya commit:** Conventional Commits — `feat:`, `feat(scope):`, `fix:`, `refactor(scope):`, `style(scope):`, `chore:`, subjek huruf kecil imperatif. Body guna senarai `- ` untuk perubahan berbilang.
 - **Branch:** `main` (default), `develop`, `release/*`, `stage-*`, `feature/*`, `fix/p0-NN-<desc>`, `test/*`, `chore/*`.
-- **Jangan sekali-kali commit:** `.env*` (kecuali `.env.example`), `node_modules/`, `dist/`, `build/`, `coverage/`, `*.log`, `backups/`, `api/index.js`, `api/index.js.map`, rahsia/kunci.
+- **Jangan sekali-kali commit:** `.env*` (kecuali `.env.example`), `node_modules/`, `dist/`, `build/`, `coverage/`, `*.log`, `backups/`, rahsia/kunci.
 - **Sebelum commit:** semak `git status`, `git diff`, `git log --oneline -10`; stage hanya fail yang diniatkan.
 - **Peraturan keras:**
   - **Jangan commit, amend, push, atau buka PR melainkan diminta secara eksplisit.**
