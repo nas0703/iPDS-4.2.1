@@ -34,7 +34,7 @@ import employeesRoutes from './routes/employees.routes.js';
 
 console.log("Loading API routes from src/server/serverless.ts...");
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const app = express();
 

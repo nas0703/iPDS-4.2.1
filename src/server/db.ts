@@ -111,7 +111,7 @@ export function getSupabaseCredentials(): SupabaseConfigOptions | null {
 /**
  * Optimised fetch wrapper ensuring HTTP keep-alive socket reuse across requests.
  */
-function createPooledClientOptions(apiKey: string, userJwt?: string, fallbackServiceKey?: string) {
+function createPooledClientOptions(apiKey: string, userJwt?: string) {
   const headers: Record<string, string> = {
     apikey: apiKey
   };
@@ -120,25 +120,6 @@ function createPooledClientOptions(apiKey: string, userJwt?: string, fallbackSer
     headers['Authorization'] = `Bearer ${userJwt}`;
   }
 
-  const resilientFetch = (userJwt && fallbackServiceKey)
-    ? async (input: RequestInfo | URL, init?: RequestInit) => {
-        const res = await fetch(input, init);
-        if (res.status === 401) {
-          const clone = res.clone();
-          try {
-            const body = await clone.json();
-            if (body.code === 'PGRST301' || body.message?.includes('JWT') || body.message?.includes('key')) {
-              const newHeaders = new Headers(init?.headers);
-              newHeaders.set('Authorization', 'Bearer ' + fallbackServiceKey);
-              newHeaders.set('apikey', fallbackServiceKey);
-              return await fetch(input, { ...init, headers: newHeaders });
-            }
-          } catch (_) {}
-        }
-        return res;
-      }
-    : undefined;
-
   return {
     auth: {
       persistSession: false,
@@ -146,8 +127,7 @@ function createPooledClientOptions(apiKey: string, userJwt?: string, fallbackSer
       detectSessionInUrl: false
     },
     global: {
-      headers,
-      ...(resilientFetch ? { fetch: resilientFetch } : {})
+      headers
     }
   };
 }
@@ -180,12 +160,11 @@ export function isUsableUserJwt(token: unknown): token is string {
 function buildScopedClient(
   url: string | undefined,
   anonKey: string | undefined,
-  userJwt: string,
-  serviceKey?: string
+  userJwt: string
 ): SupabaseClient | null {
   if (!isValidHttpUrl(url) || !anonKey) return null;
   try {
-    return createClient(url!.trim(), anonKey, createPooledClientOptions(anonKey, userJwt, serviceKey));
+    return createClient(url!.trim(), anonKey, createPooledClientOptions(anonKey, userJwt));
   } catch (_) {
     return null;
   }
@@ -211,13 +190,12 @@ export function getScopedSupabase(
   if (!creds) return null;
 
   const mode = options?.mode || 'read';
-  const serviceKey = creds.isServiceRole ? creds.supabaseKey : undefined;
 
   if (mode === 'read' && creds.hasReadReplica && creds.readReplicaUrl) {
-    return buildScopedClient(creds.readReplicaUrl, creds.readReplicaAnonKey, userJwt, serviceKey);
+    return buildScopedClient(creds.readReplicaUrl, creds.readReplicaAnonKey, userJwt);
   }
 
-  return buildScopedClient(creds.pooledUrl || creds.supabaseUrl, creds.supabaseAnonKey, userJwt, serviceKey);
+  return buildScopedClient(creds.pooledUrl || creds.supabaseUrl, creds.supabaseAnonKey, userJwt);
 }
 
 /**
