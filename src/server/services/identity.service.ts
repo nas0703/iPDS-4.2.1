@@ -167,6 +167,14 @@ export class IdentityService {
     }
 
     if (matchingProfiles.length === 0) {
+      // Fallback: lookup by operator_id, username, or staff number (e.g. 2401, 0001, 5155, FC-2401199)
+      const directMatch = IdentityService.findIdentityByStaffNo(cleanStaffNo);
+      if (directMatch) {
+        matchingProfiles.push(directMatch);
+      }
+    }
+
+    if (matchingProfiles.length === 0) {
       return null;
     }
 
@@ -209,13 +217,15 @@ export class IdentityService {
       if (p.is_active) return p;
     }
 
-    // Lookup by username or operator_id (including numeric suffix, e.g. "2401199" -> "FC-2401199")
+    // Lookup by username or operator_id (including numeric suffix, e.g. "2401199" -> "FC-2401199" or short code "2401")
     for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
       if (!profile.is_active) continue;
+      const numSuffix = profile.operator_id.toUpperCase().replace(/^[A-Z]+-/, '');
       if (
         (profile.username && profile.username.toUpperCase() === clean) ||
         profile.operator_id.toUpperCase() === clean ||
-        profile.operator_id.toUpperCase().replace(/^[A-Z]+-/, '') === clean
+        numSuffix === clean ||
+        (clean.length >= 3 && (numSuffix.startsWith(clean) || profile.operator_id.toUpperCase().includes(clean)))
       ) {
         return profile;
       }

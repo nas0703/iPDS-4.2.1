@@ -197,7 +197,7 @@ function isProductionEnvironment(): boolean {
 let devEphemeralJwtSecret: string | null = null;
 
 export function getSupabaseJwtSecret(): string {
-  const configuredSecret = process.env.SUPABASE_JWT_SECRET || process.env.JWT_SECRET;
+  const configuredSecret = process.env.SUPABASE_JWT_SECRET || process.env.JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   if (configuredSecret && configuredSecret.trim().length > 0) {
     return configuredSecret;
   }
