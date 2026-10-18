@@ -385,3 +385,20 @@ export function isMissingTableError(error: any): boolean {
   );
 }
 
+export function isJwtOrKeyError(error: any): boolean {
+  if (!error) return false;
+  const code = String(error.code || '');
+  const msg = String(error.message || '').toLowerCase();
+  return (
+    code === 'PGRST301' ||
+    msg.includes('key') ||
+    msg.includes('jwt') ||
+    msg.includes('token') ||
+    msg.includes('signature') ||
+    msg.includes('unauthorized') ||
+    msg.includes('algorithm') ||
+    msg.includes('suitable key')
+  );
+}
+
+

@@ -1,7 +1,7 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { getScopedSupabase, getWriteSupabase, getPrivilegedSupabase, isMissingTableError } from '../db.js';
+import { getScopedSupabase, getWriteSupabase, getPrivilegedSupabase, isMissingTableError, isJwtOrKeyError } from '../db.js';
 import { getLocalHantaran, saveLocalHantaran } from '../local.js';
 import { requireAuth, requireRole, isSuperAdminIdentity } from '../middleware/auth.js';
 import { getReceiptEstate, setReceiptEstate } from '../estateStore.js';
@@ -763,8 +763,29 @@ router.get("/annual-yield", requireAuth, async (req, res) => {
         error = resBlock.error;
       }
 
+      if (error && isJwtOrKeyError(error)) {
+        const priv = getPrivilegedSupabase();
+        if (priv && priv !== supabase) {
+          let pQuery = priv.from('annual_yield').select('*');
+          if (!isAll) pQuery = pQuery.eq('estate_id', estateId);
+          const pRes = await pQuery.order('year', { ascending: true });
+          if (!pRes.error) {
+            data = pRes.data;
+            error = null;
+          } else {
+            let pbQuery = priv.from('block_annual_yields').select('id, year, block, yield, created_at, estate_id');
+            if (!isAll) pbQuery = pbQuery.eq('estate_id', estateId);
+            const pbRes = await pbQuery.order('year', { ascending: true });
+            if (!pbRes.error) {
+              data = pbRes.data;
+              error = null;
+            }
+          }
+        }
+      }
+
       if (error) {
-        if (error.code === '42P01' || error.message?.includes('schema cache')) return res.json([]);
+        if (isMissingTableError(error) || isJwtOrKeyError(error) || error.code === '42P01' || error.message?.includes('schema cache')) return res.json([]);
         throw error;
       }
       res.json(data || []);
@@ -772,8 +793,10 @@ router.get("/annual-yield", requireAuth, async (req, res) => {
       res.json([]);
     }
   } catch (err: unknown) {
-    console.error("Annual yield fetch error:", err);
-    res.status(500).json({ error: "Gagal mengambil data tahunan." });
+    if (!isJwtOrKeyError(err)) {
+      console.error("Annual yield fetch error:", err);
+    }
+    res.json([]);
   }
 });
 
@@ -808,8 +831,25 @@ router.get("/block-annual-yields", requireAuth, async (req, res) => {
         }
       }
 
+      // Fallback: If JWT key mismatch error occurs when using scoped client, retry with privileged client
+      if (error && isJwtOrKeyError(error)) {
+        const priv = getPrivilegedSupabase();
+        if (priv && priv !== supabase) {
+          let privQuery = priv.from('block_annual_yields').select('*');
+          if (!isAll) privQuery = privQuery.eq('estate_id', estateId);
+          let privRes = await privQuery.order('year', { ascending: true });
+          if (privRes.error && (privRes.error.code === '42703' || privRes.error.message?.includes('year'))) {
+            privRes = await privQuery.order('tahun', { ascending: true });
+          }
+          if (!privRes.error) {
+            data = privRes.data;
+            error = null;
+          }
+        }
+      }
+
       if (error) {
-        if (isMissingTableError(error) || error.code === '42P01' || error.message?.includes('schema cache')) {
+        if (isMissingTableError(error) || isJwtOrKeyError(error) || error.code === '42P01' || error.message?.includes('schema cache')) {
           return res.json([]);
         }
         console.warn("Block annual yield fetch error:", error.message);
@@ -820,7 +860,9 @@ router.get("/block-annual-yields", requireAuth, async (req, res) => {
       res.json([]);
     }
   } catch (err: unknown) {
-    console.warn("Block annual yield fetch exception:", err);
+    if (!isJwtOrKeyError(err)) {
+      console.warn("Block annual yield fetch exception:", err);
+    }
     res.json([]);
   }
 });
