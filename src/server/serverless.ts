@@ -41,6 +41,29 @@ const app = express();
 // Enable standard single-hop reverse proxy trust (Cloud Run, Vercel, Nginx)
 app.set('trust proxy', 1);
 
+// Vercel Serverless Path Restoration:
+// When Vercel rewrites /api/(.*) -> /api, Vercel sets req.url to /api or /, but provides
+// the original request path in x-matched-path (or x-forwarded-uri / x-now-route-matches).
+app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
+  const matchedPath = (req.headers['x-matched-path'] as string) || (req.headers['x-forwarded-uri'] as string);
+  if (matchedPath && matchedPath !== '/api' && matchedPath !== '/') {
+    const queryIndex = req.url.indexOf('?');
+    const query = queryIndex !== -1 ? req.url.substring(queryIndex) : '';
+    req.url = matchedPath.split('?')[0] + query;
+  } else if (req.headers['x-now-route-matches']) {
+    const rawMatches = String(req.headers['x-now-route-matches']);
+    const match = rawMatches.match(/1=([^&]+)/);
+    if (match && match[1]) {
+      const subpath = decodeURIComponent(match[1]);
+      const cleanSubpath = subpath.startsWith('/') ? subpath : `/${subpath}`;
+      const queryIndex = req.url.indexOf('?');
+      const query = queryIndex !== -1 ? req.url.substring(queryIndex) : '';
+      req.url = `/api${cleanSubpath}${query}`;
+    }
+  }
+  next();
+});
+
 // Enterprise defense-in-depth Security Headers & CORS Allow-list
 app.use(securityHeadersMiddleware);
 app.use(corsAllowListMiddleware);
