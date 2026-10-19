@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getSupabase, isMissingTableError } from '../db.js';
+import { getSupabase, getPrivilegedSupabase, isMissingTableError, isJwtOrKeyError } from '../db.js';
 import { auditService } from './audit.service.js';
 import { withSpan } from '../observability/tracing.js';
 import { AppError, ValidationError } from '../utils/errorUtils.js';
@@ -268,12 +268,27 @@ export class GradingTaskService {
     estateId: string,
     taskDate: string = getMalaysiaDate()
   ): Promise<GradingTaskRecord[]> {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('grading_tasks')
       .select('*')
       .eq('estate_id', estateId)
       .eq('task_date', taskDate)
       .order('rank', { ascending: true });
+
+    if (error && isJwtOrKeyError(error)) {
+      const priv = getPrivilegedSupabase();
+      if (priv && priv !== supabase) {
+        const privRes = await priv
+          .from('grading_tasks')
+          .select('*')
+          .eq('estate_id', estateId)
+          .eq('task_date', taskDate)
+          .order('rank', { ascending: true });
+        data = privRes.data;
+        error = privRes.error;
+      }
+    }
+
     if (error) {
       if (isMissingTableError(error)) {
         return [];
@@ -284,12 +299,27 @@ export class GradingTaskService {
   }
 
   async getTask(supabase: SupabaseClient, estateId: string, taskId: string): Promise<GradingTaskRecord | null> {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('grading_tasks')
       .select('*')
       .eq('estate_id', estateId)
       .eq('id', taskId)
       .maybeSingle();
+
+    if (error && isJwtOrKeyError(error)) {
+      const priv = getPrivilegedSupabase();
+      if (priv && priv !== supabase) {
+        const privRes = await priv
+          .from('grading_tasks')
+          .select('*')
+          .eq('estate_id', estateId)
+          .eq('id', taskId)
+          .maybeSingle();
+        data = privRes.data;
+        error = privRes.error;
+      }
+    }
+
     if (error) {
       if (isMissingTableError(error)) {
         return null;
@@ -311,10 +341,22 @@ export class GradingTaskService {
       if (!task) throw new AppError('Grading Task tidak ditemui.', 404, 'GRADING_TASK_NOT_FOUND');
       if (task.status !== 'OPEN') throw new ValidationError('Grading Task bukan lagi berstatus OPEN.');
 
-      const { data, error } = await supabase.rpc('save_task_grading_session', {
+      let { data, error } = await supabase.rpc('save_task_grading_session', {
         p_task_id: taskId,
         p_record: sessionRecord
       });
+
+      if (error && isJwtOrKeyError(error)) {
+        const priv = getPrivilegedSupabase();
+        if (priv && priv !== supabase) {
+          const privRes = await priv.rpc('save_task_grading_session', {
+            p_task_id: taskId,
+            p_record: sessionRecord
+          });
+          data = privRes.data;
+          error = privRes.error;
+        }
+      }
 
       if (error || !data?.[0]) {
         const code = String(error?.message || '').match(/GRADING_TASK_[A-Z_]+/)?.[0] || 'GRADING_TASK_FIELD_RESOLVE_FAILED';

@@ -10124,7 +10124,15 @@ var GradingTaskService = class {
     });
   }
   async listTasks(supabase, estateId, taskDate = getMalaysiaDate()) {
-    const { data, error } = await supabase.from("grading_tasks").select("*").eq("estate_id", estateId).eq("task_date", taskDate).order("rank", { ascending: true });
+    let { data, error } = await supabase.from("grading_tasks").select("*").eq("estate_id", estateId).eq("task_date", taskDate).order("rank", { ascending: true });
+    if (error && isJwtOrKeyError(error)) {
+      const priv = getPrivilegedSupabase();
+      if (priv && priv !== supabase) {
+        const privRes = await priv.from("grading_tasks").select("*").eq("estate_id", estateId).eq("task_date", taskDate).order("rank", { ascending: true });
+        data = privRes.data;
+        error = privRes.error;
+      }
+    }
     if (error) {
       if (isMissingTableError(error)) {
         return [];
@@ -10134,7 +10142,15 @@ var GradingTaskService = class {
     return data || [];
   }
   async getTask(supabase, estateId, taskId) {
-    const { data, error } = await supabase.from("grading_tasks").select("*").eq("estate_id", estateId).eq("id", taskId).maybeSingle();
+    let { data, error } = await supabase.from("grading_tasks").select("*").eq("estate_id", estateId).eq("id", taskId).maybeSingle();
+    if (error && isJwtOrKeyError(error)) {
+      const priv = getPrivilegedSupabase();
+      if (priv && priv !== supabase) {
+        const privRes = await priv.from("grading_tasks").select("*").eq("estate_id", estateId).eq("id", taskId).maybeSingle();
+        data = privRes.data;
+        error = privRes.error;
+      }
+    }
     if (error) {
       if (isMissingTableError(error)) {
         return null;
@@ -10148,10 +10164,21 @@ var GradingTaskService = class {
       const task = await this.getTask(supabase, estateId, taskId);
       if (!task) throw new AppError("Grading Task tidak ditemui.", 404, "GRADING_TASK_NOT_FOUND");
       if (task.status !== "OPEN") throw new ValidationError("Grading Task bukan lagi berstatus OPEN.");
-      const { data, error } = await supabase.rpc("save_task_grading_session", {
+      let { data, error } = await supabase.rpc("save_task_grading_session", {
         p_task_id: taskId,
         p_record: sessionRecord
       });
+      if (error && isJwtOrKeyError(error)) {
+        const priv = getPrivilegedSupabase();
+        if (priv && priv !== supabase) {
+          const privRes = await priv.rpc("save_task_grading_session", {
+            p_task_id: taskId,
+            p_record: sessionRecord
+          });
+          data = privRes.data;
+          error = privRes.error;
+        }
+      }
       if (error || !data?.[0]) {
         const code = String(error?.message || "").match(/GRADING_TASK_[A-Z_]+/)?.[0] || "GRADING_TASK_FIELD_RESOLVE_FAILED";
         const status = code.includes("NOT_FOUND") ? 404 : code.includes("DENIED") ? 403 : 400;
