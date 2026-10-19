@@ -175,7 +175,7 @@ iPDS ialah platform berbilang ladang (multi-estate). **Kesilapan rentas ladang a
 
 ## 9. Deployment / Vercel
 
-- **Konfigurasi:** `vercel.json` — framework vite, `buildCommand: npm run build`, `outputDirectory: dist`, `cleanUrls: true`.
+- **Konfigurasi:** `vercel.json` — `buildCommand: npm run build`, `outputDirectory: dist`.
 - **Build:** `vite build` → `dist/`; esbuild `server.ts` → `dist/server.cjs`; esbuild `src/server/serverless.ts` → `api/index.js` (fungsi serverless Vercel).
 - **Fungsi serverless:** `api/index.js` dijana secara dinamik semasa `npm run build` dan diabaikan dalam `.gitignore` (mengelakkan bloat dan konflik git).
 - **Cron:** `GET/POST /api/cron/process-jobs`, jadual `0 0 * * *`, dilindungi `CRON_SECRET` (lihat §4).
