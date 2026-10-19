@@ -15,6 +15,3 @@ scripts/*credential*
 scripts/*roster*
 *.credentials.*
 .env.credentials
-api/index.js
-api/index.js.map
-api/*.map
