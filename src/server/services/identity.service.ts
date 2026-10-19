@@ -100,8 +100,8 @@ export function refreshMasterIdentityRegistry(): void {
         password_hash: u.password_hash,
         app_role: u.app_role || 'staff',
         primary_estate_id: u.estate_id || 'FPM_TUNGGAL',
-        assigned_estates: ['rc', 'oc', 'superadmin'].includes((u.app_role || '').toLowerCase())
-          ? ["FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING", "FPM_SENGGARANG"]
+        assigned_estates: (['rc', 'oc', 'superadmin', 'admin'].includes((u.app_role || '').toLowerCase()) || ((u.app_role || '').toLowerCase() === 'fc' && (u.estate_id === 'FPM_TUNGGAL' || opIdKey === 'FC-2401199' || opIdKey.includes('2401199'))))
+          ? ["FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING", "WILAYAH_JB"]
           : [u.estate_id || 'FPM_TUNGGAL'],
         kiosk_id: u.kiosk_id || `kiosk-${opIdKey.toLowerCase()}`,
         station_name: u.station_name || 'Stesen Lapangan',
@@ -123,8 +123,8 @@ const INITIAL_SEEDS: Array<Omit<UnifiedIdentityProfile, 'id'>> = Object.entries(
   password_hash: u.password_hash,
   app_role: u.app_role,
   primary_estate_id: u.estate_id || 'FPM_TUNGGAL',
-  assigned_estates: ['rc', 'oc', 'superadmin'].includes(u.app_role.toLowerCase())
-    ? ["FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING", "FPM_SENGGARANG"]
+  assigned_estates: (['rc', 'oc', 'superadmin', 'admin'].includes(u.app_role.toLowerCase()) || (u.app_role.toLowerCase() === 'fc' && (u.estate_id === 'FPM_TUNGGAL' || opIdKey === 'FC-2401199' || opIdKey.includes('2401199'))))
+    ? ["FPM_TUNGGAL", "FPM_ADELA", "FPM_KLEDANG", "FPM_SENING", "WILAYAH_JB"]
     : [u.estate_id || 'FPM_TUNGGAL'],
   kiosk_id: u.kiosk_id,
   station_name: u.station_name,
@@ -161,15 +161,16 @@ export class IdentityService {
     const cleanUpper = cleanStaffNo.toUpperCase();
     const matchingProfiles: UnifiedIdentityProfile[] = [];
     for (const profile of MASTER_IDENTITY_REGISTRY.values()) {
-      if (!profile.is_active || !profile.staff_no_hash) continue;
+      if (!profile.is_active) continue;
 
-      // 1. Primary: bcrypt hash verification against stored staff_no_hash
-      if (verifyStaffNoAgainstHash(cleanStaffNo, profile.staff_no_hash)) {
+      // 1. Primary: bcrypt hash verification against stored staff_no_hash (supports staff_no alone and combined estate_code:staff_no unit login)
+      if (profile.staff_no_hash && verifyStaffNoAgainstHash(cleanStaffNo, profile.staff_no_hash, targetEstateId || profile.primary_estate_id)) {
         matchingProfiles.push(profile);
         continue;
       }
 
       // 2. Secondary: short code or operator_id match ONLY for identities with an active staff_no_hash
+      if (!profile.staff_no_hash) continue;
       const numSuffix = profile.operator_id.toUpperCase().replace(/^[A-Z]+-/, '');
       if (
         profile.operator_id.toUpperCase() === cleanUpper ||
@@ -194,7 +195,8 @@ export class IdentityService {
       else if (normalizedEstate === '0001' || normalizedEstate.includes('WILAYAH') || normalizedEstate === 'WILAYAH_JB') normalizedEstate = 'WILAYAH_JB';
 
       const estateMatches = matchingProfiles.filter(p => {
-        const isCrossEstate = ['rc', 'oc', 'superadmin'].includes((p.app_role || '').toLowerCase());
+        const isFCTunggal = (p.app_role || '').toLowerCase() === 'fc' && (p.primary_estate_id === 'FPM_TUNGGAL' || p.operator_id === 'FC-2401199' || p.operator_id.includes('2401199'));
+        const isCrossEstate = ['rc', 'oc', 'superadmin', 'admin'].includes((p.app_role || '').toLowerCase()) || isFCTunggal;
         const primary = (p.primary_estate_id || '').toUpperCase();
         const assigned = (p.assigned_estates || []).map(e => e.toUpperCase());
         return primary === normalizedEstate || assigned.includes(normalizedEstate) || isCrossEstate;
@@ -205,6 +207,7 @@ export class IdentityService {
         const exactPrimary = estateMatches.find(p => (p.primary_estate_id || '').toUpperCase() === normalizedEstate);
         return exactPrimary || estateMatches[0];
       }
+      return matchingProfiles[0];
     }
 
     // Fallback: If no estate filter or matches across estates, return first matching profile
@@ -377,7 +380,8 @@ export class IdentityService {
     if (!profile || !profile.is_active) return null;
 
     // Resolve target active estate
-    const isMultiEstate = ['rc', 'oc', 'superadmin'].includes(profile.app_role.toLowerCase());
+    const isFCTunggal = profile.app_role.toLowerCase() === 'fc' && (profile.primary_estate_id === 'FPM_TUNGGAL' || profile.operator_id === 'FC-2401199' || profile.operator_id.includes('2401199'));
+    const isMultiEstate = ['rc', 'oc', 'superadmin', 'admin'].includes(profile.app_role.toLowerCase()) || isFCTunggal;
     let activeEstate = profile.primary_estate_id;
 
     if (selectedEstateId) {

@@ -12,6 +12,7 @@ import bcrypt from 'bcryptjs';
 import type { AuthRole } from './identity.service.js';
 import { getPrivilegedSupabase } from '../db.js';
 import defaultCredentialHashes from '../config/credentials.hashes.json';
+import { ESTATES_REGISTRY, ESTATE_NUMERIC_CODES } from '../../config/estateRegistry.js';
 
 // Auto-load .env and .env.credentials
 dotenv.config();
@@ -329,23 +330,65 @@ export function normalizeStaffNo(staffNo: string): string {
   return staffNo.trim().toUpperCase();
 }
 
-export function hashStaffNo(staffNo: string): string {
+export function hashStaffNo(staffNo: string, estateCode?: string): string {
   const normalized = normalizeStaffNo(staffNo);
   if (!normalized || Buffer.byteLength(normalized, 'utf8') > 72) {
     throw new Error('Staff number is empty or exceeds the bcrypt input limit.');
   }
+  const targetToHash = estateCode ? `${estateCode.trim().toUpperCase()}:${normalized}` : normalized;
   const saltRounds = process.env.NODE_ENV === 'test' ? 4 : 10;
-  return bcrypt.hashSync(normalized, saltRounds);
+  return bcrypt.hashSync(targetToHash, saltRounds);
 }
 
-export function verifyStaffNoAgainstHash(staffNo: string, staffNoHash?: string | null): boolean {
+export function verifyStaffNoAgainstHash(staffNo: string, staffNoHash?: string | null, estateCode?: string): boolean {
   if (!staffNo || !staffNoHash || typeof staffNoHash !== 'string' || !staffNoHash.startsWith('$2')) {
     return false;
   }
   try {
     const normalized = normalizeStaffNo(staffNo);
     if (!normalized || Buffer.byteLength(normalized, 'utf8') > 72) return false;
-    return bcrypt.compareSync(normalized, staffNoHash);
+
+    // 1. Direct comparison on staff number alone (e.g. "2401199", "2401", "2402950", "0001", "5155")
+    if (bcrypt.compareSync(normalized, staffNoHash)) {
+      return true;
+    }
+
+    // 2. Unit login comparison: Kod Ladang + No. Kakitangan hashed together as a single unit
+    if (estateCode && typeof estateCode === 'string') {
+      const cleanEstate = estateCode.trim().toUpperCase();
+      const numericCode = ESTATE_NUMERIC_CODES[cleanEstate]?.code || cleanEstate;
+      const canonicalEstate = ESTATES_REGISTRY[cleanEstate]?.id || cleanEstate;
+
+      const candidates = Array.from(new Set([
+        `${cleanEstate}:${normalized}`,
+        `${numericCode}:${normalized}`,
+        `${canonicalEstate}:${normalized}`,
+        `${cleanEstate}_${normalized}`,
+        `${numericCode}_${normalized}`,
+        `${canonicalEstate}_${normalized}`,
+        `${cleanEstate}${normalized}`,
+        `${numericCode}${normalized}`,
+        `${canonicalEstate}${normalized}`,
+        `${normalized}:${cleanEstate}`,
+        `${normalized}:${numericCode}`,
+        `${normalized}:${canonicalEstate}`,
+        `${normalized}_${cleanEstate}`,
+        `${normalized}_${numericCode}`,
+        `${normalized}_${canonicalEstate}`
+      ]));
+
+      for (const candidate of candidates) {
+        if (candidate && Buffer.byteLength(candidate, 'utf8') <= 72) {
+          try {
+            if (bcrypt.compareSync(candidate, staffNoHash)) {
+              return true;
+            }
+          } catch (_) {}
+        }
+      }
+    }
+
+    return false;
   } catch {
     return false;
   }
