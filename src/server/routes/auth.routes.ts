@@ -109,7 +109,7 @@ router.post(['/verify-pin', '/auth/verify-pin'], authRateLimiter, (_req, res) =>
  * POST /api/auth/verify-staff
  * Validates login using Kod Ladang (Estate Code) + No. Kakitangan (Staff / Operator No.)
  */
-router.post(['/verify-staff', '/auth/verify-staff'], authRateLimiter, async (req, res) => {
+router.post(['/verify-staff', '/auth/verify-staff', '/api/auth/verify-staff', '/api/verify-staff'], authRateLimiter, async (req, res) => {
   try {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     const rateCheck = checkRateLimit(clientIp);

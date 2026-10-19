@@ -121,6 +121,8 @@ const serveSupabaseConfig = (req: express.Request, res: express.Response) => {
 app.get(['/api/supabase-config.js', '/supabase-config.js'], serveSupabaseConfig);
 
 // Add direct resilient route mounts on app for Vercel Serverless Function entry point
+app.use("/api/auth", authRoutes);
+app.use("/auth", authRoutes);
 app.use("/api/ai", visionRoutes);
 app.use("/api/ocr-receipt", visionRoutes);
 app.use("/ai/ocr-receipt", visionRoutes);
