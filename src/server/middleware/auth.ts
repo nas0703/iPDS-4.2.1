@@ -39,6 +39,8 @@ export interface SuperAdminIdentityLike {
   app_metadata?: {
     app_role?: string | null;
     estate_id?: string | null;
+    home_estate_id?: string | null;
+    assigned_estates?: string[] | null;
     operator_id?: string | null;
   } | null;
   user_metadata?: Record<string, unknown> | null;
@@ -48,11 +50,14 @@ export function isFCTunggalSuperAdmin(user: SuperAdminIdentityLike | null | unde
   if (!user) return false;
   const role = (user.app_metadata?.app_role || '').toLowerCase().trim();
   const estate = (user.app_metadata?.estate_id || '').toUpperCase().trim();
+  const homeEstate = (user.app_metadata?.home_estate_id || '').toUpperCase().trim();
   const opId = (user.app_metadata?.operator_id || '').toUpperCase().trim();
-  return (
-    (role === 'fc' && FC_TUNGGAL_ESTATES.includes(estate)) ||
-    opId === 'FC-2401199' ||
-    opId.includes('2401199')
+  const assigned = Array.isArray(user.app_metadata?.assigned_estates) ? user.app_metadata!.assigned_estates : [];
+  const hasCrossEstateAssigned = assigned.includes('FPM_TUNGGAL') && (assigned.includes('WILAYAH_JB') || assigned.includes('FPM_ADELA'));
+  return role === 'fc' && (
+    FC_TUNGGAL_ESTATES.includes(estate) ||
+    FC_TUNGGAL_ESTATES.includes(homeEstate) ||
+    (opId.startsWith('FC-') && hasCrossEstateAssigned)
   );
 }
 

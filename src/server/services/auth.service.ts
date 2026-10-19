@@ -20,6 +20,7 @@ export interface UserSession {
   app_metadata: {
     user_id?: string;
     estate_id: string;
+    home_estate_id?: string;
     assigned_estates?: string[];
     kiosk_id: string;
     app_role: AuthRole;

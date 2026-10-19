@@ -13,6 +13,7 @@ export interface UserSession {
   app_metadata: {
     user_id?: string;
     estate_id: string;
+    home_estate_id?: string;
     assigned_estates?: string[];
     kiosk_id: string;
     app_role: AuthRole;
@@ -414,6 +415,7 @@ export class IdentityService {
       app_metadata: {
         user_id: profile.id,
         estate_id: activeEstate,
+        home_estate_id: profile.primary_estate_id,
         assigned_estates: profile.assigned_estates,
         kiosk_id: profile.kiosk_id,
         app_role: profile.app_role,
