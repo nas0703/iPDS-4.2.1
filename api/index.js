@@ -24835,6 +24835,19 @@ var handleGetPenggredan = async (req, res) => {
         queryError = resDb.error;
       }
     }
+    if (queryError && isJwtOrKeyError(queryError)) {
+      const priv = getPrivilegedSupabase();
+      if (priv && priv !== supabase) {
+        let pQuery = priv.from("penggredan_rekod").select("*").order("created_at", { ascending: false });
+        if (!isAll) {
+          pQuery = pQuery.eq("estate_id", estateId);
+        }
+        const pRes = await pQuery;
+        if (!pRes.error && pRes.data && pRes.data.length > 0) {
+          data = pRes.data;
+        }
+      }
+    }
     if (data && data.length > 0) {
       const filteredData = data.filter((item) => {
         if (isAll) return true;
@@ -24908,6 +24921,16 @@ var handlePostPenggredan = async (req, res) => {
       const { data, error } = await supabase.from("penggredan_rekod").upsert([payload]).select();
       if (error) {
         console.warn("Scoped Supabase write notice in handlePostPenggredan:", error.message || error);
+        if (isJwtOrKeyError(error)) {
+          const priv = getPrivilegedSupabase();
+          if (priv && priv !== supabase) {
+            const { data: privData, error: privErr } = await priv.from("penggredan_rekod").upsert([payload]).select();
+            if (!privErr && privData && privData[0]) {
+              savedRecord = privData[0];
+              isSupabaseSuccess = true;
+            }
+          }
+        }
       } else if (data && data[0]) {
         savedRecord = data[0];
         isSupabaseSuccess = true;
@@ -24951,7 +24974,19 @@ var handleDeletePenggredan = async (req, res) => {
         query = query.eq("estate_id", estateId);
       }
       const { data, error } = await query.select("id");
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (error && isJwtOrKeyError(error)) {
+        const priv = getPrivilegedSupabase();
+        if (priv && priv !== supabase) {
+          let pQuery = priv.from("penggredan_rekod").delete().eq("id", id);
+          if (!isAll) {
+            pQuery = pQuery.eq("estate_id", estateId);
+          }
+          const pRes = await pQuery.select("id");
+          if (!pRes.error && Array.isArray(pRes.data) && pRes.data.length > 0) {
+            deleted = true;
+          }
+        }
+      } else if (!error && Array.isArray(data) && data.length > 0) {
         deleted = true;
       }
     }
