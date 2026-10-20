@@ -2693,104 +2693,244 @@ Nama Penggereding : ${sessionHeader.namaPenggred}`;
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1300px]">
+                <table className="w-full text-left border-collapse min-w-[1250px]">
                   <thead>
-                    <tr className="bg-slate-100/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
-                      <th className="p-3 pl-4 sticky left-0 z-10 bg-slate-100 dark:bg-slate-800">
+                    <tr className="bg-slate-100/90 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                      <th className="py-2 px-2.5 pl-3 sticky left-0 z-10 bg-slate-100 dark:bg-slate-800 border-r border-slate-200/60 dark:border-slate-700/60 whitespace-nowrap">
                         {aggregationMode === 'blok' ? 'Blok' : aggregationMode === 'hari' ? 'Tarikh' : 'Bulan'}
                       </th>
-                      <th className="p-3">
+                      <th className="py-2 px-2 whitespace-nowrap">
                         {aggregationMode === 'blok' ? 'Bil Sesi / Hari' : 'Blok'}
                       </th>
-                      <th className="p-3 text-center">Bil Platform</th>
-                      <th className="p-3 text-right">Tandan Di Gred</th>
-                      <th className="p-3 text-right text-rose-600 dark:text-rose-400">Tandan Di Tinggal</th>
-                      <th className="p-3 text-right text-rose-600 dark:text-rose-400">Kadar Reject</th>
-                      <th className="p-3 text-right text-sky-600 dark:text-sky-400">Tandan Di Bawa</th>
-                      <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Masak (Tandan)</th>
-                      <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Kadar Masak</th>
-                      <th className="p-3 text-right bg-rose-50/50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400">Muda</th>
-                      <th className="p-3 text-right bg-pink-50/50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400">Peram</th>
-                      <th className="p-3 text-right bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400">Mengkal</th>
-                      <th className="p-3 text-right bg-red-50/50 dark:bg-red-950/20 text-red-600 dark:text-red-400">Busuk</th>
-                      <th className="p-3 text-right text-slate-500 dark:text-slate-400">Kosong</th>
-                      <th className="p-3 text-right text-yellow-700 dark:text-yellow-400">Kotor</th>
-                      <th className="p-3 text-right text-purple-700 dark:text-purple-400">Lama</th>
-                      <th className="p-3 text-right text-amber-800 dark:text-amber-500">Dura</th>
-                      <th className="p-3 text-right text-indigo-700 dark:text-indigo-400">T.Panjang</th>
-                      <th className="p-3 text-right text-slate-600 dark:text-slate-400">S.Tikus</th>
+                      <th className="py-2 px-2 text-center whitespace-nowrap">Bil Platform</th>
+                      <th className="py-2 px-2 text-right whitespace-nowrap">Tandan Di Gred</th>
+                      <th className="py-2 px-2 text-right text-rose-600 dark:text-rose-400 whitespace-nowrap">Tandan Di Tinggal</th>
+                      <th className="py-2 px-2 text-right text-rose-600 dark:text-rose-400 whitespace-nowrap">Kadar Reject</th>
+                      <th className="py-2 px-2 text-right text-sky-600 dark:text-sky-400 whitespace-nowrap">Tandan Di Bawa</th>
+                      <th className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400 whitespace-nowrap">Masak (Tandan)</th>
+                      <th className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400 whitespace-nowrap">Kadar Masak</th>
+                      <th className="py-2 px-2 text-right bg-rose-50/80 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-l border-rose-200/50 dark:border-rose-900/40 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>Muda</span>
+                          <span className="text-[7.5px] font-bold text-rose-500/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right bg-pink-50/80 dark:bg-pink-950/40 text-pink-600 dark:text-pink-400 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>Peram</span>
+                          <span className="text-[7.5px] font-bold text-pink-500/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right bg-amber-50/80 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-r border-amber-200/50 dark:border-amber-900/40 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>Mengkal</span>
+                          <span className="text-[7.5px] font-bold text-amber-600/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right bg-red-50/50 dark:bg-red-950/20 text-red-600 dark:text-red-400 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>Busuk</span>
+                          <span className="text-[7.5px] font-bold text-red-500/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>Kosong</span>
+                          <span className="text-[7.5px] font-bold text-slate-400/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right text-yellow-700 dark:text-yellow-400 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>Kotor</span>
+                          <span className="text-[7.5px] font-bold text-yellow-600/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right text-purple-700 dark:text-purple-400 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>Lama</span>
+                          <span className="text-[7.5px] font-bold text-purple-600/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right text-amber-800 dark:text-amber-500 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>Dura</span>
+                          <span className="text-[7.5px] font-bold text-amber-700/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>T.Panjang</span>
+                          <span className="text-[7.5px] font-bold text-indigo-600/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
+                      <th className="py-2 px-2 text-right text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                        <div className="flex flex-col items-end leading-none gap-0.5">
+                          <span>S.Tikus</span>
+                          <span className="text-[7.5px] font-bold text-slate-500/80 lowercase">(bil / %)</span>
+                        </div>
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-300">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-[11px] font-medium text-slate-700 dark:text-slate-300">
                     {(aggregationMode === 'hari' ? dailyData : aggregationMode === 'bulan' ? monthlyData : blockData).map((row) => {
                       const totalGred = Number(row.tandanDiGred) || 0;
                       const rejectRate = totalGred ? ((row.tandanDiTinggal / totalGred) * 100) : 0;
                       const masakRate = totalGred ? ((row.masak / totalGred) * 100) : 0;
+                      const mudaRate = totalGred ? ((row.rejectMuda / totalGred) * 100) : 0;
+                      const peramRate = totalGred ? ((row.rejectPeram / totalGred) * 100) : 0;
+                      const mengkalRate = totalGred ? ((row.penaltiMengkal / totalGred) * 100) : 0;
+                      const busukRate = totalGred ? ((row.penaltiBusuk / totalGred) * 100) : 0;
+                      const kosongRate = totalGred ? ((row.penaltiKosong / totalGred) * 100) : 0;
+                      const kotorRate = totalGred ? ((row.kotor / totalGred) * 100) : 0;
+                      const lamaRate = totalGred ? ((row.lama / totalGred) * 100) : 0;
+                      const duraRate = totalGred ? ((row.dura / totalGred) * 100) : 0;
+                      const tangkaiPanjangRate = totalGred ? ((row.tangkaiPanjang / totalGred) * 100) : 0;
+                      const seranganTikusRate = totalGred ? ((row.seranganTikus / totalGred) * 100) : 0;
 
                       return (
                         <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                          <td className="p-3 pl-4 font-bold text-slate-950 dark:text-slate-100 whitespace-nowrap sticky left-0 z-10 bg-white dark:bg-slate-900">
+                          <td className="py-1.5 px-2.5 pl-3 font-bold text-slate-950 dark:text-slate-100 whitespace-nowrap sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-200/60 dark:border-slate-800">
                             {aggregationMode === 'blok' ? formatBlokDisplay(row.peringkatBlok) : aggregationMode === 'hari' ? row.tarikh : row.bulan}
                           </td>
-                          <td className="p-3 font-bold text-slate-900 dark:text-slate-300 whitespace-nowrap">
+                          <td className="py-1.5 px-2 font-bold text-slate-900 dark:text-slate-300 whitespace-nowrap">
                             {aggregationMode === 'blok' ? (
-                              <span className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded font-bold text-[11px]">
+                              <span className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1.5 py-0.5 rounded font-bold text-[10px]">
                                 {row.sessionCount} Sesi ({row.totalDates} Hari)
                               </span>
                             ) : (
                               formatBlokDisplay(row.peringkatBlok)
                             )}
                           </td>
-                          <td className="p-3 text-center font-bold text-slate-600 dark:text-slate-400">
+                          <td className="py-1.5 px-2 text-center font-bold text-slate-600 dark:text-slate-400">
                             {row.platformCount}
                           </td>
-                          <td className="p-3 text-right font-bold text-slate-950 dark:text-slate-100">
+                          <td className="py-1.5 px-2 text-right font-bold text-slate-950 dark:text-slate-100">
                             {row.tandanDiGred.toLocaleString()}
                           </td>
-                          <td className="p-3 text-right font-bold text-rose-600 dark:text-rose-400">
+                          <td className="py-1.5 px-2 text-right font-bold text-rose-600 dark:text-rose-400">
                             {row.tandanDiTinggal.toLocaleString()}
                           </td>
-                          <td className="p-3 text-right font-bold text-rose-600 dark:text-rose-400">
+                          <td className="py-1.5 px-2 text-right font-bold text-rose-600 dark:text-rose-400">
                             {rejectRate.toFixed(1)}%
                           </td>
-                          <td className="p-3 text-right font-bold text-sky-600 dark:text-sky-400">
+                          <td className="py-1.5 px-2 text-right font-bold text-sky-600 dark:text-sky-400">
                             {row.tandanDiBawa.toLocaleString()}
                           </td>
-                          <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400">
                             {row.masak.toLocaleString()}
                           </td>
-                          <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400">
                             {masakRate.toFixed(1)}%
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.rejectMuda > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.rejectMuda}
+                          {/* MUDA: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right border-l border-rose-100/70 dark:border-rose-950/40 ${row.rejectMuda > 0 ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.rejectMuda > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.rejectMuda}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.rejectMuda > 0 ? 'text-rose-500/90 dark:text-rose-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {mudaRate > 0 ? `${mudaRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.rejectPeram > 0 ? 'text-pink-600 dark:text-pink-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.rejectPeram}
+                          {/* PERAM: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right ${row.rejectPeram > 0 ? 'bg-pink-50/40 dark:bg-pink-950/20' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.rejectPeram > 0 ? 'text-pink-600 dark:text-pink-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.rejectPeram}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.rejectPeram > 0 ? 'text-pink-500/90 dark:text-pink-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {peramRate > 0 ? `${peramRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.penaltiMengkal > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.penaltiMengkal}
+                          {/* MENGKAL: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right border-r border-amber-100/70 dark:border-amber-950/40 ${row.penaltiMengkal > 0 ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.penaltiMengkal > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.penaltiMengkal}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.penaltiMengkal > 0 ? 'text-amber-600/90 dark:text-amber-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {mengkalRate > 0 ? `${mengkalRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.penaltiBusuk > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.penaltiBusuk}
+                          {/* BUSUK: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right ${row.penaltiBusuk > 0 ? 'bg-red-50/40 dark:bg-red-950/20' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.penaltiBusuk > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.penaltiBusuk}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.penaltiBusuk > 0 ? 'text-red-500/90 dark:text-red-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {busukRate > 0 ? `${busukRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.penaltiKosong > 0 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.penaltiKosong}
+                          {/* KOSONG: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right ${row.penaltiKosong > 0 ? 'bg-slate-100/50 dark:bg-slate-800/30' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.penaltiKosong > 0 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.penaltiKosong}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.penaltiKosong > 0 ? 'text-slate-600/90 dark:text-slate-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {kosongRate > 0 ? `${kosongRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.kotor > 0 ? 'text-yellow-700 dark:text-yellow-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.kotor}
+                          {/* KOTOR: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right ${row.kotor > 0 ? 'bg-yellow-50/40 dark:bg-yellow-950/20' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.kotor > 0 ? 'text-yellow-700 dark:text-yellow-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.kotor}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.kotor > 0 ? 'text-yellow-600/90 dark:text-yellow-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {kotorRate > 0 ? `${kotorRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.lama > 0 ? 'text-purple-700 dark:text-purple-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.lama}
+                          {/* LAMA: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right ${row.lama > 0 ? 'bg-purple-50/40 dark:bg-purple-950/20' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.lama > 0 ? 'text-purple-700 dark:text-purple-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.lama}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.lama > 0 ? 'text-purple-600/90 dark:text-purple-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {lamaRate > 0 ? `${lamaRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.dura > 0 ? 'text-amber-800 dark:text-amber-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.dura}
+                          {/* DURA: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right ${row.dura > 0 ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.dura > 0 ? 'text-amber-800 dark:text-amber-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.dura}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.dura > 0 ? 'text-amber-700/90 dark:text-amber-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {duraRate > 0 ? `${duraRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.tangkaiPanjang > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.tangkaiPanjang}
+                          {/* T.PANJANG: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right ${row.tangkaiPanjang > 0 ? 'bg-indigo-50/40 dark:bg-indigo-950/20' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.tangkaiPanjang > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.tangkaiPanjang}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.tangkaiPanjang > 0 ? 'text-indigo-500/90 dark:text-indigo-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {tangkaiPanjangRate > 0 ? `${tangkaiPanjangRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
-                          <td className={`p-3 text-right font-bold ${row.seranganTikus > 0 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 dark:text-slate-600'}`}>
-                            {row.seranganTikus}
+                          {/* S.TIKUS: BIL & % */}
+                          <td className={`py-1.5 px-2 text-right ${row.seranganTikus > 0 ? 'bg-slate-100/50 dark:bg-slate-800/30' : ''}`}>
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className={`font-bold ${row.seranganTikus > 0 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 dark:text-slate-600'}`}>
+                                {row.seranganTikus}
+                              </span>
+                              <span className={`text-[9.5px] font-semibold ${row.seranganTikus > 0 ? 'text-slate-600/90 dark:text-slate-400/90' : 'text-slate-400/50 dark:text-slate-600/50'}`}>
+                                {seranganTikusRate > 0 ? `${seranganTikusRate.toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -2798,31 +2938,97 @@ Nama Penggereding : ${sessionHeader.namaPenggred}`;
                   </tbody>
                   {/* SUMMARY FOOTER (JUMLAH BESAR) */}
                   <tfoot>
-                    <tr className="bg-slate-900 text-white font-black text-[11px] border-t-2 border-slate-700">
-                      <td className="p-3 pl-4 sticky left-0 z-10 bg-slate-900 text-emerald-400 whitespace-nowrap">
-                        {aggregationMode === 'blok' ? `JUMLAH BESAR (${blockData.length} BLOK)` : 'JUMLAH BESAR'}
-                      </td>
-                      <td className="p-3 text-center text-slate-300">
-                        {aggregationMode === 'blok' ? `${filteredSessions.length} Sesi` : '-'}
-                      </td>
-                      <td className="p-3 text-center">{analyticsStats.platformCount}</td>
-                      <td className="p-3 text-right text-emerald-400">{analyticsStats.tandanDiGred.toLocaleString()}</td>
-                      <td className="p-3 text-right text-rose-400">{analyticsStats.tandanDiTinggal.toLocaleString()}</td>
-                      <td className="p-3 text-right text-rose-400">{analyticsStats.pctTinggal.toFixed(1)}%</td>
-                      <td className="p-3 text-right text-sky-400">{analyticsStats.tandanDiBawa.toLocaleString()}</td>
-                      <td className="p-3 text-right text-emerald-300">{analyticsStats.masak.toLocaleString()}</td>
-                      <td className="p-3 text-right text-emerald-300">{analyticsStats.pctMasak.toFixed(1)}%</td>
-                      <td className="p-3 text-right text-rose-300">{analyticsStats.rejectMuda.toLocaleString()}</td>
-                      <td className="p-3 text-right text-pink-300">{analyticsStats.rejectPeram.toLocaleString()}</td>
-                      <td className="p-3 text-right text-amber-300">{analyticsStats.penaltiMengkal.toLocaleString()}</td>
-                      <td className="p-3 text-right text-red-400">{analyticsStats.penaltiBusuk.toLocaleString()}</td>
-                      <td className="p-3 text-right text-slate-300">{analyticsStats.penaltiKosong.toLocaleString()}</td>
-                      <td className="p-3 text-right text-yellow-300">{analyticsStats.kotor.toLocaleString()}</td>
-                      <td className="p-3 text-right text-purple-300">{analyticsStats.lama.toLocaleString()}</td>
-                      <td className="p-3 text-right text-amber-400">{analyticsStats.dura.toLocaleString()}</td>
-                      <td className="p-3 text-right text-indigo-300">{analyticsStats.tangkaiPanjang.toLocaleString()}</td>
-                      <td className="p-3 text-right text-slate-300">{analyticsStats.seranganTikus.toLocaleString()}</td>
-                    </tr>
+                    {(() => {
+                      const totGred = analyticsStats.tandanDiGred || 1;
+                      const totMudaPct = (analyticsStats.rejectMuda / totGred) * 100;
+                      const totPeramPct = (analyticsStats.rejectPeram / totGred) * 100;
+                      const totMengkalPct = (analyticsStats.penaltiMengkal / totGred) * 100;
+                      const totBusukPct = (analyticsStats.penaltiBusuk / totGred) * 100;
+                      const totKosongPct = (analyticsStats.penaltiKosong / totGred) * 100;
+                      const totKotorPct = (analyticsStats.kotor / totGred) * 100;
+                      const totLamaPct = (analyticsStats.lama / totGred) * 100;
+                      const totDuraPct = (analyticsStats.dura / totGred) * 100;
+                      const totTangkaiPanjangPct = (analyticsStats.tangkaiPanjang / totGred) * 100;
+                      const totSeranganTikusPct = (analyticsStats.seranganTikus / totGred) * 100;
+
+                      return (
+                        <tr className="bg-slate-900 text-white font-black text-[10.5px] border-t-2 border-slate-700">
+                          <td className="py-2 px-2.5 pl-3 sticky left-0 z-10 bg-slate-900 text-emerald-400 whitespace-nowrap border-r border-slate-700">
+                            {aggregationMode === 'blok' ? `JUMLAH BESAR (${blockData.length} BLOK)` : 'JUMLAH BESAR'}
+                          </td>
+                          <td className="py-2 px-2 text-center text-slate-300">
+                            {aggregationMode === 'blok' ? `${filteredSessions.length} Sesi` : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-center">{analyticsStats.platformCount}</td>
+                          <td className="py-2 px-2 text-right text-emerald-400">{analyticsStats.tandanDiGred.toLocaleString()}</td>
+                          <td className="py-2 px-2 text-right text-rose-400">{analyticsStats.tandanDiTinggal.toLocaleString()}</td>
+                          <td className="py-2 px-2 text-right text-rose-400">{analyticsStats.pctTinggal.toFixed(1)}%</td>
+                          <td className="py-2 px-2 text-right text-sky-400">{analyticsStats.tandanDiBawa.toLocaleString()}</td>
+                          <td className="py-2 px-2 text-right text-emerald-300">{analyticsStats.masak.toLocaleString()}</td>
+                          <td className="py-2 px-2 text-right text-emerald-300">{analyticsStats.pctMasak.toFixed(1)}%</td>
+                          <td className="py-2 px-2 text-right text-rose-300 border-l border-rose-900/60">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.rejectMuda.toLocaleString()}</span>
+                              <span className="text-[9px] text-rose-400 font-semibold">{totMudaPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-pink-300">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.rejectPeram.toLocaleString()}</span>
+                              <span className="text-[9px] text-pink-400 font-semibold">{totPeramPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-amber-300 border-r border-amber-900/60">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.penaltiMengkal.toLocaleString()}</span>
+                              <span className="text-[9px] text-amber-400 font-semibold">{totMengkalPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-red-400">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.penaltiBusuk.toLocaleString()}</span>
+                              <span className="text-[9px] text-red-400 font-semibold">{totBusukPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-slate-300">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.penaltiKosong.toLocaleString()}</span>
+                              <span className="text-[9px] text-slate-400 font-semibold">{totKosongPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-yellow-300">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.kotor.toLocaleString()}</span>
+                              <span className="text-[9px] text-yellow-400 font-semibold">{totKotorPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-purple-300">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.lama.toLocaleString()}</span>
+                              <span className="text-[9px] text-purple-400 font-semibold">{totLamaPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-amber-400">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.dura.toLocaleString()}</span>
+                              <span className="text-[9px] text-amber-400 font-semibold">{totDuraPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-indigo-300">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.tangkaiPanjang.toLocaleString()}</span>
+                              <span className="text-[9px] text-indigo-400 font-semibold">{totTangkaiPanjangPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-right text-slate-300">
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>{analyticsStats.seranganTikus.toLocaleString()}</span>
+                              <span className="text-[9px] text-slate-400 font-semibold">{totSeranganTikusPct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })()}
                   </tfoot>
                 </table>
               </div>
