@@ -129,6 +129,12 @@ app.use("/ai/ocr-receipt", visionRoutes);
 app.use("/ocr-receipt", visionRoutes);
 app.use("/api/ai", aiRoutes);
 
+// Support direct device approval links regardless of prefix
+app.get(['/approve-link', '/devices/approve-link'], (req, res) => {
+  const query = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+  res.redirect(`/api/devices/approve-link${query}`);
+});
+
 const apiRouter = express.Router();
 
 // DEBUG: Log all incoming requests for troubleshooting route 404s

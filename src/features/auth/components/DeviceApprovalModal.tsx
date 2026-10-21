@@ -134,7 +134,7 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
         ? new URL(approvalUrl, window.location.origin).toString()
         : (currentApprovalUrl
             ? new URL(currentApprovalUrl, window.location.origin).toString()
-            : `${window.location.origin}/api/devices/approve-link`))
+            : `${window.location.origin}/api/devices/approve-link?deviceId=${encodeURIComponent(targetDeviceId)}`))
     : '';
 
   // Pre-formatted WhatsApp Message
@@ -153,8 +153,10 @@ Saya memohon kebenaran akses sistem iPDS bagi peranti baharu ini:
 🏢 *Ladang*: FPMSB TUNGGAL
 🕒 *Masa*: ${new Date().toLocaleString('ms-MY')}
 
-👉 *Sila klik pautan di bawah untuk meluluskan peranti ini:*
-${urlToUse}`;
+👉 *Sila tekan pautan di bawah pada telefon Tuan untuk meluluskan peranti ini secara terus:*
+${urlToUse}
+
+*(Nota untuk FC: Tekan pautan di atas untuk meluluskan permohonan peranti staf ini secara terus)*`;
   };
 
   // Open WhatsApp with pre-filled message directly to FC / Admin number
@@ -187,7 +189,8 @@ ${urlToUse}`;
         dynamicUrl = new URL(data.approvalUrl, window.location.origin).toString();
       }
     } catch (err) {
-      // Use fallback
+      // Use fallback with deviceId
+      dynamicUrl = `${window.location.origin}/api/devices/approve-link?deviceId=${encodeURIComponent(targetDeviceId)}`;
     }
 
     const message = generateWhatsAppMessage(dynamicUrl);
@@ -230,7 +233,9 @@ ${urlToUse}`;
           setCurrentApprovalUrl(data.approvalUrl);
           dynamicUrl = new URL(data.approvalUrl, window.location.origin).toString();
         }
-      } catch {}
+      } catch {
+        dynamicUrl = `${window.location.origin}/api/devices/approve-link?deviceId=${encodeURIComponent(targetDeviceId)}`;
+      }
 
       const message = generateWhatsAppMessage(dynamicUrl);
       await navigator.clipboard.writeText(message);

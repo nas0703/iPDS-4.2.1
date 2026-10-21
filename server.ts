@@ -82,6 +82,12 @@ async function startServer() {
   // Mount API router strictly under /api so other paths fall through to Vite
   app.use("/api", apiRouter);
 
+  // Support direct device approval links regardless of prefix
+  app.get(['/approve-link', '/devices/approve-link'], (req, res) => {
+    const query = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+    res.redirect(`/api/devices/approve-link${query}`);
+  });
+
   // PWA Manifest and Icons No-Cache Delivery
   app.get('/manifest.json', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

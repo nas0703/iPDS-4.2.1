@@ -173,6 +173,19 @@ export function App() {
     }
   }, [isDarkMode]);
 
+  // Instant redirect if opened with capability token from WhatsApp
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const cap = searchParams.get("cap") || searchParams.get("approve_cap");
+        if (cap) {
+          window.location.replace(`/api/devices/approve-link?cap=${encodeURIComponent(cap)}`);
+        }
+      } catch {}
+    }
+  }, []);
+
   // Auth Hook
   const {
     authRole,
