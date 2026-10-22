@@ -1,6 +1,1082 @@
 {
   "jobs": [
     {
+      "id": "7ab71bdb-ea4a-4503-9055-b1b3f71ff082",
+      "type": "GRADING_TASK_GENERATION",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "system:vercel-cron",
+      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
+      "created_by_role": "rc",
+      "idempotency_key": "grading-generation:FPM_TUNGGAL:2026-10-21",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "task_date": "2026-10-21"
+      },
+      "result": {
+        "taskDate": "2026-10-21",
+        "sourceWindowStart": "2026-10-14",
+        "sourceWindowEnd": "2026-10-20",
+        "taskCount": 5,
+        "estate_id": "FPM_TUNGGAL"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:26.856Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:26.856Z",
+      "updated_at": "2026-10-21T12:52:30.483Z",
+      "started_at": "2026-10-21T12:52:26.872Z",
+      "completed_at": "2026-10-21T12:52:30.483Z"
+    },
+    {
+      "id": "fab82f72-c98f-452a-9f5e-80d90f64ceb6",
+      "type": "AI_MORNING_BRIEFING",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "scope": "CRON_BATCH_TEST"
+      },
+      "result": {
+        "briefing": "Ringkasan Pagi Automatik [FPM_TUNGGAL]: Prestasi tuaian berada pada tahap optimum. Rekod penerimaan BTS mencatatkan pematuhan 98.4%.",
+        "generatedAt": "2026-10-21T12:52:30.574Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:26.828Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:26.828Z",
+      "updated_at": "2026-10-21T12:52:30.574Z",
+      "started_at": "2026-10-21T12:52:30.505Z",
+      "completed_at": "2026-10-21T12:52:30.574Z"
+    },
+    {
+      "id": "656890be-4ecf-4dbf-9e5b-c72c8f4e1d2d",
+      "type": "CRASH_SIMULATION_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "FAILED",
+      "priority": "DEFAULT",
+      "payload": {},
+      "result": null,
+      "error_message": "All 1 attempts failed. Last error: Fatal unhandled runtime exception inside task handler",
+      "attempts": 1,
+      "max_attempts": 1,
+      "available_at": "2026-10-21T12:52:22.331Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:22.331Z",
+      "updated_at": "2026-10-21T12:52:22.356Z",
+      "started_at": "2026-10-21T12:52:22.348Z",
+      "failed_at": "2026-10-21T12:52:22.356Z"
+    },
+    {
+      "id": "c565c008-515a-4bad-9b88-7bfde0badd70",
+      "type": "AI_OCR_PAGE",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "CANCELLED",
+      "priority": "DEFAULT",
+      "payload": {
+        "pageNum": 200
+      },
+      "result": null,
+      "error_message": null,
+      "attempts": 0,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:22.316Z",
+      "lease_version": 5,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:22.316Z",
+      "updated_at": "2026-10-21T12:52:22.324Z"
+    },
+    {
+      "id": "7c584e43-d79b-438d-a5de-09711164bb69",
+      "type": "FAIL_ONCE_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "failed-idemp-1792587142259",
+      "status": "FAILED",
+      "priority": "DEFAULT",
+      "payload": {},
+      "result": null,
+      "error_message": "All 1 attempts failed. Last error: Forced single failure for idempotency test",
+      "attempts": 1,
+      "max_attempts": 1,
+      "available_at": "2026-10-21T12:52:22.259Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:22.259Z",
+      "updated_at": "2026-10-21T12:52:22.280Z",
+      "started_at": "2026-10-21T12:52:22.270Z",
+      "failed_at": "2026-10-21T12:52:22.280Z"
+    },
+    {
+      "id": "a6b42f8c-595d-47ab-9abd-c6425a8d589c",
+      "type": "SLIDE_DECK_EXPORT",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "cancel-idemp-1792587142241",
+      "status": "CANCELLED",
+      "priority": "DEFAULT",
+      "payload": {
+        "title": "To Be Cancelled"
+      },
+      "result": null,
+      "error_message": null,
+      "attempts": 0,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:22.241Z",
+      "lease_version": 0,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:22.241Z",
+      "updated_at": "2026-10-21T12:52:22.249Z"
+    },
+    {
+      "id": "6c04d6d4-bba2-4d9b-a288-734ea8f8c407",
+      "type": "AI_OCR_PAGE",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "completed-idemp-1792587142009",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "pageNum": 1
+      },
+      "result": {
+        "ocrText": "[OCR PROCESSED ASYNC] Dokumen: Dokumen (Muka surat 1/1) - Imbasan berjaya diselesaikan bagi ladang FPM_TUNGGAL.",
+        "processedAt": "2026-10-21T12:52:22.219Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:22.010Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:22.010Z",
+      "updated_at": "2026-10-21T12:52:22.219Z",
+      "started_at": "2026-10-21T12:52:22.131Z",
+      "completed_at": "2026-10-21T12:52:22.219Z"
+    },
+    {
+      "id": "a6012828-f0af-44c5-b4d7-22b77ca4925b",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "shared-idemp-1792587141990",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "scope": "TUNGGAL_REPORT"
+      },
+      "result": {
+        "reportType": "DAILY_FFB_SUMMARY",
+        "downloadUrl": "/api/reports/download/a6012828-f0af-44c5-b4d7-22b77ca4925b",
+        "summary": "Laporan DAILY_FFB_SUMMARY bagi ladang FPM_TUNGGAL berjaya dijana.",
+        "generatedAt": "2026-10-21T12:52:22.123Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.990Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.990Z",
+      "updated_at": "2026-10-21T12:52:22.123Z",
+      "started_at": "2026-10-21T12:52:22.042Z",
+      "completed_at": "2026-10-21T12:52:22.123Z"
+    },
+    {
+      "id": "ce79fa4c-1565-4998-bfcc-3055fd067f29",
+      "type": "BATCH_DATA_SYNC",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "test": "SURVIVE_RESTART"
+      },
+      "result": {
+        "syncedCount": 0,
+        "status": "SUCCESS",
+        "syncedAt": "2026-10-21T12:52:22.096Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.982Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.982Z",
+      "updated_at": "2026-10-21T12:52:22.096Z",
+      "started_at": "2026-10-21T12:52:22.034Z",
+      "completed_at": "2026-10-21T12:52:22.096Z"
+    },
+    {
+      "id": "18d43f86-9434-44af-84ee-72f5a1e36409",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "race-idemp-1792587141956",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "reportType": "CONCURRENT_IDEMP"
+      },
+      "result": {
+        "reportType": "CONCURRENT_IDEMP",
+        "downloadUrl": "/api/reports/download/18d43f86-9434-44af-84ee-72f5a1e36409",
+        "summary": "Laporan CONCURRENT_IDEMP bagi ladang FPM_TUNGGAL berjaya dijana.",
+        "generatedAt": "2026-10-21T12:52:22.108Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.956Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.956Z",
+      "updated_at": "2026-10-21T12:52:22.108Z",
+      "started_at": "2026-10-21T12:52:22.026Z",
+      "completed_at": "2026-10-21T12:52:22.108Z"
+    },
+    {
+      "id": "e5695b1b-724d-4a22-96eb-5cc78e1f83e1",
+      "type": "SLIDE_DECK_EXPORT",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "CANCELLED",
+      "priority": "DEFAULT",
+      "payload": {
+        "title": "Cancel Queued Test"
+      },
+      "result": null,
+      "error_message": null,
+      "attempts": 0,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.942Z",
+      "lease_version": 0,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.942Z",
+      "updated_at": "2026-10-21T12:52:21.949Z"
+    },
+    {
+      "id": "851f67cc-aead-45f4-b4be-fe65a7ff6cf1",
+      "type": "AI_OCR_PAGE",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "CANCELLED",
+      "priority": "DEFAULT",
+      "payload": {
+        "pageNum": 101
+      },
+      "result": null,
+      "error_message": null,
+      "attempts": 0,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.925Z",
+      "lease_version": 0,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.925Z",
+      "updated_at": "2026-10-21T12:52:21.933Z"
+    },
+    {
+      "id": "cce8ddb6-6662-464f-b0d7-b6354caf0830",
+      "type": "BATCH_DATA_SYNC",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "PROCESSING",
+      "priority": "DEFAULT",
+      "payload": {
+        "records": [
+          1,
+          2,
+          3
+        ]
+      },
+      "result": null,
+      "error_message": null,
+      "attempts": 2,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.909Z",
+      "lease_version": 2,
+      "locked_until": "2026-10-21T12:53:21.909Z",
+      "locked_by": "recovery-worker",
+      "created_at": "2026-10-21T12:52:21.899Z",
+      "updated_at": "2026-10-21T12:52:21.909Z",
+      "started_at": "2026-10-21T12:52:21.909Z"
+    },
+    {
+      "id": "02b6bbf5-8f0c-493e-8df4-31ee315eb1f6",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "PROCESSING",
+      "priority": "DEFAULT",
+      "payload": {
+        "reportType": "PARTITION_TEST_2"
+      },
+      "result": null,
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.870Z",
+      "lease_version": 1,
+      "locked_until": "2026-10-21T12:53:21.892Z",
+      "locked_by": "worker-beta",
+      "created_at": "2026-10-21T12:52:21.870Z",
+      "updated_at": "2026-10-21T12:52:21.892Z",
+      "started_at": "2026-10-21T12:52:21.892Z"
+    },
+    {
+      "id": "37c0f928-432f-4b9a-8da1-65b1b5c74d6b",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "PROCESSING",
+      "priority": "DEFAULT",
+      "payload": {
+        "reportType": "PARTITION_TEST_1"
+      },
+      "result": null,
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.862Z",
+      "lease_version": 1,
+      "locked_until": "2026-10-21T12:53:21.879Z",
+      "locked_by": "worker-alpha",
+      "created_at": "2026-10-21T12:52:21.862Z",
+      "updated_at": "2026-10-21T12:52:21.879Z",
+      "started_at": "2026-10-21T12:52:21.879Z"
+    },
+    {
+      "id": "8bdf13cd-efab-4304-9284-969eb88039c6",
+      "type": "AI_OCR_PAGE",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "CANCELLED",
+      "priority": "DEFAULT",
+      "payload": {
+        "pageNum": 99
+      },
+      "result": null,
+      "error_message": null,
+      "attempts": 0,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.846Z",
+      "lease_version": 0,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.846Z",
+      "updated_at": "2026-10-21T12:52:21.854Z"
+    },
+    {
+      "id": "55570919-b55e-4542-be54-5e819d97e871",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 19
+      },
+      "result": {
+        "processedIndex": 19
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.222Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.222Z",
+      "updated_at": "2026-10-21T12:52:21.827Z",
+      "started_at": "2026-10-21T12:52:21.776Z",
+      "completed_at": "2026-10-21T12:52:21.827Z"
+    },
+    {
+      "id": "2a63f236-e3fc-467d-9dc5-a8b70156e329",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 18
+      },
+      "result": {
+        "processedIndex": 18
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.210Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.210Z",
+      "updated_at": "2026-10-21T12:52:21.526Z",
+      "started_at": "2026-10-21T12:52:21.464Z",
+      "completed_at": "2026-10-21T12:52:21.526Z"
+    },
+    {
+      "id": "07543bf5-4e6b-445c-aee5-27a018056993",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 17
+      },
+      "result": {
+        "processedIndex": 17
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.204Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.204Z",
+      "updated_at": "2026-10-21T12:52:21.803Z",
+      "started_at": "2026-10-21T12:52:21.748Z",
+      "completed_at": "2026-10-21T12:52:21.803Z"
+    },
+    {
+      "id": "e7b6a60f-d9ec-4d77-ba2c-4e2cd93daf47",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 16
+      },
+      "result": {
+        "processedIndex": 16
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.197Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.197Z",
+      "updated_at": "2026-10-21T12:52:21.512Z",
+      "started_at": "2026-10-21T12:52:21.443Z",
+      "completed_at": "2026-10-21T12:52:21.512Z"
+    },
+    {
+      "id": "1a6c2809-cd2a-4650-b34d-10004a4b3b6f",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 15
+      },
+      "result": {
+        "processedIndex": 15
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.189Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.189Z",
+      "updated_at": "2026-10-21T12:52:21.785Z",
+      "started_at": "2026-10-21T12:52:21.730Z",
+      "completed_at": "2026-10-21T12:52:21.785Z"
+    },
+    {
+      "id": "c6922462-0db6-48d9-9811-24644dc13ad4",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 14
+      },
+      "result": {
+        "processedIndex": 14
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.182Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.182Z",
+      "updated_at": "2026-10-21T12:52:21.481Z",
+      "started_at": "2026-10-21T12:52:21.425Z",
+      "completed_at": "2026-10-21T12:52:21.481Z"
+    },
+    {
+      "id": "8a7e0811-f5f9-41d8-b0d2-2d20df582587",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 13
+      },
+      "result": {
+        "processedIndex": 13
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.162Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.162Z",
+      "updated_at": "2026-10-21T12:52:21.763Z",
+      "started_at": "2026-10-21T12:52:21.703Z",
+      "completed_at": "2026-10-21T12:52:21.763Z"
+    },
+    {
+      "id": "4268ad85-c896-4f05-8fc1-5217f4014441",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 12
+      },
+      "result": {
+        "processedIndex": 12
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.154Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.154Z",
+      "updated_at": "2026-10-21T12:52:21.457Z",
+      "started_at": "2026-10-21T12:52:21.391Z",
+      "completed_at": "2026-10-21T12:52:21.457Z"
+    },
+    {
+      "id": "3a50e875-11c5-4aea-b74d-b91b58181bf4",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 11
+      },
+      "result": {
+        "processedIndex": 11
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.146Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.146Z",
+      "updated_at": "2026-10-21T12:52:21.740Z",
+      "started_at": "2026-10-21T12:52:21.686Z",
+      "completed_at": "2026-10-21T12:52:21.740Z"
+    },
+    {
+      "id": "5d2ff5a3-00d2-41cc-9386-0885c0143d55",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 10
+      },
+      "result": {
+        "processedIndex": 10
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.138Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.138Z",
+      "updated_at": "2026-10-21T12:52:21.435Z",
+      "started_at": "2026-10-21T12:52:21.366Z",
+      "completed_at": "2026-10-21T12:52:21.435Z"
+    },
+    {
+      "id": "c6b3e9c3-c00d-40d2-bbca-dbac5461cb91",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 9
+      },
+      "result": {
+        "processedIndex": 9
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.128Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.128Z",
+      "updated_at": "2026-10-21T12:52:21.722Z",
+      "started_at": "2026-10-21T12:52:21.641Z",
+      "completed_at": "2026-10-21T12:52:21.722Z"
+    },
+    {
+      "id": "7863fe3f-38ce-46c4-96ef-3a5d8c8ac10e",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 8
+      },
+      "result": {
+        "processedIndex": 8
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.119Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.119Z",
+      "updated_at": "2026-10-21T12:52:21.417Z",
+      "started_at": "2026-10-21T12:52:21.346Z",
+      "completed_at": "2026-10-21T12:52:21.417Z"
+    },
+    {
+      "id": "f21e51cf-0e65-4811-b596-f96d7d5a3458",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 7
+      },
+      "result": {
+        "processedIndex": 7
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.110Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.110Z",
+      "updated_at": "2026-10-21T12:52:21.695Z",
+      "started_at": "2026-10-21T12:52:21.628Z",
+      "completed_at": "2026-10-21T12:52:21.695Z"
+    },
+    {
+      "id": "be849296-e338-44e8-a1dc-1429fee64ada",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 6
+      },
+      "result": {
+        "processedIndex": 6
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.100Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.100Z",
+      "updated_at": "2026-10-21T12:52:21.381Z",
+      "started_at": "2026-10-21T12:52:21.307Z",
+      "completed_at": "2026-10-21T12:52:21.381Z"
+    },
+    {
+      "id": "bb7a91bb-57a9-46b7-864b-ca11344db493",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 5
+      },
+      "result": {
+        "processedIndex": 5
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.090Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.090Z",
+      "updated_at": "2026-10-21T12:52:21.677Z",
+      "started_at": "2026-10-21T12:52:21.611Z",
+      "completed_at": "2026-10-21T12:52:21.677Z"
+    },
+    {
+      "id": "6c68dc8b-158b-4760-a429-6feadf4b5032",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 4
+      },
+      "result": {
+        "processedIndex": 4
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.082Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.082Z",
+      "updated_at": "2026-10-21T12:52:21.355Z",
+      "started_at": "2026-10-21T12:52:21.281Z",
+      "completed_at": "2026-10-21T12:52:21.355Z"
+    },
+    {
+      "id": "e3775c00-a99b-4a34-ae94-217e110775e0",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 3
+      },
+      "result": {
+        "processedIndex": 3
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.072Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.072Z",
+      "updated_at": "2026-10-21T12:52:21.621Z",
+      "started_at": "2026-10-21T12:52:21.566Z",
+      "completed_at": "2026-10-21T12:52:21.621Z"
+    },
+    {
+      "id": "a2e3d287-5b1c-42b3-9292-0528b086aa92",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 2
+      },
+      "result": {
+        "processedIndex": 2
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.063Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.063Z",
+      "updated_at": "2026-10-21T12:52:21.338Z",
+      "started_at": "2026-10-21T12:52:21.253Z",
+      "completed_at": "2026-10-21T12:52:21.338Z"
+    },
+    {
+      "id": "881d28cb-6621-49d6-9141-8fd1875ca4db",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "index": 1
+      },
+      "result": {
+        "processedIndex": 1
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.055Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.055Z",
+      "updated_at": "2026-10-21T12:52:21.600Z",
+      "started_at": "2026-10-21T12:52:21.535Z",
+      "completed_at": "2026-10-21T12:52:21.600Z"
+    },
+    {
+      "id": "be8cb167-747b-4b4b-93bd-d93f02a44391",
+      "type": "LOAD_TEST_JOB",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "payload": {
+        "index": 0
+      },
+      "result": {
+        "processedIndex": 0
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:21.038Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:21.038Z",
+      "updated_at": "2026-10-21T12:52:21.299Z",
+      "started_at": "2026-10-21T12:52:21.246Z",
+      "completed_at": "2026-10-21T12:52:21.299Z"
+    },
+    {
+      "id": "29f43694-c488-4953-b4ca-21c67e625b58",
+      "type": "TEST_PERMANENT_FAIL",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "FAILED",
+      "priority": "DEFAULT",
+      "payload": {},
+      "result": null,
+      "error_message": "All 2 attempts failed. Last error: Fatal database constraint violation",
+      "attempts": 2,
+      "max_attempts": 2,
+      "available_at": "2026-10-21T12:52:20.990Z",
+      "lease_version": 2,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:19.774Z",
+      "updated_at": "2026-10-21T12:52:21.015Z",
+      "started_at": "2026-10-21T12:52:19.795Z",
+      "failed_at": "2026-10-21T12:52:21.015Z"
+    },
+    {
+      "id": "aeb499f8-7a6b-41c1-bc6a-896db72dbbb2",
+      "type": "TEST_TRANSIENT_RETRY",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {},
+      "result": {
+        "success": true,
+        "attempts": 2
+      },
+      "error_message": "Attempt 1 failed: Transient network timeout simulating API delay. Retrying...",
+      "attempts": 2,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:19.723Z",
+      "lease_version": 2,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:18.648Z",
+      "updated_at": "2026-10-21T12:52:19.747Z",
+      "started_at": "2026-10-21T12:52:18.668Z",
+      "completed_at": "2026-10-21T12:52:19.747Z"
+    },
+    {
+      "id": "f62d8af2-f384-4b42-98f3-10bf3e692d34",
+      "type": "REPORT_GENERATION",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "idempotency_key": "idemp-key-1792587138641",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "reportType": "MONTHLY_HARVEST"
+      },
+      "result": {
+        "reportType": "MONTHLY_HARVEST",
+        "downloadUrl": "/api/reports/download/f62d8af2-f384-4b42-98f3-10bf3e692d34",
+        "summary": "Laporan MONTHLY_HARVEST bagi ladang FPM_TUNGGAL berjaya dijana.",
+        "generatedAt": "2026-10-21T12:52:18.718Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:18.641Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:18.641Z",
+      "updated_at": "2026-10-21T12:52:18.718Z",
+      "started_at": "2026-10-21T12:52:18.659Z",
+      "completed_at": "2026-10-21T12:52:18.718Z"
+    },
+    {
+      "id": "b985a524-36cc-47e4-9502-9ce67538f0bb",
+      "type": "AI_OCR_PAGE",
+      "estate_id": "FPM_TUNGGAL",
+      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
+      "created_by_operator_id": "STF-TGL-01",
+      "created_by_role": "staff",
+      "status": "COMPLETED",
+      "priority": "DEFAULT",
+      "payload": {
+        "fileName": "Manual_Pengurusan_Rumpai.pdf",
+        "pageNum": 3,
+        "totalPages": 10
+      },
+      "result": {
+        "ocrText": "[OCR PROCESSED ASYNC] Dokumen: Manual_Pengurusan_Rumpai.pdf (Muka surat 3/10) - Imbasan berjaya diselesaikan bagi ladang FPM_TUNGGAL.",
+        "processedAt": "2026-10-21T12:52:18.620Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
+      "error_message": null,
+      "attempts": 1,
+      "max_attempts": 3,
+      "available_at": "2026-10-21T12:52:17.698Z",
+      "lease_version": 1,
+      "locked_until": null,
+      "locked_by": null,
+      "created_at": "2026-10-21T12:52:17.698Z",
+      "updated_at": "2026-10-21T12:52:18.620Z",
+      "started_at": "2026-10-21T12:52:18.532Z",
+      "completed_at": "2026-10-21T12:52:18.620Z"
+    },
+    {
       "id": "a3fd147a-4463-4554-bf2c-ffec33dd0943",
       "type": "AI_MORNING_BRIEFING",
       "estate_id": "FPM_TUNGGAL",
@@ -300,7 +1376,7 @@
       "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
       "created_by_operator_id": "STF-TGL-01",
       "created_by_role": "staff",
-      "status": "PROCESSING",
+      "status": "COMPLETED",
       "priority": "DEFAULT",
       "payload": {
         "records": [
@@ -309,17 +1385,23 @@
           3
         ]
       },
-      "result": null,
+      "result": {
+        "syncedCount": 3,
+        "status": "SUCCESS",
+        "syncedAt": "2026-10-21T12:52:18.542Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
       "error_message": null,
-      "attempts": 2,
+      "attempts": 3,
       "max_attempts": 3,
-      "available_at": "2026-10-17T14:17:42.271Z",
-      "lease_version": 2,
-      "locked_until": "2026-10-17T14:18:42.271Z",
-      "locked_by": "recovery-worker",
+      "available_at": "2026-10-21T12:52:18.428Z",
+      "lease_version": 4,
+      "locked_until": null,
+      "locked_by": null,
       "created_at": "2026-10-17T14:17:42.259Z",
-      "updated_at": "2026-10-17T14:17:42.271Z",
-      "started_at": "2026-10-17T14:17:42.271Z"
+      "updated_at": "2026-10-21T12:52:18.542Z",
+      "started_at": "2026-10-17T14:17:42.271Z",
+      "completed_at": "2026-10-21T12:52:18.542Z"
     },
     {
       "id": "c9b74839-fa15-48fd-bb53-e0636114b264",
@@ -328,22 +1410,29 @@
       "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
       "created_by_operator_id": "STF-TGL-01",
       "created_by_role": "staff",
-      "status": "PROCESSING",
+      "status": "COMPLETED",
       "priority": "DEFAULT",
       "payload": {
         "reportType": "PARTITION_TEST_2"
       },
-      "result": null,
+      "result": {
+        "reportType": "PARTITION_TEST_2",
+        "downloadUrl": "/api/reports/download/c9b74839-fa15-48fd-bb53-e0636114b264",
+        "summary": "Laporan PARTITION_TEST_2 bagi ladang FPM_TUNGGAL berjaya dijana.",
+        "generatedAt": "2026-10-21T12:52:18.552Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
       "error_message": null,
-      "attempts": 1,
+      "attempts": 2,
       "max_attempts": 3,
-      "available_at": "2026-10-17T14:17:42.234Z",
-      "lease_version": 1,
-      "locked_until": "2026-10-17T14:18:42.251Z",
-      "locked_by": "worker-beta",
+      "available_at": "2026-10-21T12:52:18.428Z",
+      "lease_version": 3,
+      "locked_until": null,
+      "locked_by": null,
       "created_at": "2026-10-17T14:17:42.234Z",
-      "updated_at": "2026-10-17T14:17:42.251Z",
-      "started_at": "2026-10-17T14:17:42.251Z"
+      "updated_at": "2026-10-21T12:52:18.552Z",
+      "started_at": "2026-10-17T14:17:42.251Z",
+      "completed_at": "2026-10-21T12:52:18.552Z"
     },
     {
       "id": "7af04744-dc19-4a3e-af68-61f0ca58d8c5",
@@ -352,22 +1441,29 @@
       "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
       "created_by_operator_id": "STF-TGL-01",
       "created_by_role": "staff",
-      "status": "PROCESSING",
+      "status": "COMPLETED",
       "priority": "DEFAULT",
       "payload": {
         "reportType": "PARTITION_TEST_1"
       },
-      "result": null,
+      "result": {
+        "reportType": "PARTITION_TEST_1",
+        "downloadUrl": "/api/reports/download/7af04744-dc19-4a3e-af68-61f0ca58d8c5",
+        "summary": "Laporan PARTITION_TEST_1 bagi ladang FPM_TUNGGAL berjaya dijana.",
+        "generatedAt": "2026-10-21T12:52:18.523Z",
+        "estate_id": "FPM_TUNGGAL"
+      },
       "error_message": null,
-      "attempts": 1,
+      "attempts": 2,
       "max_attempts": 3,
-      "available_at": "2026-10-17T14:17:42.225Z",
-      "lease_version": 1,
-      "locked_until": "2026-10-17T14:18:42.243Z",
-      "locked_by": "worker-alpha",
+      "available_at": "2026-10-21T12:52:18.428Z",
+      "lease_version": 3,
+      "locked_until": null,
+      "locked_by": null,
       "created_at": "2026-10-17T14:17:42.225Z",
-      "updated_at": "2026-10-17T14:17:42.243Z",
-      "started_at": "2026-10-17T14:17:42.243Z"
+      "updated_at": "2026-10-21T12:52:18.523Z",
+      "started_at": "2026-10-17T14:17:42.243Z",
+      "completed_at": "2026-10-21T12:52:18.523Z"
     },
     {
       "id": "01ac817c-887b-42fb-8bbb-5ed506e61d33",
@@ -12557,1103 +13653,7 @@
       "updated_at": "2026-10-12T12:52:08.419Z",
       "started_at": "2026-10-12T12:52:08.309Z",
       "completed_at": "2026-10-12T12:52:08.419Z"
-    },
-    {
-      "id": "85f8ecea-1883-49e9-b0fe-95018f3cbeec",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 9
-      },
-      "result": {
-        "processedIndex": 9
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.952Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.952Z",
-      "updated_at": "2026-10-12T12:52:08.850Z",
-      "started_at": "2026-10-12T12:52:08.724Z",
-      "completed_at": "2026-10-12T12:52:08.850Z"
-    },
-    {
-      "id": "369dbe78-93d2-4d61-a24b-284284d29c46",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 8
-      },
-      "result": {
-        "processedIndex": 8
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.943Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.943Z",
-      "updated_at": "2026-10-12T12:52:08.374Z",
-      "started_at": "2026-10-12T12:52:08.259Z",
-      "completed_at": "2026-10-12T12:52:08.374Z"
-    },
-    {
-      "id": "f07d1a0f-1d5b-4884-bd35-828c48b9e250",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 7
-      },
-      "result": {
-        "processedIndex": 7
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.905Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.905Z",
-      "updated_at": "2026-10-12T12:52:08.799Z",
-      "started_at": "2026-10-12T12:52:08.693Z",
-      "completed_at": "2026-10-12T12:52:08.799Z"
-    },
-    {
-      "id": "18f5f228-734a-49bd-9334-f2cf8402f2f3",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 6
-      },
-      "result": {
-        "processedIndex": 6
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.893Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.893Z",
-      "updated_at": "2026-10-12T12:52:08.342Z",
-      "started_at": "2026-10-12T12:52:08.199Z",
-      "completed_at": "2026-10-12T12:52:08.342Z"
-    },
-    {
-      "id": "9c58e7de-fbe2-4456-bd2b-0a01c114f5db",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 5
-      },
-      "result": {
-        "processedIndex": 5
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.882Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.882Z",
-      "updated_at": "2026-10-12T12:52:08.767Z",
-      "started_at": "2026-10-12T12:52:08.655Z",
-      "completed_at": "2026-10-12T12:52:08.767Z"
-    },
-    {
-      "id": "b8404b7b-3d87-4818-8ff7-0339d4129e04",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 4
-      },
-      "result": {
-        "processedIndex": 4
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.871Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.871Z",
-      "updated_at": "2026-10-12T12:52:08.291Z",
-      "started_at": "2026-10-12T12:52:08.160Z",
-      "completed_at": "2026-10-12T12:52:08.291Z"
-    },
-    {
-      "id": "4e7cdfe1-2915-4b9e-b6fc-6fc6c37178f9",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 3
-      },
-      "result": {
-        "processedIndex": 3
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.862Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.862Z",
-      "updated_at": "2026-10-12T12:52:08.683Z",
-      "started_at": "2026-10-12T12:52:08.586Z",
-      "completed_at": "2026-10-12T12:52:08.683Z"
-    },
-    {
-      "id": "3d032b53-52eb-43de-ab48-b59567c9b101",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 2
-      },
-      "result": {
-        "processedIndex": 2
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.852Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.852Z",
-      "updated_at": "2026-10-12T12:52:08.233Z",
-      "started_at": "2026-10-12T12:52:08.148Z",
-      "completed_at": "2026-10-12T12:52:08.233Z"
-    },
-    {
-      "id": "b1976998-0ee6-4fb8-bb73-6a4f754078ab",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 1
-      },
-      "result": {
-        "processedIndex": 1
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.837Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.837Z",
-      "updated_at": "2026-10-12T12:52:08.645Z",
-      "started_at": "2026-10-12T12:52:08.564Z",
-      "completed_at": "2026-10-12T12:52:08.645Z"
-    },
-    {
-      "id": "2b671268-6a3f-4036-8018-7c41bdae2754",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 0
-      },
-      "result": {
-        "processedIndex": 0
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:07.822Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:07.822Z",
-      "updated_at": "2026-10-12T12:52:08.184Z",
-      "started_at": "2026-10-12T12:52:08.136Z",
-      "completed_at": "2026-10-12T12:52:08.184Z"
-    },
-    {
-      "id": "fb7b7855-f393-4f54-8f1a-4f81e24af8a1",
-      "type": "TEST_PERMANENT_FAIL",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "FAILED",
-      "priority": "DEFAULT",
-      "payload": {},
-      "result": null,
-      "error_message": "All 2 attempts failed. Last error: Fatal database constraint violation",
-      "attempts": 2,
-      "max_attempts": 2,
-      "available_at": "2026-10-12T12:52:07.744Z",
-      "lease_version": 2,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:06.662Z",
-      "updated_at": "2026-10-12T12:52:07.764Z",
-      "started_at": "2026-10-12T12:52:06.679Z",
-      "failed_at": "2026-10-12T12:52:07.764Z"
-    },
-    {
-      "id": "a963a8b0-8519-41da-ba16-d83fa79a5444",
-      "type": "TEST_TRANSIENT_RETRY",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {},
-      "result": {
-        "success": true,
-        "attempts": 2
-      },
-      "error_message": "Attempt 1 failed: Transient network timeout simulating API delay. Retrying...",
-      "attempts": 2,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:06.631Z",
-      "lease_version": 2,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:05.418Z",
-      "updated_at": "2026-10-12T12:52:06.646Z",
-      "started_at": "2026-10-12T12:52:05.453Z",
-      "completed_at": "2026-10-12T12:52:06.646Z"
-    },
-    {
-      "id": "b9bbdad2-e49a-4e82-905d-5df0b2ded064",
-      "type": "REPORT_GENERATION",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "idempotency_key": "idemp-key-1791809525408",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "reportType": "MONTHLY_HARVEST"
-      },
-      "result": {
-        "reportType": "MONTHLY_HARVEST",
-        "downloadUrl": "/api/reports/download/b9bbdad2-e49a-4e82-905d-5df0b2ded064",
-        "summary": "Laporan MONTHLY_HARVEST bagi ladang FPM_TUNGGAL berjaya dijana.",
-        "generatedAt": "2026-10-12T12:52:05.505Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:05.408Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:05.408Z",
-      "updated_at": "2026-10-12T12:52:05.505Z",
-      "started_at": "2026-10-12T12:52:05.442Z",
-      "completed_at": "2026-10-12T12:52:05.505Z"
-    },
-    {
-      "id": "8ef95a3c-b229-4623-b3f0-c3455b07596d",
-      "type": "AI_OCR_PAGE",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "fileName": "Manual_Pengurusan_Rumpai.pdf",
-        "pageNum": 3,
-        "totalPages": 10
-      },
-      "result": {
-        "ocrText": "[OCR PROCESSED ASYNC] Dokumen: Manual_Pengurusan_Rumpai.pdf (Muka surat 3/10) - Imbasan berjaya diselesaikan bagi ladang FPM_TUNGGAL.",
-        "processedAt": "2026-10-12T12:52:05.362Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:04.108Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-12T12:52:04.108Z",
-      "updated_at": "2026-10-12T12:52:05.362Z",
-      "started_at": "2026-10-12T12:52:05.270Z",
-      "completed_at": "2026-10-12T12:52:05.362Z"
-    },
-    {
-      "id": "19e2992f-201f-4e66-8fa8-b686cd035798",
-      "type": "GRADING_TASK_GENERATION",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "system:vercel-cron",
-      "created_by_operator_id": "VERCEL_CRON_SCHEDULER",
-      "created_by_role": "rc",
-      "idempotency_key": "grading-generation:FPM_TUNGGAL:2026-10-11",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "task_date": "2026-10-11"
-      },
-      "result": {
-        "taskDate": "2026-10-11",
-        "sourceWindowStart": "2026-10-04",
-        "sourceWindowEnd": "2026-10-10",
-        "taskCount": 5,
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:30.841Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:30.841Z",
-      "updated_at": "2026-10-11T09:42:43.345Z",
-      "started_at": "2026-10-11T09:42:30.857Z",
-      "completed_at": "2026-10-11T09:42:43.345Z"
-    },
-    {
-      "id": "7200a2c3-1496-4ca0-bb43-fd6cb0106e1a",
-      "type": "AI_MORNING_BRIEFING",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "scope": "CRON_BATCH_TEST"
-      },
-      "result": {
-        "briefing": "Ringkasan Pagi Automatik [FPM_TUNGGAL]: Prestasi tuaian berada pada tahap optimum. Rekod penerimaan BTS mencatatkan pematuhan 98.4%.",
-        "generatedAt": "2026-10-12T12:52:05.318Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:30.765Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:30.765Z",
-      "updated_at": "2026-10-12T12:52:05.318Z",
-      "started_at": "2026-10-12T12:52:05.241Z",
-      "completed_at": "2026-10-12T12:52:05.318Z"
-    },
-    {
-      "id": "7ac71276-8bb8-447c-b273-ffe553ba279d",
-      "type": "CRASH_SIMULATION_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "FAILED",
-      "priority": "DEFAULT",
-      "payload": {},
-      "result": null,
-      "error_message": "All 1 attempts failed. Last error: Fatal unhandled runtime exception inside task handler",
-      "attempts": 1,
-      "max_attempts": 1,
-      "available_at": "2026-10-11T09:42:26.147Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:26.147Z",
-      "updated_at": "2026-10-11T09:42:26.225Z",
-      "started_at": "2026-10-11T09:42:26.216Z",
-      "failed_at": "2026-10-11T09:42:26.225Z"
-    },
-    {
-      "id": "7698d8a1-a962-44fb-859d-60b8f7bcd98c",
-      "type": "AI_OCR_PAGE",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "CANCELLED",
-      "priority": "DEFAULT",
-      "payload": {
-        "pageNum": 200
-      },
-      "result": null,
-      "error_message": null,
-      "attempts": 0,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:26.124Z",
-      "lease_version": 5,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:26.124Z",
-      "updated_at": "2026-10-11T09:42:26.137Z"
-    },
-    {
-      "id": "77f4708f-a5c7-47a6-a86b-d0d7fe41ebbc",
-      "type": "FAIL_ONCE_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "idempotency_key": "failed-idemp-1791711746027",
-      "status": "FAILED",
-      "priority": "DEFAULT",
-      "payload": {},
-      "result": null,
-      "error_message": "All 1 attempts failed. Last error: Forced single failure for idempotency test",
-      "attempts": 1,
-      "max_attempts": 1,
-      "available_at": "2026-10-11T09:42:26.027Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:26.027Z",
-      "updated_at": "2026-10-11T09:42:26.108Z",
-      "started_at": "2026-10-11T09:42:26.042Z",
-      "failed_at": "2026-10-11T09:42:26.108Z"
-    },
-    {
-      "id": "b7a455ca-6439-41dc-bf2b-da90dbb323e2",
-      "type": "SLIDE_DECK_EXPORT",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "idempotency_key": "cancel-idemp-1791711746008",
-      "status": "CANCELLED",
-      "priority": "DEFAULT",
-      "payload": {
-        "title": "To Be Cancelled"
-      },
-      "result": null,
-      "error_message": null,
-      "attempts": 0,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:26.008Z",
-      "lease_version": 0,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:26.008Z",
-      "updated_at": "2026-10-11T09:42:26.017Z"
-    },
-    {
-      "id": "18093762-1ea8-451c-959c-34a282c97147",
-      "type": "AI_OCR_PAGE",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "idempotency_key": "completed-idemp-1791711745661",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "pageNum": 1
-      },
-      "result": {
-        "ocrText": "[OCR PROCESSED ASYNC] Dokumen: Dokumen (Muka surat 1/1) - Imbasan berjaya diselesaikan bagi ladang FPM_TUNGGAL.",
-        "processedAt": "2026-10-11T09:42:25.932Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:25.661Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.661Z",
-      "updated_at": "2026-10-11T09:42:25.932Z",
-      "started_at": "2026-10-11T09:42:25.846Z",
-      "completed_at": "2026-10-11T09:42:25.932Z"
-    },
-    {
-      "id": "af69dc7d-8e09-45c9-969a-fd1789d7023b",
-      "type": "REPORT_GENERATION",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "idempotency_key": "shared-idemp-1791711745641",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "scope": "TUNGGAL_REPORT"
-      },
-      "result": {
-        "reportType": "DAILY_FFB_SUMMARY",
-        "downloadUrl": "/api/reports/download/af69dc7d-8e09-45c9-969a-fd1789d7023b",
-        "summary": "Laporan DAILY_FFB_SUMMARY bagi ladang FPM_TUNGGAL berjaya dijana.",
-        "generatedAt": "2026-10-11T09:42:25.839Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:25.641Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.641Z",
-      "updated_at": "2026-10-11T09:42:25.839Z",
-      "started_at": "2026-10-11T09:42:25.736Z",
-      "completed_at": "2026-10-11T09:42:25.839Z"
-    },
-    {
-      "id": "e8b4204e-7b44-4843-aa59-b9996b9b3e01",
-      "type": "BATCH_DATA_SYNC",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "test": "SURVIVE_RESTART"
-      },
-      "result": {
-        "syncedCount": 0,
-        "status": "SUCCESS",
-        "syncedAt": "2026-10-11T09:42:25.809Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:25.627Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.627Z",
-      "updated_at": "2026-10-11T09:42:25.809Z",
-      "started_at": "2026-10-11T09:42:25.728Z",
-      "completed_at": "2026-10-11T09:42:25.809Z"
-    },
-    {
-      "id": "c6432556-eafc-4a87-9d3d-e6d9ed9b887f",
-      "type": "REPORT_GENERATION",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "idempotency_key": "race-idemp-1791711745615",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "reportType": "CONCURRENT_IDEMP"
-      },
-      "result": {
-        "reportType": "CONCURRENT_IDEMP",
-        "downloadUrl": "/api/reports/download/c6432556-eafc-4a87-9d3d-e6d9ed9b887f",
-        "summary": "Laporan CONCURRENT_IDEMP bagi ladang FPM_TUNGGAL berjaya dijana.",
-        "generatedAt": "2026-10-11T09:42:25.826Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:25.615Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.615Z",
-      "updated_at": "2026-10-11T09:42:25.826Z",
-      "started_at": "2026-10-11T09:42:25.720Z",
-      "completed_at": "2026-10-11T09:42:25.826Z"
-    },
-    {
-      "id": "eb15c8e5-281f-4a13-81d4-fd0f33bf62a1",
-      "type": "SLIDE_DECK_EXPORT",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "CANCELLED",
-      "priority": "DEFAULT",
-      "payload": {
-        "title": "Cancel Queued Test"
-      },
-      "result": null,
-      "error_message": null,
-      "attempts": 0,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:25.558Z",
-      "lease_version": 0,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.558Z",
-      "updated_at": "2026-10-11T09:42:25.564Z"
-    },
-    {
-      "id": "6b314556-df08-4cd3-bd07-029dcbd3cbfb",
-      "type": "AI_OCR_PAGE",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "CANCELLED",
-      "priority": "DEFAULT",
-      "payload": {
-        "pageNum": 101
-      },
-      "result": null,
-      "error_message": null,
-      "attempts": 0,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:25.540Z",
-      "lease_version": 0,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.540Z",
-      "updated_at": "2026-10-11T09:42:25.550Z"
-    },
-    {
-      "id": "92b91119-8ff6-4fa0-ab68-02c6ba70bed4",
-      "type": "BATCH_DATA_SYNC",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "records": [
-          1,
-          2,
-          3
-        ]
-      },
-      "result": {
-        "syncedCount": 3,
-        "status": "SUCCESS",
-        "syncedAt": "2026-10-12T12:52:05.262Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 3,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:05.079Z",
-      "lease_version": 4,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.454Z",
-      "updated_at": "2026-10-12T12:52:05.262Z",
-      "started_at": "2026-10-11T09:42:25.511Z",
-      "completed_at": "2026-10-12T12:52:05.262Z"
-    },
-    {
-      "id": "2b59a262-ac9f-4bb8-9abc-859958a79b86",
-      "type": "REPORT_GENERATION",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "reportType": "PARTITION_TEST_2"
-      },
-      "result": {
-        "reportType": "PARTITION_TEST_2",
-        "downloadUrl": "/api/reports/download/2b59a262-ac9f-4bb8-9abc-859958a79b86",
-        "summary": "Laporan PARTITION_TEST_2 bagi ladang FPM_TUNGGAL berjaya dijana.",
-        "generatedAt": "2026-10-12T12:52:05.226Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 2,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:05.079Z",
-      "lease_version": 3,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.429Z",
-      "updated_at": "2026-10-12T12:52:05.226Z",
-      "started_at": "2026-10-11T09:42:25.446Z",
-      "completed_at": "2026-10-12T12:52:05.226Z"
-    },
-    {
-      "id": "42cff8e3-f4b2-4393-b721-29bf785cad58",
-      "type": "REPORT_GENERATION",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "reportType": "PARTITION_TEST_1"
-      },
-      "result": {
-        "reportType": "PARTITION_TEST_1",
-        "downloadUrl": "/api/reports/download/42cff8e3-f4b2-4393-b721-29bf785cad58",
-        "summary": "Laporan PARTITION_TEST_1 bagi ladang FPM_TUNGGAL berjaya dijana.",
-        "generatedAt": "2026-10-12T12:52:05.188Z",
-        "estate_id": "FPM_TUNGGAL"
-      },
-      "error_message": null,
-      "attempts": 2,
-      "max_attempts": 3,
-      "available_at": "2026-10-12T12:52:05.079Z",
-      "lease_version": 3,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.420Z",
-      "updated_at": "2026-10-12T12:52:05.188Z",
-      "started_at": "2026-10-11T09:42:25.438Z",
-      "completed_at": "2026-10-12T12:52:05.188Z"
-    },
-    {
-      "id": "6ca378cf-d1a6-4d78-94d3-f3cfb3e13828",
-      "type": "AI_OCR_PAGE",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "CANCELLED",
-      "priority": "DEFAULT",
-      "payload": {
-        "pageNum": 99
-      },
-      "result": null,
-      "error_message": null,
-      "attempts": 0,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:25.353Z",
-      "lease_version": 0,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:25.353Z",
-      "updated_at": "2026-10-11T09:42:25.413Z"
-    },
-    {
-      "id": "554eb7de-5b61-4091-8424-085dcb18e116",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 19
-      },
-      "result": {
-        "processedIndex": 19
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.252Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.252Z",
-      "updated_at": "2026-10-11T09:42:25.343Z",
-      "started_at": "2026-10-11T09:42:25.252Z",
-      "completed_at": "2026-10-11T09:42:25.343Z"
-    },
-    {
-      "id": "b4e30eeb-e626-4dd6-9c12-419c39008803",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 18
-      },
-      "result": {
-        "processedIndex": 18
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.244Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.244Z",
-      "updated_at": "2026-10-11T09:42:24.818Z",
-      "started_at": "2026-10-11T09:42:24.639Z",
-      "completed_at": "2026-10-11T09:42:24.818Z"
-    },
-    {
-      "id": "76599a9b-9a78-4862-88d2-7b13976462f2",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 17
-      },
-      "result": {
-        "processedIndex": 17
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.236Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.236Z",
-      "updated_at": "2026-10-11T09:42:25.329Z",
-      "started_at": "2026-10-11T09:42:25.219Z",
-      "completed_at": "2026-10-11T09:42:25.329Z"
-    },
-    {
-      "id": "9062040d-58a4-4228-b5b1-99e5eb047513",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 16
-      },
-      "result": {
-        "processedIndex": 16
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.230Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.230Z",
-      "updated_at": "2026-10-11T09:42:24.741Z",
-      "started_at": "2026-10-11T09:42:24.617Z",
-      "completed_at": "2026-10-11T09:42:24.741Z"
-    },
-    {
-      "id": "ad860203-1a97-42d6-a412-5cec63fde0b1",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 15
-      },
-      "result": {
-        "processedIndex": 15
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.219Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.219Z",
-      "updated_at": "2026-10-11T09:42:25.311Z",
-      "started_at": "2026-10-11T09:42:25.156Z",
-      "completed_at": "2026-10-11T09:42:25.311Z"
-    },
-    {
-      "id": "60c97e15-4c1f-4c6e-8ae0-101beb1c317e",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 14
-      },
-      "result": {
-        "processedIndex": 14
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.212Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.212Z",
-      "updated_at": "2026-10-11T09:42:24.650Z",
-      "started_at": "2026-10-11T09:42:24.543Z",
-      "completed_at": "2026-10-11T09:42:24.650Z"
-    },
-    {
-      "id": "ce63550c-0719-4a2a-a599-86b2f83ac667",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 13
-      },
-      "result": {
-        "processedIndex": 13
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.157Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.157Z",
-      "updated_at": "2026-10-11T09:42:25.239Z",
-      "started_at": "2026-10-11T09:42:25.132Z",
-      "completed_at": "2026-10-11T09:42:25.239Z"
-    },
-    {
-      "id": "75c2c6a2-d5e2-4b93-a8ea-9a3910c49df9",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 12
-      },
-      "result": {
-        "processedIndex": 12
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.149Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.149Z",
-      "updated_at": "2026-10-11T09:42:24.631Z",
-      "started_at": "2026-10-11T09:42:24.523Z",
-      "completed_at": "2026-10-11T09:42:24.631Z"
-    },
-    {
-      "id": "a0500c38-d985-471f-bc9b-fbb5fe60de5f",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "DEFAULT",
-      "payload": {
-        "index": 11
-      },
-      "result": {
-        "processedIndex": 11
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.142Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.142Z",
-      "updated_at": "2026-10-11T09:42:25.212Z",
-      "started_at": "2026-10-11T09:42:25.114Z",
-      "completed_at": "2026-10-11T09:42:25.212Z"
-    },
-    {
-      "id": "c4415c15-9b07-49db-99ab-96d535b1a723",
-      "type": "LOAD_TEST_JOB",
-      "estate_id": "FPM_TUNGGAL",
-      "created_by_user_id": "dab5c29e-4f76-5278-b67c-883754fe808f",
-      "created_by_operator_id": "STF-TGL-01",
-      "created_by_role": "staff",
-      "status": "COMPLETED",
-      "priority": "HIGH",
-      "payload": {
-        "index": 10
-      },
-      "result": {
-        "processedIndex": 10
-      },
-      "error_message": null,
-      "attempts": 1,
-      "max_attempts": 3,
-      "available_at": "2026-10-11T09:42:24.136Z",
-      "lease_version": 1,
-      "locked_until": null,
-      "locked_by": null,
-      "created_at": "2026-10-11T09:42:24.136Z",
-      "updated_at": "2026-10-11T09:42:24.555Z",
-      "started_at": "2026-10-11T09:42:24.458Z",
-      "completed_at": "2026-10-11T09:42:24.555Z"
     }
   ],
-  "last_updated": "2026-10-17T14:17:47.836Z"
+  "last_updated": "2026-10-21T12:52:30.578Z"
 }

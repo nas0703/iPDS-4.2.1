@@ -243,11 +243,11 @@ export function getSupabaseIssuer(): string {
 }
 
 // Enterprise JWT Lifecycle configuration
-export const JWT_ACCESS_EXPIRES_IN = '1h'; // 1-hour short-lived access token for stateless API verification
-export const JWT_KIOSK_SHIFT_EXPIRES_IN = '12h'; // 12-hour shift for estate kiosk terminals
+export const JWT_ACCESS_EXPIRES_IN = '24h'; // 24-hour access token for single daily login convenience
+export const JWT_KIOSK_SHIFT_EXPIRES_IN = '24h'; // 24-hour shift for estate kiosk terminals
 export const JWT_PERSISTENT_EXPIRES_IN = '7d'; // 7-day long-lived token for offline field sync devices
-export const JWT_REFRESH_SLIDING_WINDOW_MS = 12 * 60 * 60 * 1000; // 12-hour sliding activity window
-export const COOKIE_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours HttpOnly cookie alignment
+export const JWT_REFRESH_SLIDING_WINDOW_MS = 24 * 60 * 60 * 1000; // 24-hour sliding activity window
+export const COOKIE_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours HttpOnly cookie alignment
 
 export class AuthService {
   /**

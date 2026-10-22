@@ -60,7 +60,7 @@ iPDS ialah platform berbilang ladang (multi-estate). **Kesilapan rentas ladang a
 
 - **Peranan kanonik server** (`AuthRole`): `staff`, `mandur`, `pf`, `fc`, `afc`, `fs`, `eqi`, `oc`, `rc`, `superadmin`.
 - **Peranan klien tambahan** (`rbacService.ts`): `kerani_kewangan`, `kerani_stok`, `kerani_resit`. Klien melayan `admin`/`super_admin` sebagai super admin.
-- **Sesi:** cookie `ipds_session` (`httpOnly`, `secure` dalam prod, `sameSite: 'lax'`, 12 jam). JWT HS256, `aud: 'authenticated'`, `iss` = Supabase issuer, luput 1 jam; refresh melalui `POST /api/auth/refresh` + `SessionManagerService`.
+- **Sesi:** cookie `ipds_session` (`httpOnly`, `secure` dalam prod, `sameSite: 'lax'`, 24 jam). JWT HS256, `aud: 'authenticated'`, `iss` = Supabase issuer, luput 24 jam; refresh melalui `POST /api/auth/refresh` + `SessionManagerService`.
 - **Endpoint auth:** `POST /api/auth/verify-staff` (Kod Ladang + bcrypt-verified `staff_no_hash`), `refresh`, `logout`; `GET /api/auth/session-status`, `/me` (`/session`); `super-admin/*`. Legacy `/verify-pin` and `/verify-password` login routes return `410 AUTH_METHOD_REMOVED`.
 - **Middleware:** `src/server/middleware/auth.ts` — `authenticate`, `requireAuth`, `requireRole`, `requireEstateAccess`, `validateTenantAccess`, `extractUserFromRequest`.
 - **Rate limit + lockout:** `authRateLimiter` dan lockout dalam-memori (`MAX_FAILED_ATTEMPTS=10`, tetingkap 60s, `LOCKOUT_MS=60s`) dalam `auth.routes.ts`.

@@ -403,7 +403,7 @@ export function AppModalsContainer({
           </ErrorBoundary>
         )}
 
-        {/* 30-Minute Inactivity Session Timeout Warning Modal */}
+        {/* 24-Hour Inactivity Session Timeout Warning Modal */}
         {showIdleWarning && (
           <ErrorBoundary compact moduleName="Session Timeout Modal">
             <SessionTimeoutModal

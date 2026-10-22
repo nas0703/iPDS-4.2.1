@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 interface UseIdleTimeoutOptions {
-  timeoutMs?: number; // Default: 30 minutes
+  timeoutMs?: number; // Default: 24 hours (24 jam)
   warningMs?: number; // Default: 60 seconds before timeout
   enabled?: boolean;
   onTimeout: () => void;
 }
 
 export function useIdleTimeout({
-  timeoutMs = 30 * 60 * 1000, // 30 minutes
-  warningMs = 60 * 1000,      // 60 seconds warning
+  timeoutMs = 24 * 60 * 60 * 1000, // 24 hours (24 jam)
+  warningMs = 60 * 1000,           // 60 seconds warning
   enabled = true,
   onTimeout,
 }: UseIdleTimeoutOptions) {
@@ -80,7 +80,7 @@ export function useIdleTimeout({
         try {
           sessionStorage.setItem(
             "ipds_idle_timeout_notice",
-            "Sesi anda telah tamat secara automatik selepas 30 minit tiada aktiviti. Sila log masuk semula demi keselamatan."
+            "Sesi anda telah tamat secara automatik selepas 24 jam tiada aktiviti. Sila log masuk semula demi keselamatan."
           );
         } catch (e) {
           // Fallback if sessionStorage is disabled
@@ -109,7 +109,7 @@ export function useIdleTimeout({
           try {
             sessionStorage.setItem(
               "ipds_idle_timeout_notice",
-              "Sesi anda telah tamat secara automatik selepas 30 minit tiada aktiviti. Sila log masuk semula demi keselamatan."
+              "Sesi anda telah tamat secara automatik selepas 24 jam tiada aktiviti. Sila log masuk semula demi keselamatan."
             );
           } catch (e) {}
           onTimeoutRef.current();

@@ -76,8 +76,8 @@ class SessionManagerService {
   private loginHistory: LoginAuditRecord[] = [];
   private readonly MAX_HISTORY = 1000;
   
-  // Clean session timeout in milliseconds (12 hours)
-  private readonly SESSION_EXPIRY_MS = 12 * 60 * 60 * 1000;
+  // Clean session timeout in milliseconds (24 hours)
+  private readonly SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
   private cleanupTimer: NodeJS.Timeout | null = null;
 

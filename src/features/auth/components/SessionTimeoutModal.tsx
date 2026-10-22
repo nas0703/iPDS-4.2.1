@@ -62,7 +62,7 @@ export function SessionTimeoutModal({
             {/* Description */}
             <p className="text-xs font-medium text-slate-300 mb-4 leading-relaxed">
               Tiada sentuhan atau aktiviti dikesan selama{" "}
-              <span className="text-amber-400 font-bold">29 minit</span>. Untuk
+              <span className="text-amber-400 font-bold">24 jam</span>. Untuk
               melindungi data operasi ladang, sesi akan dilog keluar dalam:
             </p>
 

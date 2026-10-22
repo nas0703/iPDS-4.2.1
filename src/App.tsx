@@ -253,14 +253,14 @@ export function App() {
     },
   });
 
-  // 30-Minute Idle Session Timeout Guard (with 60-second warning countdown)
+  // 24-Hour Idle Session Timeout Guard (with 60-second warning countdown)
   const {
     showWarning: showIdleWarning,
     secondsRemaining: idleSecondsRemaining,
     extendSession: extendIdleSession,
   } = useIdleTimeout({
-    timeoutMs: 30 * 60 * 1000, // 30 minutes
-    warningMs: 60 * 1000,      // 60 seconds warning
+    timeoutMs: 24 * 60 * 60 * 1000, // 24 hours (1 hari)
+    warningMs: 60 * 1000,           // 60 seconds warning
     enabled: Boolean(authRole),
     onTimeout: () => {
       handleLogout();
