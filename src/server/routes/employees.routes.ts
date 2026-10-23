@@ -512,64 +512,40 @@ router.post('/employees', requireRole([...EMPLOYEE_WRITE_ROLES]), async (req: Re
         String(rpcError.message || '').includes('Could not find the function') ||
         String(rpcError.message || '').includes('suitable key')
       )) {
-        console.warn('[EMPLOYEE_ROUTE] RPC create_employee_with_assignment notice: ' + (rpcError.message || rpcError.code) + '. Attempting direct database write...');
+        console.warn('[EMPLOYEE_ROUTE] RPC create_employee_with_assignment notice: ' + (rpcError.message || rpcError.code) + '. Attempting privileged atomic RPC write...');
         const priv = getPrivilegedSupabase();
         let directSuccess = false;
 
         if (priv && priv !== supabase) {
           try {
-            const empInsertId = newEmployeeRecord.id || getUUID();
-            const asgInsertId = newEmployeeRecord.current_assignment?.id || getUUID();
+            const { data: privData, error: privErr } = await priv.rpc('create_employee_with_assignment', {
+              p_tenant_id: tenantId,
+              p_company_id: companyId,
+              p_position_id: posIdToUse,
+              p_staff_no: newEmployeeRecord.staff_no,
+              p_full_name: newEmployeeRecord.full_name,
+              p_employment_status: employmentStatus,
+              p_id_card_passport: idCardPassport,
+              p_contact_number: contactNumber,
+              p_email: email,
+              p_hire_date: hireDate,
+              p_estate_id: estateId,
+              p_division_id: divisionId,
+              p_assignment_role: 'PRIMARY',
+              p_effective_from: hireDate,
+              p_transfer_reason: null
+            });
 
-            const { data: empData, error: empErr } = await priv
-              .from('employees')
-              .insert({
-                id: empInsertId,
-                tenant_id: tenantId,
-                staff_no: newEmployeeRecord.staff_no,
-                full_name: newEmployeeRecord.full_name,
-                position_id: posIdToUse,
-                employment_status: employmentStatus,
-                id_card_passport: idCardPassport || null,
-                contact_number: contactNumber || null,
-                email: email || null,
-                hire_date: hireDate
-              })
-              .select('id')
-              .single();
-
-            if (!empErr && empData?.id) {
-              const createdEmpId = empData.id;
-              const { data: asgData, error: asgErr } = await priv
-                .from('employee_assignments')
-                .insert({
-                  id: asgInsertId,
-                  tenant_id: tenantId,
-                  employee_id: createdEmpId,
-                  company_id: companyId,
-                  estate_id: estateId,
-                  division_id: divisionId,
-                  assignment_role: 'PRIMARY',
-                  status: 'ACTIVE',
-                  effective_from: hireDate,
-                  transfer_reason: null
-                })
-                .select('id')
-                .single();
-
-              if (!asgErr && asgData?.id) {
-                rpcRow = { employee_id: createdEmpId, assignment_id: asgData.id };
-                rpcError = null;
-                directSuccess = true;
-              } else if (asgErr) {
-                console.warn('[EMPLOYEE_ROUTE] Direct assignment insert notice:', asgErr.message);
-                await priv.from('employees').delete().eq('id', createdEmpId);
-              }
-            } else if (empErr) {
-              console.warn('[EMPLOYEE_ROUTE] Direct employee insert notice:', empErr.message);
+            const privRow = Array.isArray(privData) ? privData[0] : privData;
+            if (!privErr && privRow?.employee_id) {
+              rpcRow = privRow;
+              rpcError = null;
+              directSuccess = true;
+            } else if (privErr) {
+              console.warn('[EMPLOYEE_ROUTE] Privileged RPC notice:', privErr.message);
             }
           } catch (dirErr: any) {
-            console.warn('[EMPLOYEE_ROUTE] Direct database write failed:', dirErr?.message || dirErr);
+            console.warn('[EMPLOYEE_ROUTE] Privileged RPC failed:', dirErr?.message || dirErr);
           }
         }
 
