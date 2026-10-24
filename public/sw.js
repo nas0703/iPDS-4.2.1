@@ -1,9 +1,9 @@
 /**
- * iPDS Service Worker - v4.2.1
+ * iPDS Service Worker - v4.2.3
  * Progressive Web App & Offline Caching Engine for FPMSB Tunggal
  */
 
-const CACHE_NAME = 'ipds-cache-v4.2.2';
+const CACHE_NAME = 'ipds-cache-v4.2.3';
 const OFFLINE_FALLBACK_URL = '/index.html';
 
 // Static assets to pre-cache on install
@@ -26,17 +26,17 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      console.log('[iPDS SW v4.1.0] Pre-caching core application shell...');
+      console.log('[iPDS SW v4.2.3] Pre-caching core application shell...');
       for (const asset of PRECACHE_ASSETS) {
         try {
           const response = await fetch(asset, { cache: 'no-cache' });
           if (response && response.status === 200) {
             await cache.put(asset, response);
           } else {
-            console.warn('[iPDS SW v4.1.0] Pre-cache skipped non-200 asset:', asset, response?.status);
+            console.warn('[iPDS SW v4.2.3] Pre-cache skipped non-200 asset:', asset, response?.status);
           }
         } catch (err) {
-          console.warn('[iPDS SW v4.1.0] Pre-cache asset notice:', asset, err);
+          console.warn('[iPDS SW v4.2.3] Pre-cache asset notice:', asset, err);
         }
       }
     })
@@ -51,7 +51,7 @@ self.addEventListener('activate', (event) => {
         cacheNames
           .filter((name) => name !== CACHE_NAME)
           .map((name) => {
-            console.log('[iPDS SW v4.1.0] Deleting obsolete cache:', name);
+            console.log('[iPDS SW v4.2.3] Deleting obsolete cache:', name);
             return caches.delete(name);
           })
       );

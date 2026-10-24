@@ -56,7 +56,7 @@ export function useAuth({ onLoginSuccess, onLogout }: UseAuthProps) {
       const headers: Record<string, string> = {};
       if (storedToken) headers.Authorization = `Bearer ${storedToken}`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       let res: Response | null = null;
 
       try {

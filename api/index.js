@@ -2518,8 +2518,8 @@ var init_sessionManager_service = __esm({
         // Login history buffer (persists in-memory with circular buffer limit of 1000 items)
         this.loginHistory = [];
         this.MAX_HISTORY = 1e3;
-        // Clean session timeout in milliseconds (12 hours)
-        this.SESSION_EXPIRY_MS = 12 * 60 * 60 * 1e3;
+        // Clean session timeout in milliseconds (24 hours)
+        this.SESSION_EXPIRY_MS = 24 * 60 * 60 * 1e3;
         this.cleanupTimer = null;
         this.seedInitialAuditHistory();
         this.cleanupTimer = setInterval(() => {
@@ -4686,9 +4686,9 @@ var init_auth_service = __esm({
     syncKioskIdentitiesFromSupabase(true).catch(() => {
     });
     devEphemeralJwtSecret = null;
-    JWT_ACCESS_EXPIRES_IN = "1h";
-    JWT_REFRESH_SLIDING_WINDOW_MS = 12 * 60 * 60 * 1e3;
-    COOKIE_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1e3;
+    JWT_ACCESS_EXPIRES_IN = "24h";
+    JWT_REFRESH_SLIDING_WINDOW_MS = 24 * 60 * 60 * 1e3;
+    COOKIE_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1e3;
     AuthService = class {
       /**
        * Helper to retrieve user profile mapping for audit inspection
@@ -26037,42 +26037,186 @@ function approvalConfirmHtml(meta, cap) {
   const approveForm = `<form method="POST" action="/api/devices/approve-link" style="margin-top:18px;">
       <input type="hidden" name="cap" value="${escapeHtml(cap)}" />
       <input type="hidden" name="action" value="approve" />
-      <button type="submit" style="width:100%;background:#10b981;color:#021a1d;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">Luluskan Peranti Ini</button>
+      <button type="submit" style="width:100%;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:#021a1d;border:none;border-radius:14px;padding:15px;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:1px;cursor:pointer;box-shadow:0 6px 20px rgba(16,185,129,0.35);transition:all 0.2s;">\u2713 Luluskan Peranti Ini</button>
     </form>`;
   const rejectForm = `<form method="POST" action="/api/devices/approve-link" style="margin-top:10px;">
       <input type="hidden" name="cap" value="${escapeHtml(cap)}" />
       <input type="hidden" name="action" value="reject" />
-      <button type="submit" style="width:100%;background:transparent;color:#f87171;border:1px solid rgba(248,113,113,0.5);border-radius:12px;padding:12px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">Tolak / Batal</button>
+      <button type="submit" style="width:100%;background:transparent;color:#f87171;border:1px solid rgba(248,113,113,0.4);border-radius:12px;padding:12px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">\u2715 Tolak / Batal</button>
     </form>`;
   return `<!DOCTYPE html>
   <html lang="ms"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>iPDS \u2014 Kelulusan Peranti</title>
-  <style>body{background:#031315;color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;}
-  .card{background:linear-gradient(180deg,#092629 0%,#05191b 100%);border:1px solid rgba(16,185,129,0.4);border-radius:24px;padding:28px;max-width:460px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.6);}
-  h1{font-size:20px;font-weight:800;margin:0 0 8px;color:#fff;text-align:center;} p{color:#94a3b8;font-size:13px;line-height:1.6;}
-  table{width:100%;border-collapse:collapse;margin-top:16px;}</style>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #021214;
+      color: #f3f4f6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .card {
+      background: linear-gradient(180deg, #092629 0%, #05191b 100%);
+      border: 1px solid rgba(16,185,129,0.4);
+      border-radius: 24px;
+      padding: 28px 24px;
+      max-width: 460px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), 0 0 25px rgba(16,185,129,0.12);
+    }
+    .shield-icon {
+      width: 60px;
+      height: 60px;
+      background: rgba(16,185,129,0.15);
+      border: 2px solid #10b981;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px auto;
+      color: #34d399;
+      font-size: 28px;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 21px;
+      font-weight: 800;
+      margin: 0 0 6px;
+      color: #fff;
+      text-align: center;
+      letter-spacing: 0.3px;
+    }
+    p { color: #94a3b8; font-size: 13px; line-height: 1.6; }
+    .applicant-box {
+      margin-top: 14px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+      border-radius: 14px;
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .applicant-name {
+      color: #38bdf8;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.3px;
+    }
+    .applicant-id {
+      color: #94a3b8;
+      font-size: 12px;
+      margin-top: 2px;
+      font-family: monospace;
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+  </style>
   </head><body><div class="card">
-    <h1>Kelulusan Peranti</h1>
-    <p style="text-align:center;margin:0 0 4px;">Permohonan peranti baharu memerlukan kelulusan anda.</p>
+    <div style="text-align:center;">
+      <div class="shield-icon">\u{1F6E1}\uFE0F</div>
+      <span class="badge">iPDS PENGESAHAN PERANTI</span>
+      <h1>Kelulusan Peranti</h1>
+      <p style="text-align:center;margin:0 0 4px;">Permohonan peranti baharu memerlukan kelulusan anda.</p>
+    </div>
+
+    ${meta.requesterName ? `
+    <div class="applicant-box">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#cbd5e1;margin-bottom:2px;">Kakitangan Pemohon:</div>
+      <div class="applicant-name">${escapeHtml(meta.requesterName)}</div>
+      ${meta.requesterStaffId ? `<div class="applicant-id">No. Staf: ${escapeHtml(meta.requesterStaffId)}</div>` : ""}
+    </div>` : ""}
+
     <table>${rows}</table>
     <p style="color:#fbbf24;font-weight:700;margin:16px 0 0;text-align:center;">Sila pastikan maklumat pemohon adalah betul sebelum meluluskan peranti.</p>
     ${approveForm}${rejectForm}
   </div></body></html>`;
 }
+function approvalWithPinFallbackHtml(device, notice) {
+  const rows = [
+    approvalRow("Pemohon", device.operator_name || "Kakitangan"),
+    approvalRow("Ladang / Estate", device.estate_id || "FPM_TUNGGAL"),
+    approvalRow("ID Peranti", device.device_id),
+    approvalRow("Nama Peranti", device.device_name || "Peranti Baharu"),
+    approvalRow("Status Semasa", device.status || "PENDING")
+  ].join("");
+  return `<!DOCTYPE html>
+  <html lang="ms"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iPDS \u2014 Kelulusan Pentadbir Peranti</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #021214; color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+    .card { background: linear-gradient(180deg, #092629 0%, #05191b 100%); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 24px; padding: 28px; max-width: 460px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+    h1 { font-size: 20px; font-weight: 800; margin: 0 0 8px; color: #fff; text-align: center; }
+    p { color: #94a3b8; font-size: 13px; line-height: 1.6; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    .notice { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 12px; font-size: 12.5px; color: #fde68a; margin: 14px 0; text-align: center; }
+    .pin-input { width: 100%; background: #020b0c; border: 1px solid rgba(245, 158, 11, 0.5); border-radius: 12px; padding: 14px; font-size: 18px; color: #fbbf24; text-align: center; letter-spacing: 6px; font-family: monospace; outline: none; margin-top: 8px; }
+    .pin-input:focus { border-color: #f59e0b; box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); }
+    .btn-submit { width: 100%; background: #f59e0b; color: #021214; border: none; border-radius: 12px; padding: 14px; font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; margin-top: 14px; }
+    .btn-submit:hover { background: #fbbf24; }
+  </style>
+  </head><body><div class="card">
+    <div style="text-align:center;font-size:32px;margin-bottom:10px;">\u{1F511}</div>
+    <h1>Kelulusan Pentadbir Peranti</h1>
+    <div class="notice">${escapeHtml(notice)}</div>
+    <table>${rows}</table>
+    <form method="POST" action="/api/devices/approve-with-pin" style="margin-top:16px;">
+      <input type="hidden" name="deviceId" value="${escapeHtml(device.device_id)}" />
+      <input type="hidden" name="approverName" value="Pentadbir Ladang" />
+      <label style="font-size:12px;font-weight:700;color:#cbd5e1;display:block;text-align:center;">Masukkan PIN Pentadbir anda untuk meluluskan:</label>
+      <input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="10" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022" required class="pin-input" />
+      <button type="submit" class="btn-submit">Sahkan & Luluskan Peranti</button>
+    </form>
+    <div style="text-align:center;margin-top:16px;"><a href="/" style="color:#34d399;font-size:12px;text-decoration:none;font-weight:700;">Kembali ke iPDS \u2192</a></div>
+  </div></body></html>`;
+}
 router24.get("/approve-link", authRateLimiter, async (req, res) => {
   const cap = String(req.query.cap || "");
+  const queryDeviceId = String(req.query.deviceId || req.query.device_id || "").trim();
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
-  if (!cap) {
+  if (!cap && !queryDeviceId) {
     return res.status(400).send(approvalHtml("Pautan Tidak Sah", "Pautan kelulusan ini tidak sah atau tidak lengkap."));
   }
-  const peek = await peekApprovalCapability(cap);
-  if (!peek.ok) {
-    const message = peek.reason === "expired" ? "Pautan kelulusan telah tamat tempoh." : peek.reason === "used" ? "Pautan kelulusan ini telah digunakan." : "Pautan kelulusan tidak sah.";
-    const status = peek.reason === "used" ? 409 : peek.reason === "expired" ? 410 : 400;
-    return res.status(status).send(approvalHtml("Kelulusan Tidak Sah", message));
+  if (cap) {
+    const peek = await peekApprovalCapability(cap);
+    if (!peek.ok) {
+      if (queryDeviceId) {
+        const dev = await deviceSecurityService.getDeviceStatus(queryDeviceId);
+        if (dev && dev.status === "PENDING") {
+          return res.send(approvalWithPinFallbackHtml(dev, peek.reason === "expired" ? "Pautan kelulusan telah tamat tempoh. Anda boleh meluluskan peranti ini secara terus dengan PIN Pentadbir anda di bawah." : "Pautan telah digunakan atau tidak sah. Anda boleh meluluskan peranti ini dengan PIN Pentadbir anda."));
+        }
+      }
+      const message = peek.reason === "expired" ? "Pautan kelulusan telah tamat tempoh." : peek.reason === "used" ? "Pautan kelulusan ini telah digunakan." : "Pautan kelulusan tidak sah.";
+      const status = peek.reason === "used" ? 409 : peek.reason === "expired" ? 410 : 400;
+      return res.status(status).send(approvalHtml("Kelulusan Tidak Sah", message));
+    }
+    return res.send(approvalConfirmHtml(peek, cap));
   }
-  return res.send(approvalConfirmHtml(peek, cap));
+  if (queryDeviceId) {
+    const dev = await deviceSecurityService.getDeviceStatus(queryDeviceId);
+    if (dev && dev.status === "PENDING") {
+      return res.send(approvalWithPinFallbackHtml(dev, "Permohonan pendaftaran peranti baharu memerlukan pengesahan PIN Pentadbir anda."));
+    } else if (dev && dev.status === "APPROVED") {
+      return res.send(approvalHtml("Peranti Telah Diluluskan", `Peranti (${dev.device_name || queryDeviceId}) untuk ${dev.operator_name || "kakitangan"} sudah pun diluluskan sebelum ini.`));
+    }
+    return res.status(400).send(approvalHtml("Peranti Tidak Ditemui", `Tiada rekod permohonan aktif bagi ID peranti ${escapeHtml(queryDeviceId)}.`));
+  }
+  return res.status(400).send(approvalHtml("Pautan Tidak Sah", "Pautan kelulusan ini tidak sah atau tidak lengkap."));
 });
 router24.post("/approve-link", authRateLimiter, async (req, res) => {
   const wantsJson = req.headers["accept"]?.includes("application/json") || req.headers["content-type"]?.includes("application/json") || req.body?.format === "json";
@@ -26249,6 +26393,8 @@ router24.post("/request-approval", authRateLimiter, async (req, res) => {
     });
     return res.json({
       success: true,
+      approvalUrl,
+      capability: capabilityResult.capability,
       expiresAt: capabilityResult.expiresAt
     });
   } catch (err) {
@@ -27030,9 +27176,23 @@ async function isEmployeeWithinEstate(supabase, employeeId, estateId, user) {
   if (isCrossEstateViewer(user)) return true;
   if (!supabase) return false;
   try {
-    const { data, error } = await supabase.from("employee_assignments").select("estate_id").eq("employee_id", employeeId).eq("status", "ACTIVE");
-    if (error) return false;
-    if (!Array.isArray(data) || data.length === 0) return false;
+    let { data, error } = await supabase.from("employee_assignments").select("estate_id").eq("employee_id", employeeId).eq("status", "ACTIVE");
+    if (error && isJwtOrKeyError(error)) {
+      const priv = getPrivilegedSupabase();
+      if (priv && priv !== supabase) {
+        const privRes = await priv.from("employee_assignments").select("estate_id").eq("employee_id", employeeId).eq("status", "ACTIVE");
+        data = privRes.data;
+        error = privRes.error;
+      }
+    }
+    if (error || !Array.isArray(data) || data.length === 0) {
+      const local = getLocalEmployees();
+      const emp = local.find((e) => e.id === employeeId);
+      if (emp && emp.current_assignment?.estate_id) {
+        return String(emp.current_assignment.estate_id).toUpperCase() === estateId;
+      }
+      return false;
+    }
     return data.some((row) => String(row?.estate_id || "").toUpperCase() === estateId);
   } catch {
     return false;
@@ -27059,8 +27219,22 @@ router25.get("/employees", requireAuth, async (req, res) => {
       if (scopeEstate) {
         query = query.eq("estate_id", scopeEstate);
       }
-      const { data, error } = await query;
-      if (!error) {
+      let { data, error } = await query;
+      if (error && isJwtOrKeyError(error)) {
+        const priv = getPrivilegedSupabase();
+        if (priv && priv !== supabase) {
+          let privQuery = priv.from("v_current_employee_assignments").select("*");
+          if (scopeEstate) {
+            privQuery = privQuery.eq("estate_id", scopeEstate);
+          }
+          const privRes = await privQuery;
+          if (!privRes.error && privRes.data) {
+            data = privRes.data;
+            error = null;
+          }
+        }
+      }
+      if (!error && data) {
         const mappedRaw = (data || []).map((row) => ({
           id: row.employee_id,
           tenant_id: row.tenant_id,
@@ -27284,12 +27458,48 @@ router25.post("/employees", requireRole([...EMPLOYEE_WRITE_ROLES]), async (req, 
       });
       rpcError = createError || null;
       rpcRow = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-      if (rpcError && (rpcError.code === "PGRST202" || isMissingTableError(rpcError) || String(rpcError.message || "").includes("schema cache") || String(rpcError.message || "").includes("Could not find the function"))) {
-        console.warn("[EMPLOYEE_ROUTE] RPC create_employee_with_assignment not found in schema cache. Falling back to local store...");
-        const fallbackEmpId = newEmployeeRecord.id || getUUID2();
-        const fallbackAsgId = newEmployeeRecord.current_assignment?.id || getUUID2();
-        rpcRow = { employee_id: fallbackEmpId, assignment_id: fallbackAsgId };
-        rpcError = null;
+      if (rpcError && (isJwtOrKeyError(rpcError) || rpcError.code === "PGRST301" || rpcError.code === "PGRST202" || isMissingTableError(rpcError) || String(rpcError.message || "").includes("schema cache") || String(rpcError.message || "").includes("Could not find the function") || String(rpcError.message || "").includes("suitable key"))) {
+        console.warn("[EMPLOYEE_ROUTE] RPC create_employee_with_assignment notice: " + (rpcError.message || rpcError.code) + ". Attempting privileged atomic RPC write...");
+        const priv = getPrivilegedSupabase();
+        let directSuccess = false;
+        if (priv && priv !== supabase) {
+          try {
+            const { data: privData, error: privErr } = await priv.rpc("create_employee_with_assignment", {
+              p_tenant_id: tenantId,
+              p_company_id: companyId,
+              p_position_id: posIdToUse,
+              p_staff_no: newEmployeeRecord.staff_no,
+              p_full_name: newEmployeeRecord.full_name,
+              p_employment_status: employmentStatus,
+              p_id_card_passport: idCardPassport,
+              p_contact_number: contactNumber,
+              p_email: email,
+              p_hire_date: hireDate,
+              p_estate_id: estateId,
+              p_division_id: divisionId,
+              p_assignment_role: "PRIMARY",
+              p_effective_from: hireDate,
+              p_transfer_reason: null
+            });
+            const privRow = Array.isArray(privData) ? privData[0] : privData;
+            if (!privErr && privRow?.employee_id) {
+              rpcRow = privRow;
+              rpcError = null;
+              directSuccess = true;
+            } else if (privErr) {
+              console.warn("[EMPLOYEE_ROUTE] Privileged RPC notice:", privErr.message);
+            }
+          } catch (dirErr) {
+            console.warn("[EMPLOYEE_ROUTE] Privileged RPC failed:", dirErr?.message || dirErr);
+          }
+        }
+        if (!directSuccess) {
+          console.warn("[EMPLOYEE_ROUTE] Database write unavailable. Falling back to local store...");
+          const fallbackEmpId = newEmployeeRecord.id || getUUID2();
+          const fallbackAsgId = newEmployeeRecord.current_assignment?.id || getUUID2();
+          rpcRow = { employee_id: fallbackEmpId, assignment_id: fallbackAsgId };
+          rpcError = null;
+        }
       }
     } catch (dbErr) {
       console.error("Database write error for employee:", dbErr);
@@ -27390,7 +27600,16 @@ router25.put("/employees/:id", requireRole([...EMPLOYEE_WRITE_ROLES]), async (re
         code: "FORBIDDEN_ESTATE"
       });
     }
-    const { error: dbError } = await supabase.from("employees").update({ ...sanitizedUpdates, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id);
+    let { error: dbError } = await supabase.from("employees").update({ ...sanitizedUpdates, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id);
+    if (dbError && isJwtOrKeyError(dbError)) {
+      const priv = getPrivilegedSupabase();
+      if (priv && priv !== supabase) {
+        const { error: privError } = await priv.from("employees").update({ ...sanitizedUpdates, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id);
+        if (!privError) {
+          dbError = null;
+        }
+      }
+    }
     if (dbError) {
       console.warn("Supabase employee update error:", dbError.message);
       return res.status(500).json({
@@ -27457,10 +27676,22 @@ router25.delete("/employees/:id", requireRole([...EMPLOYEE_WRITE_ROLES]), async 
         code: "FORBIDDEN_ESTATE"
       });
     }
-    const { error: dbError } = await supabase.from("employees").update({
+    let { error: dbError } = await supabase.from("employees").update({
       employment_status: "INACTIVE",
       updated_at: (/* @__PURE__ */ new Date()).toISOString()
     }).eq("id", id);
+    if (dbError && isJwtOrKeyError(dbError)) {
+      const priv = getPrivilegedSupabase();
+      if (priv && priv !== supabase) {
+        const { error: privError } = await priv.from("employees").update({
+          employment_status: "INACTIVE",
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+        }).eq("id", id);
+        if (!privError) {
+          dbError = null;
+        }
+      }
+    }
     if (dbError) {
       console.warn("Supabase employee delete error:", dbError.message);
       return res.status(500).json({
@@ -27572,6 +27803,10 @@ app.use("/api/ocr-receipt", vision_routes_default);
 app.use("/ai/ocr-receipt", vision_routes_default);
 app.use("/ocr-receipt", vision_routes_default);
 app.use("/api/ai", ai_routes_default);
+app.get(["/approve-link", "/devices/approve-link"], (req, res) => {
+  const query = req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "";
+  res.redirect(`/api/devices/approve-link${query}`);
+});
 var apiRouter = express25.Router();
 apiRouter.use((req, res, next) => {
   if (req.path.includes("/ai/") || req.path.includes("/ocr-") || req.path.includes("/test-")) {
