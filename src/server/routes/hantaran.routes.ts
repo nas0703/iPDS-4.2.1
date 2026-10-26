@@ -67,7 +67,22 @@ router.post("/hantaran", requireRole(['rc', 'oc', 'staff', 'mandur', 'pf', 'fc',
     let inferredName = '';
     let inferredCode = '';
 
-    if (nota.startsWith('136') || nota.startsWith('5136') || kod.startsWith('5136') || kod.includes('5136') || nama.includes('ADELA') || akaun.includes('ADELA') || resitNo.includes('ADL') || resitNo.startsWith('ADL-')) {
+    const loriUpper = String(data.no_lori || '').toUpperCase().trim();
+    const loriAdela = ['BLS4830', 'JRM970', 'JCM3007', 'JGG8910', 'JBV7370', 'JLF7922', 'JGG6366'];
+
+    if (
+      nota.startsWith('136') || 
+      nota.startsWith('5136') || 
+      nota.startsWith('6377') || 
+      kod.startsWith('5136') || 
+      kod.includes('5136') || 
+      nama.includes('ADELA') || 
+      akaun.includes('ADELA') || 
+      resitNo.includes('ADL') || 
+      resitNo.startsWith('ADL-') ||
+      ['01552788', '01552762', '01552763'].includes(resitNo) ||
+      loriAdela.includes(loriUpper)
+    ) {
       inferredEstate = 'FPM_ADELA';
       inferredName = 'FPM Adela';
       inferredCode = '5136';
@@ -425,7 +440,7 @@ router.get("/hantaran", requireAuth, async (req, res) => {
     const applyEstateFilter = (q: any) => {
       if (isAll) return q;
       if (normTarget === 'FPM_ADELA') {
-        return q.or('estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%,no_nota_hantaran.ilike.136%,no_nota_hantaran.ilike.5136%,no_resit.ilike.ADL%');
+        return q.or('estate_id.eq.FPM_ADELA,estate_id.eq.5136,estate_id.ilike.%ADELA%,no_nota_hantaran.ilike.136%,no_nota_hantaran.ilike.5136%,no_nota_hantaran.ilike.6377%,no_resit.ilike.ADL%,no_resit.in.(01552788,01552762,01552763)');
       } else if (normTarget === 'FPM_TUNGGAL') {
         return q.or('estate_id.eq.FPM_TUNGGAL,estate_id.eq.5155,estate_id.ilike.%TUNGGAL%,no_nota_hantaran.ilike.155%,no_nota_hantaran.ilike.5155%,no_resit.ilike.TGL%');
       } else if (normTarget === 'FPM_KLEDANG') {

@@ -99,6 +99,7 @@ export function inferEstateFromReceipt(record: any): string {
   if (
     noNota.startsWith('136') || 
     noNota.startsWith('5136') || 
+    noNota.startsWith('6377') ||
     kodPenjual.startsWith('5136') || 
     kodPenjual.includes('5136') ||
     noResit.includes('ADELA') || 
@@ -106,8 +107,9 @@ export function inferEstateFromReceipt(record: any): string {
     namaPenjual.includes('ADELA') || 
     noResit.includes('ADL') ||
     noResit.startsWith('ADL-') ||
+    ['01552788', '01552762', '01552763'].includes(noResit) ||
     ['1F', '2F', '125Y', '128Y', '121V', '88F'].includes(blok) ||
-    ['BLS4830', 'JRM970', 'JCM3007', 'JGG8910', 'JBV7370', 'JLF7922'].includes(lori)
+    ['BLS4830', 'JRM970', 'JCM3007', 'JGG8910', 'JBV7370', 'JLF7922', 'JGG6366'].includes(lori)
   ) {
     return 'FPM_ADELA';
   }
